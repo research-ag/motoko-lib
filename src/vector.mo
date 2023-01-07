@@ -57,8 +57,8 @@ module {
         var size : Nat; // total number of elements stored in the vector
         var data_blocks : [var ?[var ?X]]; // the index block
         // fill levels
-        var data_blocks_size : Nat; // fill level of the index block (unit = data blocks)
-        var last_block_size : Nat; // fill level of last data block (unit = elements)
+        var n_blocks : Nat; // number of existing data blocks = fill level of the index block
+        var n_elements : Nat; // number of elements in last data block 
         // capacity
         var data_block_capacity : Nat; // capacity of the data blocks in the last super block (unit = elements)
     };
@@ -87,24 +87,24 @@ module {
     public func init<X>(initCapacity : Nat) : Vector<X> = {
         var size = 0;
         var data_blocks = blocks_from_capacity(Nat.max(1, initCapacity));
-        var data_blocks_size = 1;
-        var last_block_size = 0;
+        var n_blocks = 1;
+        var n_elements = 0;
         var data_block_capacity = 1;
     };
 
     public func new<X>() : Vector<X> = {
         var size = 0;
         var data_blocks = [var]; 
-        var data_blocks_size = 0;
-        var last_block_size = 0;
+        var n_blocks = 0;
+        var n_elements = 0;
         var data_block_capacity = 0; // needs to be 0 so that first add triggers an allocation
     };
 
     public func clear<X>(vec : Vector<X>) {
         vec.size := 0;
         vec.data_blocks := [var];
-        vec.data_blocks_size := 0;
-        vec.last_block_size := 0;
+        vec.n_blocks := 0;
+        vec.n_elements := 0;
         vec.data_block_capacity := 0;
     };
 
@@ -117,15 +117,15 @@ module {
                 func(block : [var ?X]) : [var ?X] = Array.tabulateVar<?X>(block.size(), func(j) = block[j])
             )
         );
-        var data_blocks_size = vec.data_blocks_size;
-        var last_block_size = vec.last_block_size;
+        var n_blocks = vec.n_blocks;
+        var n_elements = vec.n_elements;
         var data_block_capacity = vec.data_block_capacity;
     };
 
     public func size<X>(vec : Vector<X>) : Nat = vec.size;
 
     func add_super_block_if_needed<X>(vec : Vector<X>) {
-        let s = vec.data_blocks_size;
+        let s = vec.n_blocks;
         if (s == 0) {
             vec.data_block_capacity := 1;
         }
@@ -136,10 +136,10 @@ module {
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.data_blocks.size() == vec.data_blocks_size) {
-            let new_length = if (vec.data_blocks_size == 0) 1 else vec.data_blocks_size * 2;
+        if (vec.data_blocks.size() == vec.n_blocks) {
+            let new_length = if (vec.n_blocks == 0) 1 else vec.n_blocks * 2;
             vec.data_blocks := Array.tabulateVar<?[var ?X]>(new_length, func(i) {
-                if (i < vec.data_blocks_size) {
+                if (i < vec.n_blocks) {
                     vec.data_blocks[i];
                 } else {
                     null
@@ -149,27 +149,27 @@ module {
     };
 
     func add_data_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.data_block_capacity == vec.last_block_size) {
+        if (vec.data_block_capacity == vec.n_elements) {
             add_super_block_if_needed(vec);
             grow_index_block_if_needed(vec);
 
-            if (Option.isNull(vec.data_blocks[vec.data_blocks_size])) {
-                vec.data_blocks[vec.data_blocks_size] := ?Array.init<?X>(vec.data_block_capacity, null);
+            if (Option.isNull(vec.data_blocks[vec.n_blocks])) {
+                vec.data_blocks[vec.n_blocks] := ?Array.init<?X>(vec.data_block_capacity, null);
             };
             // else can we trap with internal error (should not happen)?
 
-            vec.last_block_size := 0;
-            vec.data_blocks_size += 1;
+            vec.n_elements := 0;
+            vec.n_blocks += 1;
         };
     };
 
     public func add<X>(vec : Vector<X>, element : X) {
         add_data_block_if_needed(vec);
 
-        let last_data_block = unwrap(vec.data_blocks[vec.data_blocks_size - 1]);
+        let last_data_block = unwrap(vec.data_blocks[vec.n_blocks - 1]);
 
-        last_data_block[vec.last_block_size] := ?element;
-        vec.last_block_size += 1;
+        last_data_block[vec.n_elements] := ?element;
+        vec.n_elements += 1;
         vec.size += 1;
     };
 
@@ -189,7 +189,7 @@ module {
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
         let quarter = vec.data_blocks.size() / 4;
-        if (vec.data_blocks_size <= quarter) {
+        if (vec.n_blocks <= quarter) {
             vec.data_blocks := Array.tabulateVar<?[var ?X]>(quarter, func(i) {
                 vec.data_blocks[i];
             });
@@ -198,18 +198,18 @@ module {
 
     /*
     public func remove_data_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.last_block_size == 0) {
-            if (vec.data_blocks_size < vec.data_blocks.size() and not Option.isNull(vec.data_blocks[vec.data_blocks_size])) {
-                vec.data_blocks[vec.data_blocks_size] := null;
+        if (vec.n_elements == 0) {
+            if (vec.n_blocks < vec.data_blocks.size() and not Option.isNull(vec.data_blocks[vec.n_blocks])) {
+                vec.data_blocks[vec.n_blocks] := null;
             };
 
             shrink_index_block_if_needed(vec);
-            if (vec.data_blocks_size > 1) {
+            if (vec.n_blocks > 1) {
                 vec.super_block_size -= 1;
                 remove_super_block_if_needed(vec);
                 
-                vec.data_blocks_size -= 1;
-                vec.last_block_size := vec.data_block_capacity;
+                vec.n_blocks -= 1;
+                vec.n_elements := vec.data_block_capacity;
             }
         };
     };
@@ -219,11 +219,11 @@ module {
             return null;
         };
 
-        var last_data_block = unwrap(vec.data_blocks[vec.data_blocks_size - 1]);
+        var last_data_block = unwrap(vec.data_blocks[vec.n_blocks - 1]);
         vec.size -= 1;
-        vec.last_block_size -= 1;
-        let element = last_data_block[vec.last_block_size];
-        last_data_block[vec.last_block_size] := null;
+        vec.n_elements -= 1;
+        let element = last_data_block[vec.n_elements];
+        last_data_block[vec.n_elements] := null;
 
         remove_data_block_if_needed(vec);
 
