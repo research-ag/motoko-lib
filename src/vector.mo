@@ -54,14 +54,17 @@ module {
     };
 
     public type Vector<X> = {
-        var size : Nat;
-        var data_blocks : [var ?[var ?X]];
-        var data_blocks_size : Nat;
-        var last_block_size : Nat;
+        var size : Nat; // total number of elements stored in the vector
+        var data_blocks : [var ?[var ?X]]; // the index block
+        // fill levels
+        var data_blocks_size : Nat; // fill level of the index block (unit = data blocks)
+        var last_block_size : Nat; // fill level of last data block (unit = elements)
+        var super_block_size : Nat; // fill level of last super block (unit = data blocks)
+        // parity
         var super_block_odd : Bool;
-        var super_block_size : Nat;
-        var super_block_capacity : Nat;
-        var data_block_capacity : Nat;
+        // capacity
+        var super_block_capacity : Nat; // capacity of last super block (unit = data blocks)
+        var data_block_capacity : Nat; // capacity of the data blocks in the last super block (unit = elements)
     };
 
     func blocks_from_capacity<X>(initCapacity : Nat) : [var ?[var ?X]] {
