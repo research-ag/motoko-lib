@@ -9,8 +9,7 @@ import M "mo:matchers/Matchers";
 let { run; test; suite } = Suite;
 
 let n = 100;
-let precalc = Vector.precalc();
-var vector = Vector.init<Nat>(1, precalc);
+var vector = Vector.init<Nat>(1);
 
 for (i in Iter.range(0, n)) {
     Vector.add(vector, i);
