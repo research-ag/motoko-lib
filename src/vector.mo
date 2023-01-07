@@ -59,11 +59,7 @@ module {
         // fill levels
         var data_blocks_size : Nat; // fill level of the index block (unit = data blocks)
         var last_block_size : Nat; // fill level of last data block (unit = elements)
-        var super_block_size : Nat; // fill level of last super block (unit = data blocks)
-        // parity
-        var super_block_odd : Bool;
         // capacity
-        var super_block_capacity : Nat; // capacity of last super block (unit = data blocks)
         var data_block_capacity : Nat; // capacity of the data blocks in the last super block (unit = elements)
     };
 
@@ -93,21 +89,23 @@ module {
         var data_blocks = blocks_from_capacity(Nat.max(1, initCapacity));
         var data_blocks_size = 1;
         var last_block_size = 0;
-        var super_block_odd = false;
-        var super_block_size = 1;
-        var super_block_capacity = 1;
         var data_block_capacity = 1;
     };
 
+    public func new<X>() : Vector<X> = {
+        var size = 0;
+        var data_blocks = [var]; 
+        var data_blocks_size = 0;
+        var last_block_size = 0;
+        var data_block_capacity = 0;// needs to be 0 so that first add triggers an allocation 
+    };
+
     public func clear<X>(vec : Vector<X>) {
-        let empty = init<X>(0);
+        let empty = new<X>();
         vec.size := empty.size;
         vec.data_blocks := empty.data_blocks;
         vec.data_blocks_size := empty.data_blocks_size;
         vec.last_block_size := empty.last_block_size;
-        vec.super_block_odd := empty.super_block_odd;
-        vec.super_block_size := empty.super_block_size;
-        vec.super_block_capacity := empty.super_block_capacity;
         vec.data_block_capacity := empty.data_block_capacity;
     };
 
@@ -122,29 +120,26 @@ module {
         );
         var data_blocks_size = vec.data_blocks_size;
         var last_block_size = vec.last_block_size;
-        var super_block_odd = vec.super_block_odd;
-        var super_block_size = vec.super_block_size;
-        var super_block_capacity = vec.super_block_capacity;
         var data_block_capacity = vec.data_block_capacity;
     };
 
     public func size<X>(vec : Vector<X>) : Nat = vec.size;
 
     func add_super_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.super_block_size == vec.super_block_capacity) {
-            if (vec.super_block_odd) {
-                vec.super_block_capacity *= 2;
-            } else {
-                vec.data_block_capacity *= 2;
-            };
-            vec.super_block_odd := not vec.super_block_odd;
-            vec.super_block_size := 0;
+        let s = vec.data_blocks_size;
+        if (s == 0) {
+            vec.data_block_capacity := 1;
+        }
+        // the data block size doubles whenever s is of the form 3*2^n-2 for some n 
+        else if (Nat.rem(s,3) == 1 and Nat32.bitcountNonZero(Nat32.fromNat((s+2)/3)) == 1) {
+            vec.data_block_capacity *= 2;
         };
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.data_blocks_size) {
-            vec.data_blocks := Array.tabulateVar<?[var ?X]>(vec.data_blocks_size * 2, func(i) {
+            let new_length = if (vec.data_blocks_size == 0) 1 else vec.data_blocks_size * 2;
+            vec.data_blocks := Array.tabulateVar<?[var ?X]>(new_length, func(i) {
                 if (i < vec.data_blocks_size) {
                     vec.data_blocks[i];
                 } else {
@@ -162,23 +157,24 @@ module {
             if (Option.isNull(vec.data_blocks[vec.data_blocks_size])) {
                 vec.data_blocks[vec.data_blocks_size] := ?Array.init<?X>(vec.data_block_capacity, null);
             };
+            // else can we trap with internal error (should not happen)?
 
             vec.last_block_size := 0;
             vec.data_blocks_size += 1;
-            vec.super_block_size += 1;
         };
     };
 
     public func add<X>(vec : Vector<X>, element : X) {
         add_data_block_if_needed(vec);
 
-        var last_data_block = unwrap(vec.data_blocks[vec.data_blocks_size - 1]);
+        let last_data_block = unwrap(vec.data_blocks[vec.data_blocks_size - 1]);
 
         last_data_block[vec.last_block_size] := ?element;
         vec.last_block_size += 1;
         vec.size += 1;
     };
 
+    /*
     func remove_super_block_if_needed<X>(vec : Vector<X>) {
         if (vec.super_block_size == 0) {
             vec.super_block_odd := not vec.super_block_odd;
@@ -190,6 +186,7 @@ module {
             vec.super_block_size := vec.super_block_capacity;
         };
     };
+    */
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
         let quarter = vec.data_blocks.size() / 4;
@@ -200,6 +197,7 @@ module {
         };
     };
 
+    /*
     public func remove_data_block_if_needed<X>(vec : Vector<X>) {
         if (vec.last_block_size == 0) {
             if (vec.data_blocks_size < vec.data_blocks.size() and not Option.isNull(vec.data_blocks[vec.data_blocks_size])) {
@@ -232,6 +230,7 @@ module {
 
         element;
     };
+    */
 
     public func locate<X>(index : Nat) : (Nat, Nat) {
         let _index = Nat32.fromNat(index) + 1;
