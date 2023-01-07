@@ -97,16 +97,15 @@ module {
         var data_blocks = [var]; 
         var data_blocks_size = 0;
         var last_block_size = 0;
-        var data_block_capacity = 0;// needs to be 0 so that first add triggers an allocation 
+        var data_block_capacity = 0; // needs to be 0 so that first add triggers an allocation
     };
 
     public func clear<X>(vec : Vector<X>) {
-        let empty = new<X>();
-        vec.size := empty.size;
-        vec.data_blocks := empty.data_blocks;
-        vec.data_blocks_size := empty.data_blocks_size;
-        vec.last_block_size := empty.last_block_size;
-        vec.data_block_capacity := empty.data_block_capacity;
+        vec.size := 0;
+        vec.data_blocks := [var];
+        vec.data_blocks_size := 0;
+        vec.last_block_size := 0;
+        vec.data_block_capacity := 0;
     };
 
     public func clone<X>(vec : Vector<X>) : Vector<X> = {
