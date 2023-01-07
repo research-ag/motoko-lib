@@ -94,7 +94,6 @@ module {
         var super_block_size = 1;
         var super_block_capacity = 1;
         var data_block_capacity = 1;
-        precalc = precalc;
     };
 
     public func clear<X>(vec : Vector<X>) {
