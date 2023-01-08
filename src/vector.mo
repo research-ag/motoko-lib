@@ -124,6 +124,29 @@ module {
 
     public func size<X>(vec : Vector<X>) : Nat = vec.size;
 
+    public func sizeCalc<X>(vec : Vector<X>) : Nat {
+        if (vec.n_blocks == 0) { return 0 }; 
+        if (vec.n_blocks == 1) { return vec.n_elements };  
+
+        let d = vec.n_blocks - 1; // index of the last block
+
+        // We call all data blocks of the same capacity an "epoch". We number the epochs 0,1,2,...
+        // A data block is in epoch e iff the data block has capacity 2^e.
+        // Each epoch starting with epoch 1 spans exactly two super blocks.
+        // Super block s falls in epoch ceil(s/2).
+
+        // epoch of last data block
+        let e = 32 - Nat32.toNat(Nat32.bitcountLeadingZero(Nat32.fromNat((d + 2)/3))); 
+
+        // capacity of all prior epochs combined 
+        let cap_before_e = 2 * 4**(e-1) - 1; 
+
+        // prior blocks in the same epoch
+        let prior_blocks_in_e = d + 2 - 3*2**(e-1);
+
+        return cap_before_e + prior_blocks_in_e * 2**e + vec.n_elements
+    };
+
     func add_super_block_if_needed<X>(vec : Vector<X>) {
         let s = vec.n_blocks;
         if (s == 0) {
