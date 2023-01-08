@@ -141,8 +141,11 @@ module {
         // capacity of all prior epochs combined 
         let cap_before_e = 2 * 4**(e-1) - 1; 
 
+        // data blocks in all prior epochs combined
+        let blocks_before_e = 3 * 2**(e-1) - 2;
+
         // prior blocks in the same epoch
-        let prior_blocks_in_e = d + 2 - 3*2**(e-1);
+        let prior_blocks_in_e = d - blocks_before_e;
 
         return cap_before_e + prior_blocks_in_e * 2**e + vec.n_elements
     };
