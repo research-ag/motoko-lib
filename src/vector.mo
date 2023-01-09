@@ -88,8 +88,6 @@ module {
     };
 
     public func size<X>(vec : Vector<X>) : Nat {
-        if (vec.i_block == 0) { return vec.i_element }; 
-
         let d = Nat32.fromNat(vec.i_block);
         let i = Nat32.fromNat(vec.i_element);
 
