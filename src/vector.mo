@@ -90,7 +90,8 @@ module {
     public func size<X>(vec : Vector<X>) : Nat {
         if (vec.i_block == 0) { return vec.i_element }; 
 
-        let d : Nat = vec.i_block; // index of the last block
+        let d = Nat32.fromNat(vec.i_block);
+        let i = Nat32.fromNat(vec.i_element);
 
         // We call all data blocks of the same capacity an "epoch". We number the epochs 0,1,2,...
         // A data block is in epoch e iff the data block has capacity 2^e.
@@ -98,9 +99,9 @@ module {
         // Super block s falls in epoch ceil(s/2).
 
         // epoch of last data block
-        let e : Nat = 32 - Nat32.toNat(Nat32.bitcountLeadingZero(Nat32.fromNat((d + 2) / 3))); 
+        let e = 32 - Nat32.bitcountLeadingZero((d + 2) / 3);
 
-        return ((2 ** e) * d + vec.i_element + 2 ** (e + 1)) - (4 ** e) - 1
+        Nat32.toNat(d << e + i + 1 << (e + 1) - 1 << (e << 1) - 1);
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
