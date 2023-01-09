@@ -100,16 +100,7 @@ module {
         // epoch of last data block
         let e : Nat = 32 - Nat32.toNat(Nat32.bitcountLeadingZero(Nat32.fromNat((d + 2) / 3))); 
 
-        // capacity of all prior epochs combined 
-        let cap_before_e : Nat = 2 * 4 ** (e - 1) - 1; 
-
-        // data blocks in all prior epochs combined
-        let blocks_before_e : Nat = 3 * 2 ** (e - 1) - 2;
-
-        // prior blocks in the same epoch
-        let prior_blocks_in_e : Nat = d - blocks_before_e;
-
-        return cap_before_e + prior_blocks_in_e * 2 ** e + vec.i_element
+        return ((2 ** e) * d + vec.i_element + 2 ** (e + 1)) - (4 ** e) - 1
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
