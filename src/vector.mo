@@ -54,7 +54,6 @@ module {
     };
 
     public type Vector<X> = {
-        var size : Nat; // total number of elements stored in the vector
         var data_blocks : [var ?[var ?X]]; // the index block
         // fill levels
         var n_blocks : Nat; // number of existing data blocks = fill level of the index block
@@ -85,7 +84,6 @@ module {
     };
 
     public func init<X>(initCapacity : Nat) : Vector<X> = {
-        var size = 0;
         var data_blocks = blocks_from_capacity(Nat.max(1, initCapacity));
         var n_blocks = 1;
         var n_elements = 0;
@@ -93,7 +91,6 @@ module {
     };
 
     public func new<X>() : Vector<X> = {
-        var size = 0;
         var data_blocks = [var]; 
         var n_blocks = 0;
         var n_elements = 0;
@@ -101,7 +98,6 @@ module {
     };
 
     public func clear<X>(vec : Vector<X>) {
-        vec.size := 0;
         vec.data_blocks := [var];
         vec.n_blocks := 0;
         vec.n_elements := 0;
@@ -109,7 +105,6 @@ module {
     };
 
     public func clone<X>(vec : Vector<X>) : Vector<X> = {
-        var size = vec.size;
         var data_blocks = Array.tabulateVar<?[var ?X]>(
             vec.data_blocks.size(),
             func (i) = Option.map(
@@ -122,13 +117,11 @@ module {
         var data_block_capacity = vec.data_block_capacity;
     };
 
-    public func size<X>(vec : Vector<X>) : Nat = vec.size;
-
-    public func sizeCalc<X>(vec : Vector<X>) : Nat {
+    public func size<X>(vec : Vector<X>) : Nat {
         if (vec.n_blocks == 0) { return 0 }; 
         if (vec.n_blocks == 1) { return vec.n_elements };  
 
-        let d = vec.n_blocks - 1; // index of the last block
+        let d : Nat = vec.n_blocks - 1; // index of the last block
 
         // We call all data blocks of the same capacity an "epoch". We number the epochs 0,1,2,...
         // A data block is in epoch e iff the data block has capacity 2^e.
@@ -136,16 +129,16 @@ module {
         // Super block s falls in epoch ceil(s/2).
 
         // epoch of last data block
-        let e = 32 - Nat32.toNat(Nat32.bitcountLeadingZero(Nat32.fromNat((d + 2)/3))); 
+        let e : Nat = 32 - Nat32.toNat(Nat32.bitcountLeadingZero(Nat32.fromNat((d + 2)/3))); 
 
         // capacity of all prior epochs combined 
-        let cap_before_e = 2 * 4**(e-1) - 1; 
+        let cap_before_e : Nat = 2 * 4**(e-1) - 1; 
 
         // data blocks in all prior epochs combined
-        let blocks_before_e = 3 * 2**(e-1) - 2;
+        let blocks_before_e : Nat = 3 * 2**(e-1) - 2;
 
         // prior blocks in the same epoch
-        let prior_blocks_in_e = d - blocks_before_e;
+        let prior_blocks_in_e : Nat = d - blocks_before_e;
 
         return cap_before_e + prior_blocks_in_e * 2**e + vec.n_elements
     };
@@ -196,7 +189,6 @@ module {
 
         last_data_block[vec.n_elements] := ?element;
         vec.n_elements += 1;
-        vec.size += 1;
     };
 
     /*
@@ -258,6 +250,10 @@ module {
     */
 
     public func locate<X>(index : Nat) : (Nat, Nat) {
+        // 32 super blocks have total capacity of 2^32-1 elements
+        if (index >= 0xFFFFFFFF) {
+            Prim.trap("Vector index in locate exceeds 32 super blocks")
+        };
         let _index = Nat32.fromNat(index) + 1;
         let leadingZeros = Nat32.bitcountLeadingZero(_index);
         let (data_block_mask, element_mask, data_blocks_capacity_log, data_blocks_before) = precalc[Nat32.toNat(leadingZeros)];
@@ -269,27 +265,26 @@ module {
     };
 
     public func get<X>(vec : Vector<X>, index : Nat) : X {
-        if (index >= vec.size) {
+        let (a, b) = locate(index);
+        if (a >= vec.n_blocks or (a == vec.n_blocks and b >= vec.n_elements)) {
             Prim.trap("Vector index out of bounds in get");
         };
-        let (a, b) = locate(index);
         unwrap(unwrap(vec.data_blocks[a])[b]);
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
-        if (index < vec.size) {
-            let (a, b) = locate(index);
+        let (a, b) = locate(index);
+        if (a >= vec.n_blocks)
+            null
+        else 
             unwrap(vec.data_blocks[a])[b];
-        } else {
-            null;
-        };
     };
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
-        if (index >= vec.size) {
-            Prim.trap("Vector index out of bounds in get");
-        };
         let (a, b) = locate(index);
+        if (a >= vec.n_blocks or (a == vec.n_blocks and b >= vec.n_elements)) {
+            Prim.trap("Vector index out of bounds in put");
+        };
         unwrap(vec.data_blocks[a])[b] := ?value;
     };
 
@@ -299,7 +294,7 @@ module {
         var in_data_block = 0;
 
         public func next() : ?X {
-            if (index == vec.size) {
+            if (index == size(vec)) {
                 return null;
             };
             let element = unwrap(vec.data_blocks[data_block])[in_data_block];
@@ -313,7 +308,7 @@ module {
         };
     };
 
-    public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(vec.size, func(i) = get(vec, i));
+    public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), func(i) = get(vec, i));
 
-    public func toVarArray<X>(vec : Vector<X>) : [var X] = Array.tabulateVar<X>(vec.size, func(i) = get(vec, i));
+    public func toVarArray<X>(vec : Vector<X>) : [var X] = Array.tabulateVar<X>(size(vec), func(i) = get(vec, i));
 };

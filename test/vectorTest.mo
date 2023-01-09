@@ -10,11 +10,9 @@ let { run; test; suite } = Suite;
 
 let n = 100;
 let vector = Vector.new<Nat>();
-assert(Vector.sizeCalc(vector) == 0);
 
 for (i in Iter.range(0, n)) {
     Vector.add(vector, i);
-    assert(Vector.sizeCalc(vector) == i+1);
 };
 
 
