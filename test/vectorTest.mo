@@ -40,6 +40,18 @@ run(
     ),
 );
 
+run(
+    suite(
+        "iterator",
+        [
+            test("elements",
+                Iter.toArray(Vector.vals(vector)),
+                M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+            )
+        ],
+    ),
+);
+
 for (i in Iter.range(0, n)) {
     Vector.put(vector, i, n - i);
 };

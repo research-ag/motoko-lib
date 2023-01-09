@@ -12,7 +12,8 @@ import Prelude "mo:base/Prelude";
 module {
     let INTERNAL_ERROR = "Internal error in Vector";
 
-    let precalc : [(Nat32, Nat32, Nat32, Nat32)] = [(0x7FFF0000, 0xFFFF, 0x10, 0x17FFE), 
+    let precalc : [(Nat32, Nat32, Nat32, Nat32)] = [
+        (0x7FFF0000, 0xFFFF, 0x10, 0x17FFE), 
         (0x3FFF8000, 0x7FFF, 0xF, 0xFFFE), 
         (0x1FFF8000, 0x7FFF, 0xF, 0xBFFE), 
         (0xFFFC000, 0x3FFF, 0xE, 0x7FFE), 
@@ -207,47 +208,82 @@ module {
         (Nat32.toNat(data_blocks_before + data_block), Nat32.toNat(index_in_data_block));
     };
 
+    let GET_ERROR = "Vector index out of bounds in get";
+
     public func get<X>(vec : Vector<X>, index : Nat) : X {
         let (a, b) = locate(index);
-        if (a > vec.i_block or (a == vec.i_block and b >= vec.i_element)) {
-            Prim.trap("Vector index out of bounds in get");
+        if (a > vec.i_block) {
+            Prim.trap(GET_ERROR);
+        } else {
+            switch(vec.data_blocks[a]) {
+                case (null) Prim.trap(GET_ERROR);
+                case (?block) {
+                    switch (block[b]) {
+                        case (null) Prim.trap(GET_ERROR);
+                        case (?element) return element;
+                    };
+                };
+            };
         };
-        unwrap(unwrap(vec.data_blocks[a])[b]);
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
         let (a, b) = locate(index);
-        if (a > vec.i_block or (a == vec.i_block and b >= vec.i_element))
-            null
-        else 
-            unwrap(vec.data_blocks[a])[b];
+        if (a > vec.i_block) {
+            return null;
+        } else {
+            switch(vec.data_blocks[a]) {
+                case (null) return null;
+                case (?block) {
+                    return block[b];
+                };
+            };
+        };
     };
+
+    let PUT_ERROR = "Vector index out of bounds in put";
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
         let (a, b) = locate(index);
-        if (a > vec.i_block or (a == vec.i_block and b >= vec.i_element)) {
-            Prim.trap("Vector index out of bounds in put");
+        if (a > vec.i_block) {
+            Prim.trap(PUT_ERROR);
+        } else {
+            switch(vec.data_blocks[a]) {
+                case (null) Prim.trap(PUT_ERROR);
+                case (?block) {
+                    switch (block[b]) {
+                        case (null) Prim.trap(PUT_ERROR);
+                        case _ block[b] := ?value;
+                    };
+                };
+            };
         };
-        unwrap(vec.data_blocks[a])[b] := ?value;
     };
 
-    public func vals<X>(vec : Vector<X>) : { next : () -> ?X } = object {
-        var index = 0;
-        var data_block = 0;
-        var in_data_block = 0;
+    public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
+        var i_block = 0;
+        var i_element = 0;
 
         public func next() : ?X {
-            if (index == size(vec)) {
+            if (i_block >= vec.data_blocks.size()) {
                 return null;
             };
-            let element = unwrap(vec.data_blocks[data_block])[in_data_block];
-            index += 1;
-            in_data_block += 1;
-            if (in_data_block == unwrap(vec.data_blocks[data_block]).size()) {
-                data_block += 1;
-                in_data_block := 0;
+            switch (vec.data_blocks[i_block]) {
+                case (null) return null;
+                case (?block) {
+                    switch (block[i_element]) {
+                        case (null) return null;
+                        case (?element) {
+                            i_element += 1;
+                            if (i_element == block.size()) {
+                                i_block += 1;
+                                i_element := 0;
+                            };
+                            return ?element;
+                        };
+                    };
+                };
             };
-            element;
         };
     };
 
