@@ -9,11 +9,12 @@ import M "mo:matchers/Matchers";
 let { run; test; suite } = Suite;
 
 let n = 100;
-var vector = Vector.init<Nat>(1);
+let vector = Vector.new<Nat>();
 
 for (i in Iter.range(0, n)) {
     Vector.add(vector, i);
 };
+
 
 run(
     suite(
