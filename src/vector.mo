@@ -55,53 +55,23 @@ module {
 
     public type Vector<X> = {
         var data_blocks : [var ?[var ?X]]; // the index block
-        // fill levels
-        var n_blocks : Nat; // number of existing data blocks = fill level of the index block
-        var n_elements : Nat; // number of elements in last data block 
-        // capacity
-        var data_block_capacity : Nat; // capacity of the data blocks in the last super block (unit = elements)
-    };
-
-    func blocks_from_capacity<X>(initCapacity : Nat) : [var ?[var ?X]] {
-        let (data_block, _) = locate(initCapacity - 1);
-        var data_blocks = Array.init<?[var ?X]>(data_block + 1, null);
-        var super_block = Nat32.fromNat(0);
-        var last = 0;
-        while (((1 << super_block) - 1) < Nat32.fromNat(initCapacity)) {
-            let capacity = Nat32.toNat(1 << (super_block - (super_block >> 1)));
-            let count = Nat32.toNat(1 << (super_block >> 1));
-
-            var i = 0;
-            while (i < count and last < data_blocks.size()) {
-                data_blocks[last] := ?Array.init<?X>(capacity, null);
-                i += 1;
-                last += 1;
-            };
-
-            super_block += 1;
-        };
-        data_blocks;
-    };
-
-    public func init<X>(initCapacity : Nat) : Vector<X> = {
-        var data_blocks = blocks_from_capacity(Nat.max(1, initCapacity));
-        var n_blocks = 1;
-        var n_elements = 0;
-        var data_block_capacity = 1;
+        // new element should be assigned to exaclty data_blocks[i_block][i_element]
+        // i_block is in range [0; data_blocks.size()]
+        var i_block : Nat;
+        // i_element is in range [0; data_blocks[i_block].size())
+        var i_element : Nat;
     };
 
     public func new<X>() : Vector<X> = {
         var data_blocks = [var]; 
-        var n_blocks = 0;
-        var n_elements = 0;
-        var data_block_capacity = 0; // needs to be 0 so that first add triggers an allocation
+        var i_block = 0;
+        var i_element = 0;
     };
 
     public func clear<X>(vec : Vector<X>) {
         vec.data_blocks := [var];
-        vec.n_blocks := 0;
-        vec.n_elements := 0;
-        vec.data_block_capacity := 0;
+        vec.i_block := 0;
+        vec.i_element := 0;
     };
 
     public func clone<X>(vec : Vector<X>) : Vector<X> = {
@@ -112,16 +82,14 @@ module {
                 func(block : [var ?X]) : [var ?X] = Array.tabulateVar<?X>(block.size(), func(j) = block[j])
             )
         );
-        var n_blocks = vec.n_blocks;
-        var n_elements = vec.n_elements;
-        var data_block_capacity = vec.data_block_capacity;
+        var i_block = vec.i_block;
+        var i_element = vec.i_element;
     };
 
     public func size<X>(vec : Vector<X>) : Nat {
-        if (vec.n_blocks == 0) { return 0 }; 
-        if (vec.n_blocks == 1) { return vec.n_elements };  
+        if (vec.i_block == 0) { return vec.i_element }; 
 
-        let d : Nat = vec.n_blocks - 1; // index of the last block
+        let d : Nat = vec.i_block; // index of the last block
 
         // We call all data blocks of the same capacity an "epoch". We number the epochs 0,1,2,...
         // A data block is in epoch e iff the data block has capacity 2^e.
@@ -129,36 +97,25 @@ module {
         // Super block s falls in epoch ceil(s/2).
 
         // epoch of last data block
-        let e : Nat = 32 - Nat32.toNat(Nat32.bitcountLeadingZero(Nat32.fromNat((d + 2)/3))); 
+        let e : Nat = 32 - Nat32.toNat(Nat32.bitcountLeadingZero(Nat32.fromNat((d + 2) / 3))); 
 
         // capacity of all prior epochs combined 
-        let cap_before_e : Nat = 2 * 4**(e-1) - 1; 
+        let cap_before_e : Nat = 2 * 4 ** (e - 1) - 1; 
 
         // data blocks in all prior epochs combined
-        let blocks_before_e : Nat = 3 * 2**(e-1) - 2;
+        let blocks_before_e : Nat = 3 * 2 ** (e - 1) - 2;
 
         // prior blocks in the same epoch
         let prior_blocks_in_e : Nat = d - blocks_before_e;
 
-        return cap_before_e + prior_blocks_in_e * 2**e + vec.n_elements
-    };
-
-    func add_super_block_if_needed<X>(vec : Vector<X>) {
-        let s = vec.n_blocks;
-        if (s == 0) {
-            vec.data_block_capacity := 1;
-        }
-        // the data block size doubles whenever s is of the form 3*2^n-2 for some n 
-        else if (Nat.rem(s,3) == 1 and Nat32.bitcountNonZero(Nat32.fromNat((s+2)/3)) == 1) {
-            vec.data_block_capacity *= 2;
-        };
+        return cap_before_e + prior_blocks_in_e * 2 ** e + vec.i_element
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.data_blocks.size() == vec.n_blocks) {
-            let new_length = if (vec.n_blocks == 0) 1 else vec.n_blocks * 2;
+        if (vec.data_blocks.size() == vec.i_block) {
+            let new_length = if (vec.i_block == 0) 1 else vec.i_block * 2;
             vec.data_blocks := Array.tabulateVar<?[var ?X]>(new_length, func(i) {
-                if (i < vec.n_blocks) {
+                if (i < vec.i_block) {
                     vec.data_blocks[i];
                 } else {
                     null
@@ -167,87 +124,73 @@ module {
         }
     };
 
-    func add_data_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.data_block_capacity == vec.n_elements) {
-            add_super_block_if_needed(vec);
-            grow_index_block_if_needed(vec);
-
-            if (Option.isNull(vec.data_blocks[vec.n_blocks])) {
-                vec.data_blocks[vec.n_blocks] := ?Array.init<?X>(vec.data_block_capacity, null);
-            };
-            // else can we trap with internal error (should not happen)?
-
-            vec.n_elements := 0;
-            vec.n_blocks += 1;
-        };
-    };
-
     public func add<X>(vec : Vector<X>, element : X) {
-        add_data_block_if_needed(vec);
+        if (vec.i_element == 0) {
+            grow_index_block_if_needed(vec);
+            let i_block = vec.i_block;
 
-        let last_data_block = unwrap(vec.data_blocks[vec.n_blocks - 1]);
-
-        last_data_block[vec.n_elements] := ?element;
-        vec.n_elements += 1;
-    };
-
-    /*
-    func remove_super_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.super_block_size == 0) {
-            vec.super_block_odd := not vec.super_block_odd;
-            if (vec.super_block_odd) {
-                vec.super_block_capacity /= 2;
-            } else {
-                vec.data_block_capacity /= 2;
+            // When removing last we keep one more data block, so can be not null
+            if (Option.isNull(vec.data_blocks[i_block])) {
+                let data_block_capacity = if (i_block == 0) {
+                    1;
+                }
+                // The data block size doubles whenever i_block is of the form 3 * (2 ** i) - 2 for some i
+                else if (i_block % 3 == 1 and Nat32.bitcountNonZero(Nat32.fromNat((i_block + 2) / 3)) == 1) {
+                    unwrap(vec.data_blocks[i_block - 1]).size() * 2;
+                }
+                else {
+                    unwrap(vec.data_blocks[i_block - 1]).size();
+                };
+                vec.data_blocks[i_block] := ?Array.init<?X>(data_block_capacity, null);
             };
-            vec.super_block_size := vec.super_block_capacity;
+        };
+
+        let last_data_block = unwrap(vec.data_blocks[vec.i_block]);
+
+        last_data_block[vec.i_element] := ?element;
+        
+        vec.i_element += 1;
+        if (vec.i_element == last_data_block.size()) {
+            vec.i_element := 0;
+            vec.i_block += 1;
         };
     };
-    */
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
         let quarter = vec.data_blocks.size() / 4;
-        if (vec.n_blocks <= quarter) {
+        if (vec.i_block < quarter) {
             vec.data_blocks := Array.tabulateVar<?[var ?X]>(quarter, func(i) {
                 vec.data_blocks[i];
             });
         };
     };
 
-    /*
-    public func remove_data_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.n_elements == 0) {
-            if (vec.n_blocks < vec.data_blocks.size() and not Option.isNull(vec.data_blocks[vec.n_blocks])) {
-                vec.data_blocks[vec.n_blocks] := null;
+    public func removeLast<X>(vec : Vector<X>) : ?X {
+        if (vec.i_element == 0) {
+            if (vec.i_block == 0) {
+                return null;
             };
+            vec.i_block -= 1;
+            vec.i_element := unwrap(vec.data_blocks[vec.i_block]).size();
 
             shrink_index_block_if_needed(vec);
-            if (vec.n_blocks > 1) {
-                vec.super_block_size -= 1;
-                remove_super_block_if_needed(vec);
-                
-                vec.n_blocks -= 1;
-                vec.n_elements := vec.data_block_capacity;
-            }
+
+            // Keep one totally empty block when removing
+            if (vec.i_block + 2 < vec.data_blocks.size()) {
+                if (Option.isNull(vec.data_blocks[vec.i_block + 2])) {
+                    vec.data_blocks[vec.i_block + 2] := null;
+                }
+            };
         };
-    };
+        vec.i_element -= 1;
 
-    public func removeLast<X>(vec : Vector<X>) : ?X {
-        if (vec.size == 0) { 
-            return null;
-        };
-
-        var last_data_block = unwrap(vec.data_blocks[vec.n_blocks - 1]);
-        vec.size -= 1;
-        vec.n_elements -= 1;
-        let element = last_data_block[vec.n_elements];
-        last_data_block[vec.n_elements] := null;
-
-        remove_data_block_if_needed(vec);
+        var last_data_block = unwrap(vec.data_blocks[vec.i_block]);
+        
+        let element = last_data_block[vec.i_element];
+        last_data_block[vec.i_element] := null;
 
         element;
-    };
-    */
+    };  
 
     public func locate<X>(index : Nat) : (Nat, Nat) {
         // 32 super blocks have total capacity of 2^32-1 elements
@@ -266,7 +209,7 @@ module {
 
     public func get<X>(vec : Vector<X>, index : Nat) : X {
         let (a, b) = locate(index);
-        if (a >= vec.n_blocks or (a == vec.n_blocks and b >= vec.n_elements)) {
+        if (a > vec.i_block or (a == vec.i_block and b >= vec.i_element)) {
             Prim.trap("Vector index out of bounds in get");
         };
         unwrap(unwrap(vec.data_blocks[a])[b]);
@@ -274,7 +217,7 @@ module {
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
         let (a, b) = locate(index);
-        if (a >= vec.n_blocks)
+        if (a > vec.i_block or (a == vec.i_block and b >= vec.i_element))
             null
         else 
             unwrap(vec.data_blocks[a])[b];
@@ -282,7 +225,7 @@ module {
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
         let (a, b) = locate(index);
-        if (a >= vec.n_blocks or (a == vec.n_blocks and b >= vec.n_elements)) {
+        if (a > vec.i_block or (a == vec.i_block and b >= vec.i_element)) {
             Prim.trap("Vector index out of bounds in put");
         };
         unwrap(vec.data_blocks[a])[b] := ?value;
