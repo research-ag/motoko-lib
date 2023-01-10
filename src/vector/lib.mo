@@ -129,7 +129,8 @@ module {
     };
 
     public func add<X>(vec : Vector<X>, element : X) {
-        if (vec.i_element == 0) {
+        var i_element = vec.i_element;
+        if (i_element == 0) {
             grow_index_block_if_needed(vec);
             let i_block = vec.i_block;
 
@@ -144,13 +145,14 @@ module {
 
         let last_data_block = unwrap(vec.data_blocks[vec.i_block]);
 
-        last_data_block[vec.i_element] := ?element;
+        last_data_block[i_element] := ?element;
         
-        vec.i_element += 1;
-        if (vec.i_element == last_data_block.size()) {
-            vec.i_element := 0;
+        i_element += 1;
+        if (i_element == last_data_block.size()) {
+            i_element := 0;
             vec.i_block += 1;
         };
+        vec.i_element := i_element;
     };
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
@@ -193,14 +195,14 @@ module {
         // if (index >= 0xFFFFFFFF) {
         //     Prim.trap("Vector index in locate exceeds 32 super blocks")
         // };
-        let _index = Nat32.fromNat(index) + 1;
+        let _index = Nat32.fromNat(index) +% 1;
         let leadingZeros = Nat32.bitcountLeadingZero(_index);
         let (data_block_mask, element_mask, data_blocks_capacity_log, data_blocks_before) = precalc[Nat32.toNat(leadingZeros)];
         
         let data_block = (_index & data_block_mask) >> data_blocks_capacity_log;
         let index_in_data_block = _index & element_mask;
 
-        (Nat32.toNat(data_blocks_before + data_block), Nat32.toNat(index_in_data_block));
+        (Nat32.toNat(data_blocks_before +% data_block), Nat32.toNat(index_in_data_block));
     };
 
     let GET_ERROR = "Vector index out of bounds in get";
