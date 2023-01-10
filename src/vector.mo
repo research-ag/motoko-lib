@@ -92,14 +92,27 @@ module {
         let i = Nat32.fromNat(vec.i_element);
 
         // We call all data blocks of the same capacity an "epoch". We number the epochs 0,1,2,...
-        // A data block is in epoch e iff the data block has capacity 2^e.
+        // A data block is in epoch e iff the data block has capacity 2 ** e.
         // Each epoch starting with epoch 1 spans exactly two super blocks.
         // Super block s falls in epoch ceil(s/2).
 
         // epoch of last data block
         let e = 32 - Nat32.bitcountLeadingZero((d + 2) / 3);
 
-        Nat32.toNat(d << e + i + 1 << (e + 1) - 1 << (e << 1) - 1);
+        // capacity of all prior epochs combined 
+        // capacity_before_e = 2 * 4 ** (e - 1) - 1
+
+        // data blocks in all prior epochs combined
+        // blocks_before_e = 3 * 2 ** (e - 1) - 2
+
+        // then size = d * 2 ** e + i - c
+        // where c = blocks_before_e * 2 ** e - capacity_before_e
+
+        //there can be overflows, but the result is without overflows, so use addWrap and subWrap
+
+        let c = 1 << (e << 1) -% 1 << (e + 1) +% 1;
+
+        Nat32.toNat(d << e +% i -% c);
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
@@ -122,16 +135,9 @@ module {
 
             // When removing last we keep one more data block, so can be not null
             if (Option.isNull(vec.data_blocks[i_block])) {
-                let data_block_capacity = if (i_block == 0) {
-                    1;
-                }
-                // The data block size doubles whenever i_block is of the form 3 * (2 ** i) - 2 for some i
-                else if (i_block % 3 == 1 and Nat32.bitcountNonZero(Nat32.fromNat((i_block + 2) / 3)) == 1) {
-                    unwrap(vec.data_blocks[i_block - 1]).size() * 2;
-                }
-                else {
-                    unwrap(vec.data_blocks[i_block - 1]).size();
-                };
+                let epoch = 32 - Nat32.bitcountLeadingZero((Nat32.fromNat(i_block) + 2) / 3);
+                let data_block_capacity = Nat32.toNat(1 << epoch);
+
                 vec.data_blocks[i_block] := ?Array.init<?X>(data_block_capacity, null);
             };
         };
@@ -148,9 +154,8 @@ module {
     };
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
-        let quarter = vec.data_blocks.size() / 4;
-        if (vec.i_block < quarter) {
-            vec.data_blocks := Array.tabulateVar<?[var ?X]>(quarter, func(i) {
+        if (vec.i_block <= vec.data_blocks.size() / 4) {
+            vec.data_blocks := Array.tabulateVar<?[var ?X]>(vec.data_blocks.size() / 2, func(i) {
                 vec.data_blocks[i];
             });
         };
