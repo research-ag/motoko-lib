@@ -3,6 +3,7 @@ import E "mo:base/ExperimentalInternetComputer";
 import Iter "mo:base/Iter";
 import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
+import Option "mo:base/Option";
 
 actor {
     let sqrt = 1000;
@@ -37,29 +38,26 @@ actor {
     };
 
     func array_bench() {
-        let a = Array.tabulateVar<[var Nat]>(sqrt, func(i) = Array.init<Nat>(sqrt, 0));
+        let a = Array.init<?[var Nat]>(sqrt, null);
         var i = 0;
         var x = 0;
         while (i < sqrt) {
+            a[i] := ?Array.init<Nat>(sqrt, 0);
             var j = 0;
             while (j < sqrt) {
-                a[i][j] := x;
+                Option.unwrap(a[i])[j] := x;
                 x += 1;
                 j += 1;
             };
             i += 1;
         };
 
-        i := 0;
         x := 0;
-        while (i < sqrt) {
-            var j = 0;
-            while (j < sqrt) {
-                assert(a[i][j] == x);
-                x += 1;
-                j += 1;
-            };
-            i += 1;
+        while (x < sqrt * sqrt) {
+            let i = x / sqrt;
+            let j = x % sqrt;
+            assert(Option.unwrap(a[i])[j] == x);
+            x += 1;
         };
     };
 
