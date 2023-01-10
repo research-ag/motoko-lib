@@ -2,8 +2,10 @@ import Vector "../../src/vector";
 import E "mo:base/ExperimentalInternetComputer";
 import Iter "mo:base/Iter";
 import Buffer "mo:base/Buffer";
+import Array "mo:base/Array";
 
 actor {
+    let sqrt = 1000;
     let n = 1_000_000;
 
     func vector_bench() {
@@ -34,7 +36,36 @@ actor {
         };
     };
 
+    func array_bench() {
+        let a = Array.tabulateVar<[var Nat]>(sqrt, func(i) = Array.init<Nat>(sqrt, 0));
+        var i = 0;
+        var x = 0;
+        while (i < sqrt) {
+            var j = 0;
+            while (j < sqrt) {
+                a[i][j] := x;
+                x += 1;
+                j += 1;
+            };
+            i += 1;
+        };
+
+        i := 0;
+        x := 0;
+        while (i < sqrt) {
+            var j = 0;
+            while (j < sqrt) {
+                assert(a[i][j] == x);
+                x += 1;
+                j += 1;
+            };
+            i += 1;
+        };
+    };
+
     public query func profile_vector() : async Nat64 = async E.countInstructions(vector_bench);
 
     public query func profile_buffer() : async Nat64 = async E.countInstructions(buffer_bench);
+    
+    public query func profile_array() : async Nat64 = async E.countInstructions(array_bench);
 };
