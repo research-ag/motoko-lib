@@ -190,9 +190,9 @@ module {
 
     public func locate<X>(index : Nat) : (Nat, Nat) {
         // 32 super blocks have total capacity of 2^32-1 elements
-        if (index >= 0xFFFFFFFF) {
-            Prim.trap("Vector index in locate exceeds 32 super blocks")
-        };
+        // if (index >= 0xFFFFFFFF) {
+        //     Prim.trap("Vector index in locate exceeds 32 super blocks")
+        // };
         let _index = Nat32.fromNat(index) + 1;
         let leadingZeros = Nat32.bitcountLeadingZero(_index);
         let (data_block_mask, element_mask, data_blocks_capacity_log, data_blocks_before) = precalc[Nat32.toNat(leadingZeros)];

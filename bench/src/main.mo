@@ -8,21 +8,29 @@ actor {
 
     func vector_bench() {
         let a = Vector.new<Nat>();
-        for (i in Iter.range(0, n - 1)) {
+        var i = 0;
+        while (i < n) {
             Vector.add(a, i);
+            i += 1;
         };
-        for (i in Iter.range(0, n - 1)) {
+        i := 0;
+        while (i < n) {
             assert(Vector.get(a, i) == i);
+            i += 1;
         };
     };
 
     func buffer_bench() {
         let a = Buffer.Buffer<Nat>(0);
-        for (i in Iter.range(0, n - 1)) {
+        var i = 0;
+        while (i < n) {
             a.add(i);
+            i += 1;
         };
-        for (i in Iter.range(0, n - 1)) {
+        i := 0;
+        while (i < n) {
             assert(a.get(i) == i);
+            i += 1;
         };
     };
 
