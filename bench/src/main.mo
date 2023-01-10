@@ -38,14 +38,14 @@ actor {
     };
 
     func array_bench() {
-        let a = Array.init<?[var Nat]>(sqrt, null);
+        let a = Array.init<?[var ?Nat]>(sqrt, null);
         var i = 0;
         var x = 0;
         while (i < sqrt) {
-            a[i] := ?Array.init<Nat>(sqrt, 0);
+            a[i] := ?Array.init<?Nat>(sqrt, null);
             var j = 0;
             while (j < sqrt) {
-                Option.unwrap(a[i])[j] := x;
+                Option.unwrap(a[i])[j] := ?x;
                 x += 1;
                 j += 1;
             };
@@ -56,7 +56,7 @@ actor {
         while (x < sqrt * sqrt) {
             let i = x / sqrt;
             let j = x % sqrt;
-            assert(Option.unwrap(a[i])[j] == x);
+            assert(Option.unwrap(Option.unwrap(a[i])[j]) == x);
             x += 1;
         };
     };
