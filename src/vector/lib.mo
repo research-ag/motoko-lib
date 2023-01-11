@@ -62,7 +62,7 @@ module {
         // Super block s falls in epoch ceil(s/2).
 
         // epoch of last data block
-        let e = 32 - Nat32.bitcountLeadingZero((d + 2) / 3);
+        let e = 32 -% Nat32.bitcountLeadingZero((d +% 2) / 3);
 
         // capacity of all prior epochs combined 
         // capacity_before_e = 2 * 4 ** (e - 1) - 1
@@ -75,7 +75,7 @@ module {
 
         //there can be overflows, but the result is without overflows, so use addWrap and subWrap
 
-        let c = 1 << (e << 1) -% 1 << (e + 1) +% 1;
+        let c = 1 << (e << 1) -% 1 << (e +% 1) +% 1;
 
         Nat32.toNat(d << e +% i -% c);
     };
@@ -101,7 +101,7 @@ module {
 
             // When removing last we keep one more data block, so can be not null
             if (Option.isNull(vec.data_blocks[i_block])) {
-                let epoch = 32 - Nat32.bitcountLeadingZero((Nat32.fromNat(i_block) + 2) / 3);
+                let epoch = 32 -% Nat32.bitcountLeadingZero((Nat32.fromNat(i_block) +% 2) / 3);
                 let data_block_capacity = Nat32.toNat(1 << epoch);
 
                 vec.data_blocks[i_block] := ?Array.init<?X>(data_block_capacity, null);
@@ -129,29 +129,33 @@ module {
     };
 
     public func removeLast<X>(vec : Vector<X>) : ?X {
-        if (vec.i_element == 0) {
-            if (vec.i_block == 0) {
+        var i_element = vec.i_element;
+        if (i_element == 0) {
+            var i_block = vec.i_block;
+            if (i_block == 0) {
                 return null;
             };
-            vec.i_block -= 1;
-            vec.i_element := unwrap(vec.data_blocks[vec.i_block]).size();
+            i_block -= 1;
+            i_element := unwrap(vec.data_blocks[i_block]).size();
 
             shrink_index_block_if_needed(vec);
 
             // Keep one totally empty block when removing
-            if (vec.i_block + 2 < vec.data_blocks.size()) {
-                if (Option.isNull(vec.data_blocks[vec.i_block + 2])) {
-                    vec.data_blocks[vec.i_block + 2] := null;
+            if (i_block + 2 < vec.data_blocks.size()) {
+                if (Option.isNull(vec.data_blocks[i_block + 2])) {
+                    vec.data_blocks[i_block + 2] := null;
                 }
             };
+            vec.i_block := i_block;
         };
-        vec.i_element -= 1;
+        i_element -= 1;
 
         var last_data_block = unwrap(vec.data_blocks[vec.i_block]);
         
-        let element = last_data_block[vec.i_element];
-        last_data_block[vec.i_element] := null;
+        let element = last_data_block[i_element];
+        last_data_block[i_element] := null;
 
+        vec.i_element := i_element;
         element;
     };  
 
