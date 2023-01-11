@@ -154,24 +154,25 @@ module {
 
         element;
     };  
-    
-    // don't forget to check if index == 0xFF..FF
 
     func locate<X>(index : Nat) : (Nat, Nat) {
-        let _index = Nat32.fromNat(index) +% 1;
-        let lz = Nat32.bitcountLeadingZero(_index);
+        let i = Nat32.fromNat(index) +% 1;
+        if (i == 0) {
+            Prim.trap("Vector index out of bounds in locate");
+        };
+        let lz = Nat32.bitcountLeadingZero(i);
         if (lz & 1 == 0) {
-            let down = (31 -% lz) >> 1;
+            let up = (32 -% lz) >> 1;
+            
+            let e_mask = 1 << up -% 1;
+            let b_mask = e_mask >> 1;
 
-            let b_mask = (1 << down) -% 1;
-            let e_mask = b_mask << 1 +% 1;
-
-            (Nat32.toNat(e_mask +% b_mask +% ((_index >> down) >> 1) & b_mask), Nat32.toNat(_index & e_mask));
+            (Nat32.toNat(e_mask +% b_mask +% (i >> up) & b_mask), Nat32.toNat(i & e_mask));
         } else {
             let half = (31 -% lz) >> 1;
             let mask = (1 << half) -% 1;
 
-            (Nat32.toNat(mask << 1 +% (_index >> half) & mask), Nat32.toNat(_index & mask));
+            (Nat32.toNat(mask << 1 +% (i >> half) & mask), Nat32.toNat(i & mask));
         };
     };
 
