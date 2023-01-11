@@ -159,21 +159,33 @@ module {
         element;
     };  
 
+    // this was optimized in terms of cycles
     func locate<X>(index : Nat) : (Nat, Nat) {
+        // it's convinient to work with index + 1
         let i = Nat32.fromNat(index) +% 1;
         if (i == 0) {
+            // We should check if index == 2 ** 32 - 1
             Prim.trap("Vector index out of bounds in locate");
         };
         let lz = Nat32.bitcountLeadingZero(i);
+        // super block s = bit length - 1 = (32 - leading zeros) - 1
+        // split to cases to apply different optimizations in each one
         if (lz & 1 == 0) {
+            // ceil(s / 2) = floor((s + 1) / 2)
             let up = (32 -% lz) >> 1;
-            
+            // element mask = ceil(s / 2) ones in binary
             let e_mask = 1 << up -% 1;
+            //block mask = floor(s / 2) ones in binary 
             let b_mask = e_mask >> 1;
-
+            // data blocks before the super block = 2 ** ceil(s / 2) + 2 ** floor(s / 2) - 2
+            // elements before the super block = 2 ** s - 1, in case of (index + 1) = 2 ** s
+            // first floor(s / 2) bits in (index + 1) after the highest bit = index of data block in super block
+            // the next floor(s / 2) to the end of binary representation of (index + 1) = index of element in data block
             (Nat32.toNat(e_mask +% b_mask +% (i >> up) & b_mask), Nat32.toNat(i & e_mask));
         } else {
             let half = (31 -% lz) >> 1;
+            // if super block is even => data blocks in super block = elements in data block
+            // so element mask = block mask
             let mask = (1 << half) -% 1;
 
             (Nat32.toNat(mask << 1 +% (i >> half) & mask), Nat32.toNat(i & mask));
