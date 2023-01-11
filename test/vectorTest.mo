@@ -94,3 +94,19 @@ run(
         ],
     ),
 );
+
+for (i in Iter.range(0, n)) {
+    Vector.add(vector, i);
+};
+
+run(
+    suite(
+        "addAfterRemove",
+        [
+            test("elements",
+                Vector.toArray(vector),
+                M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+            )
+        ],
+    ),
+);

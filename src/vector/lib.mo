@@ -77,15 +77,20 @@ module {
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
-            let new_length = if (vec.i_block == 0) 1 else vec.i_block * 2;
+            let sz = Nat32.fromNat(size(vec));
+            let lz = Nat32.bitcountLeadingZero(sz);
+
+            let super_block_capacity = Nat32.toNat(1 << ((32 -% lz) >> 1));
+            let new_length = vec.i_block + super_block_capacity;
+
             vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
                 if (i < vec.i_block) {
                     vec.data_blocks[i];
                 } else {
                     [var];
-                }
+                };
             });
-        }
+        };
     };
 
     public func add<X>(vec : Vector<X>, element : X) {
@@ -116,24 +121,32 @@ module {
     };
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
-        if (vec.i_block <= vec.data_blocks.size() / 4) {
-            vec.data_blocks := Array.tabulateVar<[var ?X]>(vec.data_blocks.size() / 2, func(i) {
-                vec.data_blocks[i];
-            });
+        let sz = Nat32.fromNat(size(vec));
+        let lz = Nat32.bitcountLeadingZero(sz);
+
+        if ((0xFFFF_FFFF >> lz) == sz) {
+            let super_block_capacity = Nat32.toNat(1 << ((32 - lz) >> 1));
+            let new_length = vec.i_block + super_block_capacity;
+            if (new_length < vec.data_blocks.size()) {
+                Debug.print(Nat.toText(new_length));
+                vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
+                    vec.data_blocks[i];
+                });
+            };
         };
     };
 
     public func removeLast<X>(vec : Vector<X>) : ?X {
         var i_element = vec.i_element;
         if (i_element == 0) {
+            shrink_index_block_if_needed(vec);
+
             var i_block = vec.i_block;
             if (i_block == 0) {
                 return null;
             };
             i_block -= 1;
             i_element := vec.data_blocks[i_block].size();
-
-            shrink_index_block_if_needed(vec);
 
             // Keep one totally empty block when removing
             if (i_block + 2 < vec.data_blocks.size()) {
