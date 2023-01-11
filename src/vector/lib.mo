@@ -10,7 +10,7 @@ import Int "mo:base/Int";
 import Prelude "mo:base/Prelude";
 
 module {
-    let INTERNAL_ERROR = "Internal error in Vector";
+    let INTERNAL_ERROR = "Index out of bounds or internal error in Vector";
 
     func unwrap<X>(x : ?X) : X {
         switch (x) {
@@ -172,7 +172,9 @@ module {
             let e_mask = 1 << up -% 1;
             //block mask = floor(s / 2) ones in binary 
             let b_mask = e_mask >> 1;
-            // data blocks before the super block = 2 ** ceil(s / 2) + 2 ** floor(s / 2) - 2
+            // data blocks in even super blocks before current = 2 ** ceil(s / 2) - 1
+            // data blocks in odd super blocks before current = 2 ** floor(s / 2) - 1
+            // data blocks before the super block = element mask + block mask
             // elements before the super block = 2 ** s - 1, in case of (index + 1) = 2 ** s
             // first floor(s / 2) bits in (index + 1) after the highest bit = index of data block in super block
             // the next floor(s / 2) to the end of binary representation of (index + 1) = index of element in data block
@@ -187,15 +189,9 @@ module {
         };
     };
 
-    let GET_ERROR = "Vector index out of bounds in get";
-
     public func get<X>(vec : Vector<X>, index : Nat) : X {
         let (a, b) = locate(index);
-        if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
-            unwrap(vec.data_blocks[a][b]);
-        } else {
-            Prim.trap(GET_ERROR);
-        };
+        unwrap(vec.data_blocks[a][b]);
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
@@ -207,15 +203,9 @@ module {
         };
     };
 
-    let PUT_ERROR = "Vector index out of bounds in put";
-
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
         let (a, b) = locate(index);
-        if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
-            vec.data_blocks[a][b] := ?value;
-        } else {
-            Prim.trap(PUT_ERROR);
-        };
+        vec.data_blocks[a][b] := ?value;
     };
 
     public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
