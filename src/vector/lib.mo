@@ -160,14 +160,20 @@ module {
     func locate<X>(index : Nat) : (Nat, Nat) {
         let _index = Nat32.fromNat(index) +% 1;
         let s = 31 -% Nat32.bitcountLeadingZero(_index);
+        if (s & 1 == 0) {
+            let half = s >> 1;
+            let mask = (1 << half) -% 1;
 
-        let down = s >> 1;
-        let up = s -% down;
+            (Nat32.toNat(mask << 1 +% (_index >> half) & mask), Nat32.toNat(_index & mask));
+        } else {
+            let down = s >> 1;
+            let up = down +% 1;
 
-        let b_mask = (1 << down) -% 1;
-        let e_mask = (1 << up) -% 1;
+            let b_mask = (1 << down) -% 1;
+            let e_mask = (1 << up) -% 1;
 
-        (Nat32.toNat(e_mask +% b_mask +% (_index >> up) & b_mask), Nat32.toNat(_index & e_mask));
+            (Nat32.toNat(e_mask +% b_mask +% (_index >> up) & b_mask), Nat32.toNat(_index & e_mask));
+        }
     };
 
     let GET_ERROR = "Vector index out of bounds in get";
