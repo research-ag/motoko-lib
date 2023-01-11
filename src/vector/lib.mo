@@ -75,9 +75,7 @@ module {
 
         //there can be overflows, but the result is without overflows, so use addWrap and subWrap
 
-        let c = 1 << (e << 1) -% 1 << (e +% 1) +% 1;
-
-        Nat32.toNat(d << e +% i -% c);
+        Nat32.toNat(d << e +% i -% 1 << (e << 1) +% 1 << (e +% 1) -% 1);
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
