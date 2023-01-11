@@ -167,10 +167,7 @@ module {
         let b_mask = (1 << down) -% 1;
         let e_mask = (1 << up) -% 1;
 
-        let b = (_index >> up) & b_mask;
-        let e = _index & e_mask;
-
-        (Nat32.toNat(e_mask +% b_mask +% b), Nat32.toNat(e));
+        (Nat32.toNat(e_mask +% b_mask +% (_index >> up) & b_mask), Nat32.toNat(_index & e_mask));
     };
 
     let GET_ERROR = "Vector index out of bounds in get";
