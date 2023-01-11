@@ -191,19 +191,19 @@ module {
 
     public func get<X>(vec : Vector<X>, index : Nat) : X {
         let (a, b) = locate(index);
-        if (a > vec.i_block or a == vec.i_block and b > vec.i_element) {
-            Prim.trap(GET_ERROR);
-        } else {
+        if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             unwrap(vec.data_blocks[a][b]);
+        } else {
+            Prim.trap(GET_ERROR);
         };
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
         let (a, b) = locate(index);
-        if (a > vec.i_block or a == vec.i_block and b > vec.i_element) {
-            return null;
-        } else {
+        if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             vec.data_blocks[a][b];
+        } else {
+            return null;
         };
     };
 
@@ -211,10 +211,10 @@ module {
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
         let (a, b) = locate(index);
-        if (a > vec.i_block or a == vec.i_block and b > vec.i_element) {
-            Prim.trap(PUT_ERROR);
-        } else {
+        if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             vec.data_blocks[a][b] := ?value;
+        } else {
+            Prim.trap(PUT_ERROR);
         };
     };
 
