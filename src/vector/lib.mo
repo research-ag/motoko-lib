@@ -12,41 +12,6 @@ import Prelude "mo:base/Prelude";
 module {
     let INTERNAL_ERROR = "Internal error in Vector";
 
-    let precalc : [(Nat32, Nat32, Nat32, Nat32)] = [
-        (0x7FFF0000, 0xFFFF, 0x10, 0x17FFE), 
-        (0x3FFF8000, 0x7FFF, 0xF, 0xFFFE), 
-        (0x1FFF8000, 0x7FFF, 0xF, 0xBFFE), 
-        (0xFFFC000, 0x3FFF, 0xE, 0x7FFE), 
-        (0x7FFC000, 0x3FFF, 0xE, 0x5FFE), 
-        (0x3FFE000, 0x1FFF, 0xD, 0x3FFE), 
-        (0x1FFE000, 0x1FFF, 0xD, 0x2FFE), 
-        (0xFFF000, 0xFFF, 0xC, 0x1FFE), 
-        (0x7FF000, 0xFFF, 0xC, 0x17FE), 
-        (0x3FF800, 0x7FF, 0xB, 0xFFE), 
-        (0x1FF800, 0x7FF, 0xB, 0xBFE), 
-        (0xFFC00, 0x3FF, 0xA, 0x7FE), 
-        (0x7FC00, 0x3FF, 0xA, 0x5FE), 
-        (0x3FE00, 0x1FF, 0x9, 0x3FE), 
-        (0x1FE00, 0x1FF, 0x9, 0x2FE), 
-        (0xFF00, 0xFF, 0x8, 0x1FE), 
-        (0x7F00, 0xFF, 0x8, 0x17E), 
-        (0x3F80, 0x7F, 0x7, 0xFE), 
-        (0x1F80, 0x7F, 0x7, 0xBE), 
-        (0xFC0, 0x3F, 0x6, 0x7E), 
-        (0x7C0, 0x3F, 0x6, 0x5E), 
-        (0x3E0, 0x1F, 0x5, 0x3E), 
-        (0x1E0, 0x1F, 0x5, 0x2E), 
-        (0xF0, 0xF, 0x4, 0x1E), 
-        (0x70, 0xF, 0x4, 0x16), 
-        (0x38, 0x7, 0x3, 0xE), 
-        (0x18, 0x7, 0x3, 0xA), 
-        (0xC, 0x3, 0x2, 0x6), 
-        (0x4, 0x3, 0x2, 0x4), 
-        (0x2, 0x1, 0x1, 0x2), 
-        (0x0, 0x1, 0x1, 0x1), 
-        (0x0, 0x0, 0x0, 0x0)
-    ];
-
     func unwrap<X>(x : ?X) : X {
         switch (x) {
             case (null) Prim.trap(INTERNAL_ERROR);
@@ -189,20 +154,35 @@ module {
 
         element;
     };  
+    
+    // don't forget to check if index == 0xFF..FF
 
-    public func locate<X>(index : Nat) : (Nat, Nat) {
-        // 32 super blocks have total capacity of 2^32-1 elements
-        // if (index >= 0xFFFFFFFF) {
-        //     Prim.trap("Vector index in locate exceeds 32 super blocks")
-        // };
-        let _index = Nat32.fromNat(index) +% 1;
-        let leadingZeros = Nat32.bitcountLeadingZero(_index);
-        let (data_block_mask, element_mask, data_blocks_capacity_log, data_blocks_before) = precalc[Nat32.toNat(leadingZeros)];
-        
-        let data_block = (_index & data_block_mask) >> data_blocks_capacity_log;
-        let index_in_data_block = _index & element_mask;
+    func locate<X>(index : Nat) : (Nat, Nat) {
+        var _index = Nat32.fromNat(index) +% 1;
+        let s = 31 -% Nat32.bitcountLeadingZero(_index);
 
-        (Nat32.toNat(data_blocks_before +% data_block), Nat32.toNat(index_in_data_block));
+        if (s & 1 == 0) {
+            let half = s >> 1;
+            let mask = (1 << half) -% 1;
+
+            let b = (_index >> half) & mask;
+            let e = _index & mask;
+
+            let before = mask << 1;
+            (Nat32.toNat(before +% b), Nat32.toNat(e));
+        } else {
+            let down = s >> 1;
+            let up = s -% down;
+
+            let b_mask = (1 << down) -% 1;
+            let e_mask = (1 << up) -% 1;
+
+            let b = (_index >> up) & b_mask;
+            let e = _index & e_mask;
+
+            let before = b_mask << 1 +% b_mask +% 1;
+            (Nat32.toNat(before +% b), Nat32.toNat(e));
+        };
     };
 
     let GET_ERROR = "Vector index out of bounds in get";
