@@ -8,6 +8,7 @@ import Option "mo:base/Option";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
 import Prelude "mo:base/Prelude";
+import Nat16 "mo:base/Nat16";
 
 module {
     let INTERNAL_ERROR = "Index out of bounds or internal error in Vector";
@@ -121,14 +122,11 @@ module {
     };
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
-        let sz = Nat32.fromNat(size(vec));
-        let lz = Nat32.bitcountLeadingZero(sz);
-
-        if ((0xFFFF_FFFF >> lz) == sz) {
-            let super_block_capacity = Nat32.toNat(1 << ((32 - lz) >> 1));
+        let i_block = Nat32.fromNat(vec.i_block);
+        if ((i_block << Nat32.bitcountLeadingZero(i_block)) << 2 == 0) {
+            let super_block_capacity = Nat32.toNat(1 << ((32 - Nat32.bitcountLeadingZero(Nat32.fromNat(size(vec)))) >> 1));
             let new_length = vec.i_block + super_block_capacity;
             if (new_length < vec.data_blocks.size()) {
-                Debug.print(Nat.toText(new_length));
                 vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
                     vec.data_blocks[i];
                 });
@@ -171,14 +169,14 @@ module {
     func locate<X>(index : Nat) : (Nat, Nat) {
         // it's convinient to work with index + 1
         let i = Nat32.fromNat(index) +% 1;
-        if (i == 0) {
-            // We should check if index == 2 ** 32 - 1
-            Prim.trap("Vector index out of bounds in locate");
-        };
         let lz = Nat32.bitcountLeadingZero(i);
         // super block s = bit length - 1 = (32 - leading zeros) - 1
         // split to cases to apply different optimizations in each one
         if (lz & 1 == 0) {
+            if (i == 0) {
+                // We should check if index == 2 ** 32 - 1
+                Prim.trap("Vector index out of bounds in locate");
+            };
             // ceil(s / 2) = floor((s + 1) / 2)
             let up = (32 -% lz) >> 1;
             // element mask = ceil(s / 2) ones in binary
