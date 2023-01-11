@@ -20,7 +20,7 @@ module {
     };
 
     public type Vector<X> = {
-        var data_blocks : [var ?[var ?X]]; // the index block
+        var data_blocks : [var [var ?X]]; // the index block
         // new element should be assigned to exaclty data_blocks[i_block][i_element]
         // i_block is in range [0; data_blocks.size()]
         var i_block : Nat;
@@ -41,12 +41,9 @@ module {
     };
 
     public func clone<X>(vec : Vector<X>) : Vector<X> = {
-        var data_blocks = Array.tabulateVar<?[var ?X]>(
+        var data_blocks = Array.tabulateVar<[var ?X]>(
             vec.data_blocks.size(),
-            func (i) = Option.map(
-                vec.data_blocks[i],
-                func(block : [var ?X]) : [var ?X] = Array.tabulateVar<?X>(block.size(), func(j) = block[j])
-            )
+            func (i) = Array.tabulateVar<?X>(vec.data_blocks[i].size(), func(j) = vec.data_blocks[i][j])
         );
         var i_block = vec.i_block;
         var i_element = vec.i_element;
@@ -81,11 +78,11 @@ module {
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
             let new_length = if (vec.i_block == 0) 1 else vec.i_block * 2;
-            vec.data_blocks := Array.tabulateVar<?[var ?X]>(new_length, func(i) {
+            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
                 if (i < vec.i_block) {
                     vec.data_blocks[i];
                 } else {
-                    null
+                    [var];
                 }
             });
         }
@@ -98,15 +95,15 @@ module {
             let i_block = vec.i_block;
 
             // When removing last we keep one more data block, so can be not null
-            if (Option.isNull(vec.data_blocks[i_block])) {
+            if (vec.data_blocks[i_block].size() == 0) {
                 let epoch = 32 -% Nat32.bitcountLeadingZero((Nat32.fromNat(i_block) +% 2) / 3);
                 let data_block_capacity = Nat32.toNat(1 << epoch);
 
-                vec.data_blocks[i_block] := ?Array.init<?X>(data_block_capacity, null);
+                vec.data_blocks[i_block] := Array.init<?X>(data_block_capacity, null);
             };
         };
 
-        let last_data_block = unwrap(vec.data_blocks[vec.i_block]);
+        let last_data_block = vec.data_blocks[vec.i_block];
 
         last_data_block[i_element] := ?element;
         
@@ -120,7 +117,7 @@ module {
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.i_block <= vec.data_blocks.size() / 4) {
-            vec.data_blocks := Array.tabulateVar<?[var ?X]>(vec.data_blocks.size() / 2, func(i) {
+            vec.data_blocks := Array.tabulateVar<[var ?X]>(vec.data_blocks.size() / 2, func(i) {
                 vec.data_blocks[i];
             });
         };
@@ -134,21 +131,21 @@ module {
                 return null;
             };
             i_block -= 1;
-            i_element := unwrap(vec.data_blocks[i_block]).size();
+            i_element := vec.data_blocks[i_block].size();
 
             shrink_index_block_if_needed(vec);
 
             // Keep one totally empty block when removing
             if (i_block + 2 < vec.data_blocks.size()) {
-                if (Option.isNull(vec.data_blocks[i_block + 2])) {
-                    vec.data_blocks[i_block + 2] := null;
+                if (vec.data_blocks[i_block + 2].size() == 0) {
+                    vec.data_blocks[i_block + 2] := [var];
                 }
             };
             vec.i_block := i_block;
         };
         i_element -= 1;
 
-        var last_data_block = unwrap(vec.data_blocks[vec.i_block]);
+        var last_data_block = vec.data_blocks[vec.i_block];
         
         let element = last_data_block[i_element];
         last_data_block[i_element] := null;
@@ -194,32 +191,19 @@ module {
 
     public func get<X>(vec : Vector<X>, index : Nat) : X {
         let (a, b) = locate(index);
-        if (a > vec.i_block) {
+        if (a > vec.i_block or a == vec.i_block and b > vec.i_element) {
             Prim.trap(GET_ERROR);
         } else {
-            switch(vec.data_blocks[a]) {
-                case (null) Prim.trap(GET_ERROR);
-                case (?block) {
-                    switch (block[b]) {
-                        case (null) Prim.trap(GET_ERROR);
-                        case (?element) return element;
-                    };
-                };
-            };
+            unwrap(vec.data_blocks[a][b]);
         };
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
         let (a, b) = locate(index);
-        if (a > vec.i_block) {
+        if (a > vec.i_block or a == vec.i_block and b > vec.i_element) {
             return null;
         } else {
-            switch(vec.data_blocks[a]) {
-                case (null) return null;
-                case (?block) {
-                    return block[b];
-                };
-            };
+            vec.data_blocks[a][b];
         };
     };
 
@@ -227,18 +211,10 @@ module {
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
         let (a, b) = locate(index);
-        if (a > vec.i_block) {
+        if (a > vec.i_block or a == vec.i_block and b > vec.i_element) {
             Prim.trap(PUT_ERROR);
         } else {
-            switch(vec.data_blocks[a]) {
-                case (null) Prim.trap(PUT_ERROR);
-                case (?block) {
-                    switch (block[b]) {
-                        case (null) Prim.trap(PUT_ERROR);
-                        case _ block[b] := ?value;
-                    };
-                };
-            };
+            vec.data_blocks[a][b] := ?value;
         };
     };
 
@@ -250,20 +226,19 @@ module {
             if (i_block >= vec.data_blocks.size()) {
                 return null;
             };
-            switch (vec.data_blocks[i_block]) {
+            let block = vec.data_blocks[i_block];
+            if (block.size() == 0) {
+                return null;
+            };
+            switch (block[i_element]) {
                 case (null) return null;
-                case (?block) {
-                    switch (block[i_element]) {
-                        case (null) return null;
-                        case (?element) {
-                            i_element += 1;
-                            if (i_element == block.size()) {
-                                i_block += 1;
-                                i_element := 0;
-                            };
-                            return ?element;
-                        };
+                case (?element) {
+                    i_element += 1;
+                    if (i_element == block.size()) {
+                        i_block += 1;
+                        i_element := 0;
                     };
+                    return ?element;
                 };
             };
         };
