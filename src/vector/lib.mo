@@ -107,9 +107,9 @@ module {
     };
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
-        let i_block = Nat32.fromNat(vec.i_block);
+        let i_block = Nat32.fromNat(vec.i_block) +% 2;
         if ((i_block << Nat32.bitcountLeadingZero(i_block)) << 2 == 0) {
-            let super_block_capacity = Nat32.toNat(1 << ((32 - Nat32.bitcountLeadingZero(Nat32.fromNat(size(vec)))) >> 1));
+            let super_block_capacity = Nat32.toNat(1 << ((31 - Nat32.bitcountLeadingZero(Nat32.fromNat(size(vec)) +% 1)) >> 1));
             let new_length = vec.i_block + super_block_capacity;
             if (new_length < vec.data_blocks.size()) {
                 vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
