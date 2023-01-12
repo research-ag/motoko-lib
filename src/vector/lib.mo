@@ -3,6 +3,7 @@ import Nat32 "mo:base/Nat32";
 import Nat "mo:base/Nat";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
+import Debug "mo:base/Debug";
 
 module {
     public type Vector<X> = {
@@ -63,13 +64,7 @@ module {
 
     func new_index_block_length<X>(m : Nat32) : Nat {
         // this works correct only when i_block is the first block in the super block
-        Nat32.toNat(m -% 2 + (if (Nat32.bitcountNonZero(m) == 1) { 
-            // m is of the form 2 ** i, blocks in the super block 2 ** (i - 1)
-            m >> 1
-        } else {
-            // m is of the form 3 * 2 ** i, blocks in the super block 2 ** i
-            1 << Nat32.bitcountTrailingZero(m) 
-        }));
+        Nat32.toNat(m -% 2 + 0x40000000 >> Nat32.bitcountLeadingZero(m));
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
