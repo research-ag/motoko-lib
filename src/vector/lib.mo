@@ -177,8 +177,9 @@ module {
                 // We should check if index == 2 ** 32 - 1
                 Prim.trap("Vector index out of bounds in locate");
             };
-            let mask = 0xFFFF >> (lz >> 1);
-            (Nat32.toNat(mask +% (mask >> 1) +% ((i << (lz >> 1)) >> 16) & (mask >> 1)), Nat32.toNat(i & mask));
+            let lz2 = lz >> 1;
+            let mask = 0xFFFF >> lz2; // 16 - lz2
+            (Nat32.toNat((mask ^ 1) +% ((i << lz2) >> 16) & mask), Nat32.toNat(i & mask));
         } else {
             let mask = 0x7FFF >> (lz >> 1);
             (Nat32.toNat(mask << 1 +% ((i << (lz >> 1)) >> 15) & mask), Nat32.toNat(i & mask));
