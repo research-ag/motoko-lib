@@ -165,33 +165,32 @@ module {
         element;
     };  
 
-    // this was optimized in terms of cycles
     func locate<X>(index : Nat) : (Nat, Nat) {
-        // it's convinient to work with index + 1
         let i = Nat32.fromNat(index) +% 1;
         let lz = Nat32.bitcountLeadingZero(i);
-        // super block s = bit length - 1 = (32 - leading zeros) - 1
-        // split to cases to apply different optimizations in each one
+        let lz2 = lz >> 1;
         if (lz & 1 == 0) {
-            if (i == 0) {
-                // We should check if index == 2 ** 32 - 1
-                Prim.trap("Vector index out of bounds in locate");
-            };
-            // lz; 1; 15 - lz2; 16 - lz2
-            let lz2 = lz >> 1;
-            let mask = 0xFFFF >> lz2; // 16 - lz2
+            if (i == 0) Prim.trap("Vector index out of bounds in get");
+            let mask = 0xFFFF >> lz2;
             (Nat32.toNat((mask ^ 1) +% (i << lz2) >> 16), Nat32.toNat(i & mask));
         } else {
-            // lz; 1; 15 - lz2; 15 - lz2
-            // 17 + lz2;        15 - lz2
-            let mask = 0x7FFF >> (lz >> 1); // 15 - lz2
-            (Nat32.toNat(mask << 1 +% ((i << (lz >> 1)) >> 15) & mask), Nat32.toNat(i & mask));
+            let mask = 0x7FFF >> lz2;
+            (Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask), Nat32.toNat(i & mask));
         };
     };
 
     public func get<X>(vec : Vector<X>, index : Nat) : X {
-        let (a, b) = locate(index);
-        unwrap(vec.data_blocks[a][b]);
+        let i = Nat32.fromNat(index) +% 1;
+        let lz = Nat32.bitcountLeadingZero(i);
+        let lz2 = lz >> 1;
+        if (lz & 1 == 0) {
+            if (i == 0) Prim.trap("Vector index out of bounds in get");
+            let mask = 0xFFFF >> lz2;
+            unwrap(vec.data_blocks[Nat32.toNat(mask ^ 1 +% (i << lz2) >> 16)][Nat32.toNat(i & mask)]);
+        } else {
+            let mask = 0x7FFF >> lz2;
+            unwrap(vec.data_blocks[Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask)][Nat32.toNat(i & mask)]);
+        };
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {

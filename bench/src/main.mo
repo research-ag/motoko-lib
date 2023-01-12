@@ -4,10 +4,16 @@ import Iter "mo:base/Iter";
 import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
+import Debug "mo:base/Debug";
+import Nat64 "mo:base/Nat64";
 
 actor {
     let sqrt = 1000;
     let n = 1_000_000;
+
+    func print(f : () -> ()) {
+        Debug.print(Nat64.toText(E.countInstructions(f)));
+    };
 
     func vector_bench() {
         let a = Vector.new<Nat>();
