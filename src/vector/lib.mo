@@ -148,20 +148,6 @@ module {
 
         vec.i_element := i_element;
         element;
-    };  
-
-    func locate<X>(index : Nat) : (Nat, Nat) {
-        let i = Nat32.fromNat(index) +% 1;
-        let lz = Nat32.bitcountLeadingZero(i);
-        let lz2 = lz >> 1;
-        if (lz & 1 == 0) {
-            if (i == 0) Prim.trap("Vector index out of bounds in get");
-            let mask = 0xFFFF >> lz2;
-            (Nat32.toNat((mask ^ 1) +% (i << lz2) >> 16), Nat32.toNat(i & mask));
-        } else {
-            let mask = 0x7FFF >> lz2;
-            (Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask), Nat32.toNat(i & mask));
-        };
     };
 
     let GET_ERROR = "Vector index out of bounds in get";
