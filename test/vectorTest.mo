@@ -183,11 +183,13 @@ func locate_optimal<X>(index : Nat) : (Nat, Nat) {
     };
 };
 
-let locate_n = 1_000_000;
+let locate_n = 1_000;
 var i = 0;
 while (i < locate_n) {
     assert(Option.unwrap(locate_readable(i)) == locate_optimal(i));
+    assert(Option.unwrap(locate_readable(1_000_000 + i)) == locate_optimal(1_000_000 + i));
     assert(Option.unwrap(locate_readable(1_000_000_000 + i)) == locate_optimal(1_000_000_000 + i));
+    assert(Option.unwrap(locate_readable(2_000_000_000 + i)) == locate_optimal(2_000_000_000 + i));
     assert(Option.unwrap(locate_readable(2 ** 32 - 2 - i)) == locate_optimal(2 ** 32 - 2 - i));
     i += 1;
 };

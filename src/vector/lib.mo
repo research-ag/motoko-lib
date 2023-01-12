@@ -61,23 +61,38 @@ module {
         Nat32.toNat(d << e +% i -% 1 << (e << 1) +% 1 << (e +% 1) -% 1);
     };
 
+    func new_index_block_length<X>(m : Nat32) : Nat {
+        // this works correct only when i_block is the first block in the super block
+        Nat32.toNat(m -% 2 + (if (Nat32.bitcountNonZero(m) == 1) { 
+            // m is of the form 2 ** i, blocks in the super block 2 ** (i - 1)
+            m >> 1
+        } else {
+            // m is of the form 3 * 2 ** i, blocks in the super block 2 ** i
+            1 << Nat32.bitcountTrailingZero(m) 
+        }));
+    };
+
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
-            let m = Nat32.fromNat(vec.i_block) +% 2;            
-            var new_length = Nat32.toNat(m -% 2 + (if (Nat32.bitcountNonZero(m) == 1) { 
-                // m is of the form 2^i, now grow by 2^(i-1)
-                m >> 1
-            } else {
-                // m is of the form 3*2^i, now grow by 2^(i-1)
-                1 << Nat32.bitcountTrailingZero(m) 
-            }));
-            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
+            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_index_block_length(Nat32.fromNat(vec.i_block) +% 2), func(i) {
                 if (i < vec.i_block) {
                     vec.data_blocks[i];
                 } else {
                     [var];
                 };
             });
+        };
+    };
+
+    func shrink_index_block_if_needed<X>(vec : Vector<X>) {
+        let m = Nat32.fromNat(vec.i_block) +% 2;
+        if ((m << Nat32.bitcountLeadingZero(m)) << 2 == 0) {
+            let new_length = new_index_block_length(m);
+            if (new_length < vec.data_blocks.size()) {
+                vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
+                    vec.data_blocks[i];
+                });
+            };
         };
     };
 
@@ -106,19 +121,6 @@ module {
             vec.i_block += 1;
         };
         vec.i_element := i_element;
-    };
-
-    func shrink_index_block_if_needed<X>(vec : Vector<X>) {
-        let i_block = Nat32.fromNat(vec.i_block) +% 2;
-        if ((i_block << Nat32.bitcountLeadingZero(i_block)) << 2 == 0) {
-            let super_block_capacity = Nat32.toNat(1 << ((31 - Nat32.bitcountLeadingZero(Nat32.fromNat(size(vec)) +% 1)) >> 1));
-            let new_length = vec.i_block + super_block_capacity;
-            if (new_length < vec.data_blocks.size()) {
-                vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
-                    vec.data_blocks[i];
-                });
-            };
-        };
     };
 
     public func removeLast<X>(vec : Vector<X>) : ?X {
