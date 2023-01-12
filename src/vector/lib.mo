@@ -1,25 +1,10 @@
 import Prim "mo:⛔";
-import Buffer "mo:base/Buffer";
 import Nat32 "mo:base/Nat32";
 import Nat "mo:base/Nat";
-import Debug "mo:base/Debug";
 import Array "mo:base/Array";
-import Option "mo:base/Option";
 import Iter "mo:base/Iter";
-import Int "mo:base/Int";
-import Prelude "mo:base/Prelude";
-import Nat16 "mo:base/Nat16";
 
 module {
-    let INTERNAL_ERROR = "Index out of bounds or internal error in Vector";
-
-    func unwrap<X>(x : ?X) : X {
-        switch (x) {
-            case (null) Prim.trap(INTERNAL_ERROR);
-            case (?value) value;
-        };
-    };
-
     public type Vector<X> = {
         var data_blocks : [var [var ?X]]; // the index block
         // new element should be assigned to exaclty data_blocks[i_block][i_element]
@@ -179,17 +164,24 @@ module {
         };
     };
 
+    let GET_ERROR = "Vector index out of bounds in get";
+
     public func get<X>(vec : Vector<X>, index : Nat) : X {
         let i = Nat32.fromNat(index) +% 1;
         let lz = Nat32.bitcountLeadingZero(i);
         let lz2 = lz >> 1;
-        if (lz & 1 == 0) {
-            if (i == 0) Prim.trap("Vector index out of bounds in get");
-            let mask = 0xFFFF >> lz2;
-            unwrap(vec.data_blocks[Nat32.toNat(mask ^ 1 +% (i << lz2) >> 16)][Nat32.toNat(i & mask)]);
-        } else {
-            let mask = 0x7FFF >> lz2;
-            unwrap(vec.data_blocks[Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask)][Nat32.toNat(i & mask)]);
+        switch (
+            if (lz & 1 == 0) {
+                if (i == 0) Prim.trap(GET_ERROR);
+                let mask = 0xFFFF >> lz2;
+                vec.data_blocks[Nat32.toNat(mask ^ 1 +% (i << lz2) >> 16)][Nat32.toNat(i & mask)];
+            } else {
+                let mask = 0x7FFF >> lz2;
+                vec.data_blocks[Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask)][Nat32.toNat(i & mask)];
+            }
+        ) {
+            case (?element) element;
+            case (null) Prim.trap(GET_ERROR);
         };
     };
 
@@ -233,7 +225,17 @@ module {
         };
     };
 
+    public func fromIter<X>(iter : Iter.Iter<X>) : Vector<X> {
+        let vec = new<X>();
+        for (element in iter) add(vec, element);
+        vec;
+    };
+
     public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), func(i) = get(vec, i));
 
+    public func fromArray<X>(array : [X]) : Vector<X> = fromIter(array.vals());
+
     public func toVarArray<X>(vec : Vector<X>) : [var X] = Array.tabulateVar<X>(size(vec), func(i) = get(vec, i));
+
+    public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
 };
