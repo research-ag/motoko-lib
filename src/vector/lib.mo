@@ -64,7 +64,7 @@ module {
 
     func new_index_block_length<X>(m : Nat32) : Nat {
         // this works correct only when i_block is the first block in the super block
-        Nat32.toNat(m -% 2 + 0x40000000 >> Nat32.bitcountLeadingZero(m));
+        Nat32.toNat(m -% 2 +% 0x40000000 >> Nat32.bitcountLeadingZero(m));
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
