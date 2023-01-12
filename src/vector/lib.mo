@@ -177,26 +177,11 @@ module {
                 // We should check if index == 2 ** 32 - 1
                 Prim.trap("Vector index out of bounds in locate");
             };
-            // ceil(s / 2) = floor((s + 1) / 2)
-            let up = (32 -% lz) >> 1;
-            // element mask = ceil(s / 2) ones in binary
-            let e_mask = 1 << up -% 1;
-            //block mask = floor(s / 2) ones in binary 
-            let b_mask = e_mask >> 1;
-            // data blocks in even super blocks before current = 2 ** ceil(s / 2) - 1
-            // data blocks in odd super blocks before current = 2 ** floor(s / 2) - 1
-            // data blocks before the super block = element mask + block mask
-            // elements before the super block = 2 ** s - 1, in case of (index + 1) = 2 ** s
-            // first floor(s / 2) bits in (index + 1) after the highest bit = index of data block in super block
-            // the next floor(s / 2) to the end of binary representation of (index + 1) = index of element in data block
-            (Nat32.toNat(e_mask +% b_mask +% (i >> up) & b_mask), Nat32.toNat(i & e_mask));
+            let mask = 0xFFFF >> (lz >> 1);
+            (Nat32.toNat(mask +% (mask >> 1) +% ((i << (lz >> 1)) >> 16) & (mask >> 1)), Nat32.toNat(i & mask));
         } else {
-            let half = (31 -% lz) >> 1;
-            // if super block is even => data blocks in super block = elements in data block
-            // so element mask = block mask
-            let mask = (1 << half) -% 1;
-
-            (Nat32.toNat(mask << 1 +% (i >> half) & mask), Nat32.toNat(i & mask));
+            let mask = 0x7FFF >> (lz >> 1);
+            (Nat32.toNat(mask << 1 +% ((i << (lz >> 1)) >> 15) & mask), Nat32.toNat(i & mask));
         };
     };
 
