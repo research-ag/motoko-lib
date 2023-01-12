@@ -77,22 +77,14 @@ module {
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
-            let m = Nat32.fromNat(vec.i_block) +% 2;
-            // The if-condition above should only be met if m is of the form 2^i or 3*2^i
-            if (Nat32.bitcountNonZero(m) > 2) {
-                Prim.trap("Internal error when growing index block")
-            };
-            
-            var new_length = vec.i_block;
-            if (Nat32.bitcountNonZero(m) == 1) { 
+            let m = Nat32.fromNat(vec.i_block) +% 2;            
+            var new_length = Nat32.toNat(m -% 2 + (if (Nat32.bitcountNonZero(m) == 1) { 
                 // m is of the form 2^i, now grow by 2^(i-1)
-                new_length += Nat32.toNat(m >> 1)
+                m >> 1
             } else {
                 // m is of the form 3*2^i, now grow by 2^(i-1)
-                new_length += Nat32.toNat(1 << Nat32.bitcountTrailingZero(m))
-            }; 
-            Debug.print("new length: " # Nat.toText(new_length));
-
+                1 << Nat32.bitcountTrailingZero(m) 
+            }));
             vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
                 if (i < vec.i_block) {
                     vec.data_blocks[i];
