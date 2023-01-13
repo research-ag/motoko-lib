@@ -185,7 +185,7 @@ module {
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
         let (a,b) = locate(index);
-        if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
+        if (a < vec.i_block) {
             vec.data_blocks[a][b];
         } else {
             return null;
