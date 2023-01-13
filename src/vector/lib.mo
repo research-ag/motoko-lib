@@ -46,7 +46,8 @@ module {
         // Super block s falls in epoch ceil(s/2).
 
         // epoch of last data block
-        let e = 32 -% Nat32.bitcountLeadingZero(d / 3);
+        // e = 32 - lz
+        let lz = Nat32.bitcountLeadingZero(d / 3);
 
         // capacity of all prior epochs combined 
         // capacity_before_e = 2 * 4 ** (e - 1) - 1
@@ -57,9 +58,9 @@ module {
         // then size = d * 2 ** e + i - c
         // where c = blocks_before_e * 2 ** e - capacity_before_e
 
-        //there can be overflows, but the result is without overflows, so use addWrap and subWrap
-
-        Nat32.toNat(d << e +% i -% 1 << (e << 1));
+        // there can be overflows, but the result is without overflows, so use addWrap and subWrap
+        // we don't erase bits by >>, so to use <>> is ok
+        Nat32.toNat(d <>> lz +% i -% (1 <>> lz) <>> lz);
     };
 
     func new_index_block_length<X>(m : Nat32) : Nat {
