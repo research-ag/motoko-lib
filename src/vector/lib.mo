@@ -16,13 +16,13 @@ module {
     };
 
     public func new<X>() : Vector<X> = {
-        var data_blocks = [var]; 
-        var i_block = 0;
+        var data_blocks = [var [var], [var]]; 
+        var i_block = 2;
         var i_element = 0;
     };
 
     public func clear<X>(vec : Vector<X>) {
-        vec.data_blocks := [var];
+        vec.data_blocks := [var [var], [var]];
         vec.i_block := 0;
         vec.i_element := 0;
     };
@@ -46,7 +46,7 @@ module {
         // Super block s falls in epoch ceil(s/2).
 
         // epoch of last data block
-        let e = 32 -% Nat32.bitcountLeadingZero((d +% 2) / 3);
+        let e = 32 -% Nat32.bitcountLeadingZero(d / 3);
 
         // capacity of all prior epochs combined 
         // capacity_before_e = 2 * 4 ** (e - 1) - 1
@@ -64,7 +64,7 @@ module {
 
     func new_index_block_length<X>(m : Nat32) : Nat {
         // this works correct only when i_block is the first block in the super block
-        Nat32.toNat(m -% 2 +% 0x40000000 >> Nat32.bitcountLeadingZero(m));
+        Nat32.toNat(m +% 0x40000000 >> Nat32.bitcountLeadingZero(m));
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
@@ -80,7 +80,7 @@ module {
     };
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
-        let m = Nat32.fromNat(vec.i_block) +% 2;
+        let m = Nat32.fromNat(vec.i_block);
         if ((m << Nat32.bitcountLeadingZero(m)) << 2 == 0) {
             let new_length = new_index_block_length(m);
             if (new_length < vec.data_blocks.size()) {
@@ -99,7 +99,7 @@ module {
 
             // When removing last we keep one more data block, so can be not null
             if (vec.data_blocks[i_block].size() == 0) {
-                let epoch = 32 -% Nat32.bitcountLeadingZero((Nat32.fromNat(i_block) +% 2) / 3);
+                let epoch = 32 -% Nat32.bitcountLeadingZero((Nat32.fromNat(i_block)) / 3);
                 let data_block_capacity = Nat32.toNat(1 << epoch);
 
                 vec.data_blocks[i_block] := Array.init<?X>(data_block_capacity, null);
@@ -158,11 +158,9 @@ module {
         switch (
             if (lz & 1 == 0) {
                 if (i == 0) Prim.trap(GET_ERROR);
-                let mask = 0xFFFF >> lz2;
-                vec.data_blocks[Nat32.toNat(mask ^ 1 +% (i << lz2) >> 16)][Nat32.toNat(i & mask)];
+                vec.data_blocks[Nat32.toNat(((i << lz2) >> 16) | (0x18000 >> lz2))][Nat32.toNat(i & (0xFFFF >> lz2))];
             } else {
-                let mask = 0x7FFF >> lz2;
-                vec.data_blocks[Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask)][Nat32.toNat(i & mask)];
+                vec.data_blocks[Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat32.toNat(i & (0x7FFF >> lz2))];
             }
         ) {
             case (?element) element;
