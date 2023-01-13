@@ -63,14 +63,15 @@ module {
         Nat32.toNat(d <>> lz +% i -% (1 <>> lz) <>> lz);
     };
 
-    func new_index_block_length<X>(m : Nat32) : Nat {
+    func new_index_block_length(i_block : Nat) : Nat {
         // this works correct only when i_block is the first block in the super block
+        let m = Nat32.fromNat(i_block);
         if (m == 1) 2 else Nat32.toNat(m +% 0x40000000 >> Nat32.bitcountLeadingZero(m));
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
-            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_index_block_length(Nat32.fromNat(vec.i_block)), func(i) {
+            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_index_block_length(vec.i_block), func(i) {
                 if (i < vec.i_block) {
                     vec.data_blocks[i];
                 } else {
@@ -83,7 +84,7 @@ module {
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
         let m = Nat32.fromNat(vec.i_block);
         if ((m << Nat32.bitcountLeadingZero(m)) << 2 == 0) {
-            let new_length = new_index_block_length(m);
+            let new_length = new_index_block_length(vec.i_block);
             if (new_length < vec.data_blocks.size()) {
                 vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
                     vec.data_blocks[i];
