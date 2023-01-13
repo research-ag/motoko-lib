@@ -69,7 +69,7 @@ module {
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
-            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_index_block_length(Nat32.fromNat(vec.i_block) +% 2), func(i) {
+            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_index_block_length(Nat32.fromNat(vec.i_block)), func(i) {
                 if (i < vec.i_block) {
                     vec.data_blocks[i];
                 } else {
@@ -158,7 +158,7 @@ module {
         switch (
             if (lz & 1 == 0) {
                 if (i == 0) Prim.trap(GET_ERROR);
-                vec.data_blocks[Nat32.toNat(((i << lz2) >> 16) | (0x18000 >> lz2))][Nat32.toNat(i & (0xFFFF >> lz2))];
+                vec.data_blocks[Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat32.toNat(i & (0xFFFF >> lz2))];
             } else {
                 vec.data_blocks[Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat32.toNat(i & (0x7FFF >> lz2))];
             }
