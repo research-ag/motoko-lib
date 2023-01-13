@@ -9,21 +9,21 @@ module {
     public type Vector<X> = {
         var data_blocks : [var [var ?X]]; // the index block
         // new element should be assigned to exaclty data_blocks[i_block][i_element]
-        // i_block is in range [0; data_blocks.size()]
+        // i_block is in range (0; data_blocks.size()]
         var i_block : Nat;
         // i_element is in range [0; data_blocks[i_block].size())
         var i_element : Nat;
     };
 
     public func new<X>() : Vector<X> = {
-        var data_blocks = [var [var], [var]]; 
-        var i_block = 2;
+        var data_blocks = [var [var]]; 
+        var i_block = 1;
         var i_element = 0;
     };
 
     public func clear<X>(vec : Vector<X>) {
-        vec.data_blocks := [var [var], [var]];
-        vec.i_block := 0;
+        vec.data_blocks := [var [var]];
+        vec.i_block := 1;
         vec.i_element := 0;
     };
 
@@ -59,12 +59,12 @@ module {
 
         //there can be overflows, but the result is without overflows, so use addWrap and subWrap
 
-        Nat32.toNat(d << e +% i -% 1 << (e << 1) +% 1 << (e +% 1) -% 1);
+        Nat32.toNat(d << e +% i -% 1 << (e << 1));
     };
 
     func new_index_block_length<X>(m : Nat32) : Nat {
         // this works correct only when i_block is the first block in the super block
-        Nat32.toNat(m +% 0x40000000 >> Nat32.bitcountLeadingZero(m));
+        if (m == 1) 2 else Nat32.toNat(m +% 0x40000000 >> Nat32.bitcountLeadingZero(m));
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
@@ -99,7 +99,7 @@ module {
 
             // When removing last we keep one more data block, so can be not null
             if (vec.data_blocks[i_block].size() == 0) {
-                let epoch = 32 -% Nat32.bitcountLeadingZero((Nat32.fromNat(i_block)) / 3);
+                let epoch = 32 -% Nat32.bitcountLeadingZero(Nat32.fromNat(i_block) / 3);
                 let data_block_capacity = Nat32.toNat(1 << epoch);
 
                 vec.data_blocks[i_block] := Array.init<?X>(data_block_capacity, null);
@@ -152,12 +152,11 @@ module {
     let GET_ERROR = "Vector index out of bounds in get";
 
     public func get<X>(vec : Vector<X>, index : Nat) : X {
-        let i = Nat32.fromNat(index) +% 1;
+        let i = Nat32.fromNat(index);
         let lz = Nat32.bitcountLeadingZero(i);
         let lz2 = lz >> 1;
         switch (
             if (lz & 1 == 0) {
-                if (i == 0) Prim.trap(GET_ERROR);
                 vec.data_blocks[Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat32.toNat(i & (0xFFFF >> lz2))];
             } else {
                 vec.data_blocks[Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat32.toNat(i & (0x7FFF >> lz2))];
@@ -169,16 +168,13 @@ module {
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
-        let i = Nat32.fromNat(index) +% 1;
+        let i = Nat32.fromNat(index);
         let lz = Nat32.bitcountLeadingZero(i);
         let lz2 = lz >> 1;
         let (a, b) = if (lz & 1 == 0) {
-            if (i == 0) return null;
-            let mask = 0xFFFF >> lz2;
-            (Nat32.toNat(mask ^ 1 +% (i << lz2) >> 16), Nat32.toNat(i & mask));
+            (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
         } else {
-            let mask = 0x7FFF >> lz2;
-            (Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask), Nat32.toNat(i & mask));
+            (Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), Nat32.toNat(i & (0x7FFF >> lz2)));
         };
         if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             vec.data_blocks[a][b];
@@ -190,16 +186,13 @@ module {
     let PUT_ERROR = "Vector index out of bounds in put";
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
-        let i = Nat32.fromNat(index) +% 1;
+        let i = Nat32.fromNat(index);
         let lz = Nat32.bitcountLeadingZero(i);
         let lz2 = lz >> 1;
         let (a, b) = if (lz & 1 == 0) {
-            if (i == 0) Prim.trap(PUT_ERROR);
-            let mask = 0xFFFF >> lz2;
-            (Nat32.toNat(mask ^ 1 +% (i << lz2) >> 16), Nat32.toNat(i & mask));
+            (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
         } else {
-            let mask = 0x7FFF >> lz2;
-            (Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask), Nat32.toNat(i & mask));
+            (Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), Nat32.toNat(i & (0x7FFF >> lz2)));
         };
         if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             vec.data_blocks[a][b] := ?value;
@@ -208,7 +201,7 @@ module {
     };
 
     public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
-        var i_block = 0;
+        var i_block = 1;
         var i_element = 0;
 
         public func next() : ?X {
