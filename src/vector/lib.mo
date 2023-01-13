@@ -150,7 +150,24 @@ module {
 
     let GET_ERROR = "Vector index out of bounds in get";
 
+    func locate(index : Nat) : (Nat, Nat) {
+        let i = Nat32.fromNat(index);
+        let lz = Nat32.bitcountLeadingZero(i);
+        let lz2 = lz >> 1;
+        if (lz & 1 == 0) {
+            (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
+        } else {
+            (Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), Nat32.toNat(i & (0x7FFF >> lz2)));
+        };
+    };
+
     public func get<X>(vec : Vector<X>, index : Nat) : X {
+        // inlined version of:
+        //   let (a,b) = locate(index);
+        //   switch(vec.data_blocks[a][b]) {  
+        //     case (?element) element;
+        //     case (null) Prim.trap(GET_ERROR);
+        //   };
         let i = Nat32.fromNat(index);
         let lz = Nat32.bitcountLeadingZero(i);
         let lz2 = lz >> 1;
@@ -167,14 +184,7 @@ module {
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
-        let i = Nat32.fromNat(index);
-        let lz = Nat32.bitcountLeadingZero(i);
-        let lz2 = lz >> 1;
-        let (a, b) = if (lz & 1 == 0) {
-            (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
-        } else {
-            (Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), Nat32.toNat(i & (0x7FFF >> lz2)));
-        };
+        let (a,b) = locate(index);
         if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             vec.data_blocks[a][b];
         } else {
@@ -185,14 +195,7 @@ module {
     let PUT_ERROR = "Vector index out of bounds in put";
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
-        let i = Nat32.fromNat(index);
-        let lz = Nat32.bitcountLeadingZero(i);
-        let lz2 = lz >> 1;
-        let (a, b) = if (lz & 1 == 0) {
-            (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
-        } else {
-            (Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), Nat32.toNat(i & (0x7FFF >> lz2)));
-        };
+        let (a,b) = locate(index);
         if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             vec.data_blocks[a][b] := ?value;
         } else 
