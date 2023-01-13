@@ -99,10 +99,7 @@ module {
 
             // When removing last we keep one more data block, so can be not null
             if (vec.data_blocks[i_block].size() == 0) {
-                let epoch = 32 -% Nat32.bitcountLeadingZero(Nat32.fromNat(i_block) / 3);
-                let data_block_capacity = Nat32.toNat(1 << epoch);
-
-                vec.data_blocks[i_block] := Array.init<?X>(data_block_capacity, null);
+                vec.data_blocks[i_block] := Array.init<?X>(Nat32.toNat(1 <>> Nat32.bitcountLeadingZero(Nat32.fromNat(i_block) / 3)), null);
             };
         };
 
