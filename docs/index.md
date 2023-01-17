@@ -11,6 +11,7 @@ Modules:
 The Vector data structure is meant to be a replacement for Array when a growable and/or shrinkable data structure is needed.
 It provides random access like Array and Buffer and can grow and shrink at the end like Buffer can.
 Unlike Buffer the memory overhead for allocated but no yet used space is O(sqrt(n)) instead of O(n).
+The data structure is based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999) ([pdf](https://sedgewick.io/wp-content/themes/sedgewick/papers/1999Optimal.pdf)).
 
 ## Sha2
 
