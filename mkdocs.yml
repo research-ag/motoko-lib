@@ -1,0 +1,6 @@
+site_name: Motoko-lib
+site_url: https://research-ag.github.io/motoko-lib/
+nav:
+    - Home: index.md
+    - About: about.md
+theme: readthedocs
