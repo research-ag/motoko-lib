@@ -34,10 +34,11 @@ run(
                 Buffer.toArray(sizes),
                 M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n + 1)))),
             ),
-            test("elements",
+            test(
+                "elements",
                 Vector.toArray(vector),
                 M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
-            )
+            ),
         ],
     ),
 );
@@ -46,10 +47,11 @@ run(
     suite(
         "iterator",
         [
-            test("elements",
+            test(
+                "elements",
                 Iter.toArray(Vector.vals(vector)),
                 M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
-            )
+            ),
         ],
     ),
 );
@@ -67,10 +69,11 @@ run(
                 Vector.size(vector),
                 M.equals(T.nat(n + 1)),
             ),
-            test("elements",
+            test(
+                "elements",
                 Vector.toArray(vector),
                 M.equals(T.array(T.intTestable, Iter.toArray(Iter.revRange(n, 0)))),
-            )
+            ),
         ],
     ),
 );
@@ -89,7 +92,8 @@ run(
                 Vector.size(vector),
                 M.equals(T.nat(0)),
             ),
-            test("elements",
+            test(
+                "elements",
                 Buffer.toArray(removed),
                 M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
             ),
@@ -105,16 +109,17 @@ run(
     suite(
         "addAfterRemove",
         [
-            test("elements",
+            test(
+                "elements",
                 Vector.toArray(vector),
                 M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
-            )
+            ),
         ],
     ),
 );
 
 func locate_readable<X>(index : Nat) : ?(Nat, Nat) {
-    // index is any Nat except for 
+    // index is any Nat except for
     if (index >= 2 ** 32 - 1) {
         // We should check if index == 2 ** 32 - 1
         return null;
@@ -133,7 +138,7 @@ func locate_readable<X>(index : Nat) : ?(Nat, Nat) {
     let up = (s + 1) >> 1;
     // element mask = ceil(s / 2) ones in binary
     let e_mask = 1 << up - 1;
-    //block mask = floor(s / 2) ones in binary 
+    //block mask = floor(s / 2) ones in binary
     let b_mask = 1 << down - 1;
     // data blocks in even super blocks before current = 2 ** ceil(s / 2) - 1
     // data blocks in odd super blocks before current = 2 ** floor(s / 2) - 1
@@ -176,7 +181,7 @@ func locate_optimal<X>(index : Nat) : (Nat, Nat) {
         // blocks before = 2 * 2 ** (s / 2) - 2 = mask << 1
         // data block in super block = (i >> (s / 2)) & mask = (i >> (15 - lz2)) & mask = ((i << lz2) >> 15) & mask
 
-        // we can't repeat the same trick as with even leading zeros, 
+        // we can't repeat the same trick as with even leading zeros,
         // because of the corner case index = 0 => i = 1, mask = 0, blocks before = 0
         let mask = 0x7FFF >> lz2;
         (Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask), Nat32.toNat(i & mask));
@@ -186,19 +191,16 @@ func locate_optimal<X>(index : Nat) : (Nat, Nat) {
 let locate_n = 1_000;
 var i = 0;
 while (i < locate_n) {
-    assert(Option.unwrap(locate_readable(i)) == locate_optimal(i));
-    assert(Option.unwrap(locate_readable(1_000_000 + i)) == locate_optimal(1_000_000 + i));
-    assert(Option.unwrap(locate_readable(1_000_000_000 + i)) == locate_optimal(1_000_000_000 + i));
-    assert(Option.unwrap(locate_readable(2_000_000_000 + i)) == locate_optimal(2_000_000_000 + i));
-    assert(Option.unwrap(locate_readable(2 ** 32 - 2 - i)) == locate_optimal(2 ** 32 - 2 - i));
+    assert (Option.unwrap(locate_readable(i)) == locate_optimal(i));
+    assert (Option.unwrap(locate_readable(1_000_000 + i)) == locate_optimal(1_000_000 + i));
+    assert (Option.unwrap(locate_readable(1_000_000_000 + i)) == locate_optimal(1_000_000_000 + i));
+    assert (Option.unwrap(locate_readable(2_000_000_000 + i)) == locate_optimal(2_000_000_000 + i));
+    assert (Option.unwrap(locate_readable(2 ** 32 - 2 - i)) == locate_optimal(2 ** 32 - 2 - i));
     i += 1;
 };
 
 func locate(i : Nat32) : (Nat32, Nat32) {
     let lz = Nat32.bitcountLeadingZero(i);
     let lz2 = lz >> 1;
-    if (lz & 1 == 0)
-        (((i << lz2) >> 16) ^ (0x10000 >> lz2), i & (0xFFFF >> lz2))
-     else
-        (((i << lz2) >> 15) ^ (0x18000 >> lz2), i & (0x7FFF >> lz2));
+    if (lz & 1 == 0)(((i << lz2) >> 16) ^ (0x10000 >> lz2), i & (0xFFFF >> lz2)) else (((i << lz2) >> 15) ^ (0x18000 >> lz2), i & (0x7FFF >> lz2));
 };

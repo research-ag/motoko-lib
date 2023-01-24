@@ -24,7 +24,7 @@ actor {
         };
         i := 0;
         while (i < n) {
-            assert(Vector.get(a, i) == i);
+            assert (Vector.get(a, i) == i);
             i += 1;
         };
     };
@@ -38,7 +38,7 @@ actor {
         };
         i := 0;
         while (i < n) {
-            assert(a.get(i) == i);
+            assert (a.get(i) == i);
             i += 1;
         };
     };
@@ -62,7 +62,7 @@ actor {
         while (x < sqrt * sqrt) {
             let i = x / sqrt;
             let j = x % sqrt;
-            assert(Option.unwrap(Option.unwrap(a[i])[j]) == x);
+            assert (Option.unwrap(Option.unwrap(a[i])[j]) == x);
             x += 1;
         };
     };
@@ -70,6 +70,6 @@ actor {
     public query func profile_vector() : async Nat64 = async E.countInstructions(vector_bench);
 
     public query func profile_buffer() : async Nat64 = async E.countInstructions(buffer_bench);
-    
+
     public query func profile_array() : async Nat64 = async E.countInstructions(array_bench);
 };

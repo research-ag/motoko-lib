@@ -16,7 +16,7 @@ module {
     };
 
     public func new<X>() : Vector<X> = {
-        var data_blocks = [var [var]]; 
+        var data_blocks = [var [var]];
         var i_block = 1;
         var i_element = 0;
     };
@@ -30,7 +30,7 @@ module {
     public func clone<X>(vec : Vector<X>) : Vector<X> = {
         var data_blocks = Array.tabulateVar<[var ?X]>(
             vec.data_blocks.size(),
-            func (i) = Array.tabulateVar<?X>(vec.data_blocks[i].size(), func(j) = vec.data_blocks[i][j])
+            func(i) = Array.tabulateVar<?X>(vec.data_blocks[i].size(), func(j) = vec.data_blocks[i][j]),
         );
         var i_block = vec.i_block;
         var i_element = vec.i_element;
@@ -49,7 +49,7 @@ module {
         // e = 32 - lz
         let lz = Nat32.bitcountLeadingZero(d / 3);
 
-        // capacity of all prior epochs combined 
+        // capacity of all prior epochs combined
         // capacity_before_e = 2 * 4 ** (e - 1) - 1
 
         // data blocks in all prior epochs combined
@@ -70,13 +70,16 @@ module {
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
-            vec.data_blocks := Array.tabulateVar<[var ?X]>(new_index_block_length(Nat32.fromNat(vec.i_block)), func(i) {
-                if (i < vec.i_block) {
-                    vec.data_blocks[i];
-                } else {
-                    [var];
-                };
-            });
+            vec.data_blocks := Array.tabulateVar<[var ?X]>(
+                new_index_block_length(Nat32.fromNat(vec.i_block)),
+                func(i) {
+                    if (i < vec.i_block) {
+                        vec.data_blocks[i];
+                    } else {
+                        [var];
+                    };
+                },
+            );
         };
     };
 
@@ -85,9 +88,12 @@ module {
         if ((i_block << Nat32.bitcountLeadingZero(i_block)) << 2 == 0) {
             let new_length = new_index_block_length(i_block);
             if (new_length < vec.data_blocks.size()) {
-                vec.data_blocks := Array.tabulateVar<[var ?X]>(new_length, func(i) {
-                    vec.data_blocks[i];
-                });
+                vec.data_blocks := Array.tabulateVar<[var ?X]>(
+                    new_length,
+                    func(i) {
+                        vec.data_blocks[i];
+                    },
+                );
             };
         };
     };
@@ -107,7 +113,7 @@ module {
         let last_data_block = vec.data_blocks[vec.i_block];
 
         last_data_block[i_element] := ?element;
-        
+
         i_element += 1;
         if (i_element == last_data_block.size()) {
             i_element := 0;
@@ -132,14 +138,14 @@ module {
             if (i_block + 2 < vec.data_blocks.size()) {
                 if (vec.data_blocks[i_block + 2].size() == 0) {
                     vec.data_blocks[i_block + 2] := [var];
-                }
+                };
             };
             vec.i_block := i_block;
         };
         i_element -= 1;
 
         var last_data_block = vec.data_blocks[vec.i_block];
-        
+
         let element = last_data_block[i_element];
         last_data_block[i_element] := null;
 
@@ -163,7 +169,7 @@ module {
     public func get<X>(vec : Vector<X>, index : Nat) : X {
         // inlined version of:
         //   let (a,b) = locate(index);
-        //   switch(vec.data_blocks[a][b]) {  
+        //   switch(vec.data_blocks[a][b]) {
         //     case (?element) element;
         //     case (null) Prim.trap(GET_ERROR);
         //   };
@@ -175,7 +181,7 @@ module {
                 vec.data_blocks[Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat32.toNat(i & (0xFFFF >> lz2))];
             } else {
                 vec.data_blocks[Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat32.toNat(i & (0x7FFF >> lz2))];
-            }
+            },
         ) {
             case (?element) element;
             case (null) Prim.trap(GET_ERROR);
@@ -183,7 +189,7 @@ module {
     };
 
     public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
-        let (a,b) = locate(index);
+        let (a, b) = locate(index);
         if (a < vec.i_block or vec.i_element != 0 and a == vec.i_block) {
             vec.data_blocks[a][b];
         } else {
@@ -194,11 +200,10 @@ module {
     let PUT_ERROR = "Vector index out of bounds in put";
 
     public func put<X>(vec : Vector<X>, index : Nat, value : X) {
-        let (a,b) = locate(index);
+        let (a, b) = locate(index);
         if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
             vec.data_blocks[a][b] := ?value;
-        } else 
-            Prim.trap(PUT_ERROR);
+        } else Prim.trap(PUT_ERROR);
     };
 
     public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
