@@ -1,5 +1,6 @@
 import Prim "mo:⛔";
 import Nat32 "mo:base/Nat32";
+import { bitcountLeadingZero = leadingZeros } "mo:base/Nat32";
 import Nat "mo:base/Nat";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
@@ -50,7 +51,7 @@ module {
 
         // epoch of last data block
         // e = 32 - lz
-        let lz = Nat32.bitcountLeadingZero(d / 3);
+        let lz = leadingZeros(d / 3);
 
         // capacity of all prior epochs combined
         // capacity_before_e = 2 * 4 ** (e - 1) - 1
@@ -68,7 +69,7 @@ module {
 
     func new_index_block_length(i_block : Nat32) : Nat {
         // this works correct only when i_block is the first block in the super block
-        if (i_block == 1) 2 else Nat32.toNat(i_block +% 0x40000000 >> Nat32.bitcountLeadingZero(i_block));
+        if (i_block == 1) 2 else Nat32.toNat(i_block +% 0x40000000 >> leadingZeros(i_block));
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
@@ -88,7 +89,7 @@ module {
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
         let i_block = Nat32.fromNat(vec.i_block);
-        if ((i_block << Nat32.bitcountLeadingZero(i_block)) << 2 == 0) {
+        if ((i_block << leadingZeros(i_block)) << 2 == 0) {
             let new_length = new_index_block_length(i_block);
             if (new_length < vec.data_blocks.size()) {
                 vec.data_blocks := Array.tabulateVar<[var ?X]>(
@@ -110,7 +111,7 @@ module {
             // When removing last we keep one more data block, so can be not null
             if (vec.data_blocks[i_block].size() == 0) {
                 vec.data_blocks[i_block] := Array.init<?X>(
-                    Nat32.toNat(1 <>> Nat32.bitcountLeadingZero(Nat32.fromNat(i_block) / 3)),
+                    Nat32.toNat(1 <>> leadingZeros(Nat32.fromNat(i_block) / 3)),
                     null,
                 );
             };
@@ -163,7 +164,7 @@ module {
 
     func locate(index : Nat) : (Nat, Nat) {
         let i = Nat32.fromNat(index);
-        let lz = Nat32.bitcountLeadingZero(i);
+        let lz = leadingZeros(i);
         let lz2 = lz >> 1;
         if (lz & 1 == 0) {
             (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
@@ -180,7 +181,7 @@ module {
         //     case (null) Prim.trap(GET_ERROR);
         //   };
         let i = Nat32.fromNat(index);
-        let lz = Nat32.bitcountLeadingZero(i);
+        let lz = leadingZeros(i);
         let lz2 = lz >> 1;
         switch (
             if (lz & 1 == 0) {
