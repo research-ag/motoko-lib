@@ -2,7 +2,6 @@ import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = toNat32; toNat } "mo:base/Nat32";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
 
 module {
   public type Vector<X> = {
