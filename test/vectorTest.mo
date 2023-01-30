@@ -8,8 +8,6 @@ import Prim "mo:⛔";
 import Iter "mo:base/Iter";
 import Buffer "mo:base/Buffer";
 import Option "mo:base/Option";
-import Debug "mo:base/Debug";
-import Nat "mo:base/Nat";
 import Array "mo:base/Array";
 import Nat32 "mo:base/Nat32";
 
@@ -160,7 +158,7 @@ func locate_optimal<X>(index : Nat) : (Nat, Nat) {
   // we split into cases to apply different optimizations in each one
   if (lz & 1 == 0) {
     // check index == 2 ** 32 - 1 as late as possible
-    if (i == 0) Prim.trap("Error");
+    if (i == 0) Prim.trap "Error";
     // ceil(s / 2)  = 16 - lz2
     // floor(s / 2) = 15 - lz2
     // i in binary = zeroes; 1; bits blocks mask; bits element mask
