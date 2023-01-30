@@ -64,9 +64,10 @@ module {
     Nat((d -% (1 <>> lz)) <>> lz +% i);
   };
 
-  func new_index_block_length(i_block : Nat32) : Nat =
-  // this works correct only when i_block is the first block in the super block
-  if (i_block == 1) 2 else Nat(i_block +% 0x40000000 >> leadingZeros(i_block));
+  func new_index_block_length(i_block : Nat32) : Nat {
+    // this works correct only when i_block is the first block in the super block
+    if (i_block == 1) 2 else Nat(i_block +% 0x40000000 >> leadingZeros(i_block));
+  };
 
   func grow_index_block_if_needed<X>(vec : Vector<X>) {
     if (vec.data_blocks.size() == vec.i_block) {
