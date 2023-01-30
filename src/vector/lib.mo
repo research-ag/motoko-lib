@@ -1,7 +1,5 @@
 import Prim "mo:⛔";
-import Nat32 "mo:base/Nat32";
-import { bitcountLeadingZero = leadingZeros } "mo:base/Nat32";
-import Nat "mo:base/Nat";
+import { bitcountLeadingZero = leadingZeros; fromNat = toNat32; toNat } "mo:base/Nat32";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
@@ -41,8 +39,8 @@ module {
     };
 
     public func size<X>(vec : Vector<X>) : Nat {
-        let d = Nat32.fromNat(vec.i_block);
-        let i = Nat32.fromNat(vec.i_element);
+        let d = toNat32(vec.i_block);
+        let i = toNat32(vec.i_element);
 
         // We call all data blocks of the same capacity an "epoch". We number the epochs 0,1,2,...
         // A data block is in epoch e iff the data block has capacity 2 ** e.
@@ -64,18 +62,18 @@ module {
 
         // there can be overflows, but the result is without overflows, so use addWrap and subWrap
         // we don't erase bits by >>, so to use <>> is ok
-        Nat32.toNat((d -% (1 <>> lz)) <>> lz +% i);
+        toNat((d -% (1 <>> lz)) <>> lz +% i);
     };
 
     func new_index_block_length(i_block : Nat32) : Nat {
         // this works correct only when i_block is the first block in the super block
-        if (i_block == 1) 2 else Nat32.toNat(i_block +% 0x40000000 >> leadingZeros(i_block));
+        if (i_block == 1) 2 else toNat(i_block +% 0x40000000 >> leadingZeros(i_block));
     };
 
     func grow_index_block_if_needed<X>(vec : Vector<X>) {
         if (vec.data_blocks.size() == vec.i_block) {
             vec.data_blocks := Array.tabulateVar<[var ?X]>(
-                new_index_block_length(Nat32.fromNat(vec.i_block)),
+                new_index_block_length(toNat32(vec.i_block)),
                 func(i) {
                     if (i < vec.i_block) {
                         vec.data_blocks[i];
@@ -88,7 +86,7 @@ module {
     };
 
     func shrink_index_block_if_needed<X>(vec : Vector<X>) {
-        let i_block = Nat32.fromNat(vec.i_block);
+        let i_block = toNat32(vec.i_block);
         if ((i_block << leadingZeros(i_block)) << 2 == 0) {
             let new_length = new_index_block_length(i_block);
             if (new_length < vec.data_blocks.size()) {
@@ -111,7 +109,7 @@ module {
             // When removing last we keep one more data block, so can be not null
             if (vec.data_blocks[i_block].size() == 0) {
                 vec.data_blocks[i_block] := Array.init<?X>(
-                    Nat32.toNat(1 <>> leadingZeros(Nat32.fromNat(i_block) / 3)),
+                    toNat(1 <>> leadingZeros(toNat32(i_block) / 3)),
                     null,
                 );
             };
@@ -163,13 +161,13 @@ module {
     let GET_ERROR = "Vector index out of bounds in get";
 
     func locate(index : Nat) : (Nat, Nat) {
-        let i = Nat32.fromNat(index);
+        let i = toNat32(index);
         let lz = leadingZeros(i);
         let lz2 = lz >> 1;
         if (lz & 1 == 0) {
-            (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
+            (toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), toNat(i & (0xFFFF >> lz2)));
         } else {
-            (Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), Nat32.toNat(i & (0x7FFF >> lz2)));
+            (toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), toNat(i & (0x7FFF >> lz2)));
         };
     };
 
@@ -180,14 +178,14 @@ module {
         //     case (?element) element;
         //     case (null) Prim.trap(GET_ERROR);
         //   };
-        let i = Nat32.fromNat(index);
+        let i = toNat32(index);
         let lz = leadingZeros(i);
         let lz2 = lz >> 1;
         switch (
             if (lz & 1 == 0) {
-                vec.data_blocks[Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat32.toNat(i & (0xFFFF >> lz2))];
+                vec.data_blocks[toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][toNat(i & (0xFFFF >> lz2))];
             } else {
-                vec.data_blocks[Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat32.toNat(i & (0x7FFF >> lz2))];
+                vec.data_blocks[toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][toNat(i & (0x7FFF >> lz2))];
             },
         ) {
             case (?element) element;
