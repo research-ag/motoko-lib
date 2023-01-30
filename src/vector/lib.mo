@@ -155,7 +155,7 @@ module {
         last_data_block[i_element] := null;
 
         vec.i_element := i_element;
-        element;
+        return element;
     };
 
     let GET_ERROR = "Vector index out of bounds in get";
@@ -198,7 +198,7 @@ module {
         if (a < vec.i_block or vec.i_element != 0 and a == vec.i_block) {
             vec.data_blocks[a][b];
         } else {
-            return null;
+            null;
         };
     };
 
