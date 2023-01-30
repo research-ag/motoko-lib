@@ -156,8 +156,6 @@ module {
     return element;
   };
 
-  let GET_ERROR = "Vector index out of bounds in get";
-
   func locate(index : Nat) : (Nat, Nat) {
     let i = toNat32(index);
     let lz = leadingZeros(i);
@@ -174,7 +172,7 @@ module {
     //   let (a,b) = locate(index);
     //   switch(vec.data_blocks[a][b]) {
     //     case (?element) element;
-    //     case (null) Prim.trap(GET_ERROR);
+    //     case (null) Prim.trap "";
     //   };
     let i = toNat32(index);
     let lz = leadingZeros(i);
@@ -187,7 +185,7 @@ module {
       },
     ) {
       case (?element) element;
-      case (null) Prim.trap(GET_ERROR);
+      case (null) Prim.trap "Vector index out of bounds in get";
     };
   };
 
@@ -200,13 +198,11 @@ module {
     };
   };
 
-  let PUT_ERROR = "Vector index out of bounds in put";
-
   public func put<X>(vec : Vector<X>, index : Nat, value : X) {
     let (a, b) = locate(index);
     if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
       vec.data_blocks[a][b] := ?value;
-    } else Prim.trap(PUT_ERROR);
+    } else Prim.trap "Vector index out of bounds in put";
   };
 
   public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
