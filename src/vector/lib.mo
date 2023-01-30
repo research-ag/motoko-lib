@@ -30,7 +30,10 @@ module {
     public func clone<X>(vec : Vector<X>) : Vector<X> = {
         var data_blocks = Array.tabulateVar<[var ?X]>(
             vec.data_blocks.size(),
-            func(i) = Array.tabulateVar<?X>(vec.data_blocks[i].size(), func(j) = vec.data_blocks[i][j]),
+            func(i) = Array.tabulateVar<?X>(
+                vec.data_blocks[i].size(),
+                func(j) = vec.data_blocks[i][j],
+            ),
         );
         var i_block = vec.i_block;
         var i_element = vec.i_element;
@@ -106,7 +109,10 @@ module {
 
             // When removing last we keep one more data block, so can be not null
             if (vec.data_blocks[i_block].size() == 0) {
-                vec.data_blocks[i_block] := Array.init<?X>(Nat32.toNat(1 <>> Nat32.bitcountLeadingZero(Nat32.fromNat(i_block) / 3)), null);
+                vec.data_blocks[i_block] := Array.init<?X>(
+                    Nat32.toNat(1 <>> Nat32.bitcountLeadingZero(Nat32.fromNat(i_block) / 3)),
+                    null,
+                );
             };
         };
 
