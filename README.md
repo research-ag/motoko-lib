@@ -9,8 +9,8 @@ Vector with O(sqrt(n)) memory waste based on paper "Resizable Arrays in Optimal 
 
 A new optimization of the whole Sha2 family. The incremental cost per block/chunk is:
 
-sha224/sha256: 27,596 cycles per chunk (64 bytes) or 431 cycles per byte
-sha512 variants: 40,128 cycles per chunk (128 bytes) or 313 cycles per byte
+* sha224/sha256: 27,596 cycles per chunk (64 bytes) or 431 cycles per byte
+* sha512 variants: 40,128 cycles per chunk (128 bytes) or 313 cycles per byte
 
 (For comparison this is roughly 80% faster than most other implementations that are being widely used right now.) 
 
