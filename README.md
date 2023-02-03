@@ -7,12 +7,21 @@ Vector with O(sqrt(n)) memory waste based on paper "Resizable Arrays in Optimal 
 
 ## sha2
 
-A new optimization of the whole Sha2 family. The incremental cost per block/chunk is:
+A new optimization of the whole Sha2 family. The supported algorithms are:
+
+* sha224
+* sha256
+* sha512-224
+* sha512-256
+* sha384
+* sha512
+
+The incremental cost per block/chunk is:
 
 * sha224/sha256: 27,596 cycles per chunk (64 bytes) or 431 cycles per byte
 * sha512 variants: 40,128 cycles per chunk (128 bytes) or 313 cycles per byte
 
-(Roughly 80% faster than some other popular implementations.) 
+The sha256 have been measured to be approximately 80% faster than the most commonly used implementations. 
 
 # Unit tests
 
