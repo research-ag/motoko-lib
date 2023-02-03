@@ -40,3 +40,4 @@ dfx build --check sha2_bench && ic-repl ic-repl/sha2.sh
 
 ## Sha2
 
+<iframe src="https://embed.smartcontracts.org/motoko/g/22dBpZybfm9PtMARHfxM8RR3VkF7GDW1gXhkPVeGfjQFDAsPsWWiLnRcu32UHrXem316pQJxMb7J3grsrWBTmVhum5sLLu6dh6p734kyfiRhU8Wof1hzWeXehJMt4LdbJnFj25VPJATeLkDr8HCquWpyW1zRPsRzVX8JjXeLiRowhxu1czC4MLPtCJzRTi11?lines=7" width="100%" height="288" style="border:0" title="Motoko code snippet" />
