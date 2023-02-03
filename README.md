@@ -14,7 +14,7 @@ A new optimization of the whole Sha2 family. The incremental cost per block/chun
 
 (Roughly 80% faster than some other popular implementations.) 
 
-# Run unit tests
+# Unit tests
 
 ```
 cd test
@@ -23,7 +23,7 @@ make
 
 Or, run individual tests by `make vector`, `make sha2`, etc.
 
-# Run benchmark
+# Benchmarks
 
 ```
 dfx start --background --clean
@@ -31,3 +31,12 @@ cd bench
 dfx build --check vector_bench && ic-repl ic-repl/vector.sh
 dfx build --check sha2_bench && ic-repl ic-repl/sha2.sh
 ```
+
+# Examples
+
+## Vector
+
+<iframe src="https://embed.smartcontracts.org/motoko/g/9KrDof3FNdp1qgWFnTzABEdBZF9virfqsZ3Lf8ryFgR3toa4bV962Jiik3uV3dpn2ASmyatiiTJuuWNbttd8j2yqpjqNWr3svT5QPukqbDdDonPGpPsKvKfWTzuSPAM5YZwNbS3XZE4Pt16y9Y4nm4qNE229ERkrjTYYd4Z8Zzr?lines=8" width="100%" height="312" style="border:0" title="Motoko code snippet" />
+
+## Sha2
+
