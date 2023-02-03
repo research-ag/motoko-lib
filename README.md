@@ -36,8 +36,27 @@ dfx build --check sha2_bench && ic-repl ic-repl/sha2.sh
 
 ## Vector
 
-<iframe src="https://embed.smartcontracts.org/motoko/g/9KrDof3FNdp1qgWFnTzABEdBZF9virfqsZ3Lf8ryFgR3toa4bV962Jiik3uV3dpn2ASmyatiiTJuuWNbttd8j2yqpjqNWr3svT5QPukqbDdDonPGpPsKvKfWTzuSPAM5YZwNbS3XZE4Pt16y9Y4nm4qNE229ERkrjTYYd4Z8Zzr?lines=8" width="100%" height="312" style="border:0" title="Motoko code snippet" />
+```
+//@package mrr research-ag/motoko-lib/main/src
+import Vector "mo:mrr/Vector";
+
+let v = Vector.new<Nat>();
+Vector.add(v,0);
+Vector.add(v,1);
+Vector.toArray(v);
+```
+
+https://embed.smartcontracts.org/motoko/g/9KrDof3FNdp1qgWFnTzABEdBZF9virfqsZ3Lf8ryFgR3toa4bV962Jiik3uV3dpn2ASmyatiiTJuuWNbttd8j2yqpjqNWr3svT5QPukqbDdDonPGpPsKvKfWTzuSPAM5YZwNbS3XZE4Pt16y9Y4nm4qNE229ERkrjTYYd4Z8Zzr?lines=8
 
 ## Sha2
 
-<iframe src="https://embed.smartcontracts.org/motoko/g/22dBpZybfm9PtMARHfxM8RR3VkF7GDW1gXhkPVeGfjQFDAsPsWWiLnRcu32UHrXem316pQJxMb7J3grsrWBTmVhum5sLLu6dh6p734kyfiRhU8Wof1hzWeXehJMt4LdbJnFj25VPJATeLkDr8HCquWpyW1zRPsRzVX8JjXeLiRowhxu1czC4MLPtCJzRTi11?lines=7" width="100%" height="288" style="border:0" title="Motoko code snippet" />
+```
+//@package mrr research-ag/motoko-lib/main/src
+import Sha2 "mo:mrr/Sha2";
+import Blob "mo:base/Blob";
+
+let b = Blob.fromArray([] : [Nat8]);
+Sha2.fromBlob(#sha256,b)
+```
+
+https://embed.smartcontracts.org/motoko/g/22dBpZybfm9PtMARHfxM8RR3VkF7GDW1gXhkPVeGfjQFDAsPsWWiLnRcu32UHrXem316pQJxMb7J3grsrWBTmVhum5sLLu6dh6p734kyfiRhU8Wof1hzWeXehJMt4LdbJnFj25VPJATeLkDr8HCquWpyW1zRPsRzVX8JjXeLiRowhxu1czC4MLPtCJzRTi11?lines=7
