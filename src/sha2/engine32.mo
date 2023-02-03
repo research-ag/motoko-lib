@@ -179,6 +179,7 @@ module {
         //    b := a;
         //    a := t +% maj +% sigma0;
         //  Inlining saves 608 cycles per block.
+        let maj = (a & b) ^ (a & c) ^ (b & c);
         let t = h +% K[i] +% w[i] +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25);
         h := g;
         g := f;
@@ -187,7 +188,7 @@ module {
         d := c;
         c := b;
         b := a;
-        a := t +% (a & b) ^ (a & c) ^ (b & c) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+        a := t +% maj +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
       };
       // final addition
       state_[0] +%= a;
