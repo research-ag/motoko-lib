@@ -4,7 +4,7 @@ let id = call ic.provisional_create_canister_with_cycles(record { settings = nul
 call ic.install_code(
     record {
         arg = encode ();
-        wasm_module = file(".dfx/local/canisters/bench_canister/bench_canister.wasm");
+        wasm_module = file("../.dfx/local/canisters/vector_bench/vector_bench.wasm");
         mode = variant { install };
         canister_id = id.canister_id;
     },

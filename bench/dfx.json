@@ -1,9 +1,13 @@
 {
   "version": 1,
   "canisters": {
-    "bench_canister": {
+    "vector_bench": {
       "type": "motoko",
-      "main": "src/main.mo"
+      "main": "src/vectorBench.mo"
+    },
+    "sha2_bench": {
+      "type": "motoko",
+      "main": "src/sha2Bench.mo"
     }
   },
   "defaults": {
