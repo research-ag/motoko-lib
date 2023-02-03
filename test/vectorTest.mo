@@ -1,4 +1,4 @@
-import Vector "../src/vector";
+import Vector "../src/Vector";
 
 import Suite "mo:matchers/Suite";
 import T "mo:matchers/Testable";

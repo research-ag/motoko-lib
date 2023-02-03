@@ -1,4 +1,4 @@
-import Vector "../../src/vector";
+import Vector "../../src/Vector";
 import E "mo:base/ExperimentalInternetComputer";
 import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
