@@ -70,3 +70,13 @@ Sha2.fromBlob(#sha256,b)
 ```
 
 https://embed.smartcontracts.org/motoko/g/22dBpZybfm9PtMARHfxM8RR3VkF7GDW1gXhkPVeGfjQFDAsPsWWiLnRcu32UHrXem316pQJxMb7J3grsrWBTmVhum5sLLu6dh6p734kyfiRhU8Wof1hzWeXehJMt4LdbJnFj25VPJATeLkDr8HCquWpyW1zRPsRzVX8JjXeLiRowhxu1czC4MLPtCJzRTi11?lines=7
+
+### More
+
+```
+import Sha2 "mo:mrr/Sha2";
+import Vec "mo:mrr/Vector";
+
+let v = Vec.new<Nat8>();
+Sha2.fromIter(#sha256, Vec.vals(v));
+```
