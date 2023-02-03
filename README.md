@@ -1,11 +1,12 @@
-# Contents
+# motoko-lib
 Motoko general purpose libraries
 
-## vector
+## Library contents
+### Vector
 
 Vector with O(sqrt(n)) memory waste based on paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).
 
-## sha2
+### Sha2
 
 A new optimization of the whole Sha2 family. The supported algorithms are:
 
@@ -23,7 +24,7 @@ The incremental cost per block/chunk is:
 
 The sha256 have been measured to be approximately 80% faster than the most commonly used implementations. 
 
-# Unit tests
+## Unit tests
 
 ```
 cd test
@@ -32,7 +33,7 @@ make
 
 Or, run individual tests by `make vector`, `make sha2`, etc.
 
-# Benchmarks
+## Benchmarks
 
 ```
 dfx start --background --clean
@@ -41,9 +42,9 @@ dfx build --check vector_bench && ic-repl ic-repl/vector.sh
 dfx build --check sha2_bench && ic-repl ic-repl/sha2.sh
 ```
 
-# Examples
+## Examples
 
-## Vector
+### Vector
 
 ```
 //@package mrr research-ag/motoko-lib/main/src
@@ -57,7 +58,7 @@ Vector.toArray(v);
 
 https://embed.smartcontracts.org/motoko/g/9KrDof3FNdp1qgWFnTzABEdBZF9virfqsZ3Lf8ryFgR3toa4bV962Jiik3uV3dpn2ASmyatiiTJuuWNbttd8j2yqpjqNWr3svT5QPukqbDdDonPGpPsKvKfWTzuSPAM5YZwNbS3XZE4Pt16y9Y4nm4qNE229ERkrjTYYd4Z8Zzr?lines=8
 
-## Sha2
+### Sha2
 
 ```
 //@package mrr research-ag/motoko-lib/main/src
