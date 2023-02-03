@@ -1,6 +1,5 @@
 import Vector "../../src/vector";
 import E "mo:base/ExperimentalInternetComputer";
-import Iter "mo:base/Iter";
 import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
