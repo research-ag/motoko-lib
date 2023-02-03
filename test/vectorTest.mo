@@ -200,5 +200,5 @@ while (i < locate_n) {
 func locate(i : Nat32) : (Nat32, Nat32) {
     let lz = Nat32.bitcountLeadingZero(i);
     let lz2 = lz >> 1;
-    if (lz & 1 == 0)(((i << lz2) >> 16) ^ (0x10000 >> lz2), i & (0xFFFF >> lz2)) else (((i << lz2) >> 15) ^ (0x18000 >> lz2), i & (0x7FFF >> lz2));
+    if (lz & 1 == 0) (((i << lz2) >> 16) ^ (0x10000 >> lz2), i & (0xFFFF >> lz2)) else (((i << lz2) >> 15) ^ (0x18000 >> lz2), i & (0x7FFF >> lz2));
 };
