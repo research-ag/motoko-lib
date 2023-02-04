@@ -4,16 +4,6 @@ import Blob "mo:base/Blob";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Sha2 "../src/Sha2";
-import BigEndian "../src/sha2/bigendian";
-
-var n = 20;
-assert BigEndian.fromNat(4, n) == BigEndian.fromNat32(Nat32.fromNat(n));
-assert BigEndian.fromNat(8, n) == BigEndian.fromNat64(Nat64.fromNat(n));
-
-n := 1234567890;
-assert BigEndian.fromNat(4, n) == BigEndian.fromNat32(Nat32.fromNat(n));
-n := 12345678910111213141;
-assert BigEndian.fromNat(8, n) == BigEndian.fromNat64(Nat64.fromNat(n));
 
 // empty string
 

@@ -27,8 +27,14 @@ actor {
         // process_block, state, fromBlob, sum
     };
 
-    public query func profile64() : async Nat64 {
-        E.countInstructions(func(){e64.process_block(block128)});
+    public query func profile64() : async (Nat64, Nat64, Nat64, Nat64) {
+        let a = E.countInstructions(func(){e64.process_block(block128)});
+        let b = E.countInstructions(func(){ignore e64.state()});
+        let c = E.countInstructions(func(){ignore Sha2.fromBlob(#sha512, block0)});
+        let sha512 = Sha2.Digest(#sha512);
+        let d = E.countInstructions(func(){ignore sha512.sum()});
+        (a, b, c, d)
+        // process_block, state, fromBlob, sum
     };
 
 };

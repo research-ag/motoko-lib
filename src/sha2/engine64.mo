@@ -1,9 +1,7 @@
 import Nat64 "mo:base/Nat64";
 import Nat8 "mo:base/Nat8";
 import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
-import BigEndian "./bigendian";
 
 module {
   type Word = Nat64;
@@ -246,20 +244,97 @@ module {
       state_[7] +%= h;
     };
 
+    let digest = Array.init<Nat8>(64,0);
+
     public func state() : [Nat8] {
-      let buf = Buffer.Buffer<Nat8>(64);
-      for (wi in state_.vals()) {
-        let w = BigEndian.fromNat64(wi);
-        buf.add(w[0]);
-        buf.add(w[1]);
-        buf.add(w[2]);
-        buf.add(w[3]);
-        buf.add(w[4]);
-        buf.add(w[5]);
-        buf.add(w[6]);
-        buf.add(w[7]);
+      var s = state_[0];
+      digest[0] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[1] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[2] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[3] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[4] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[5] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[6] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[7] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      s := state_[1];
+      digest[8] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[9] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[10] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[11] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[12] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[13] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[14] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[15] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      s := state_[2];
+      digest[16] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[17] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[18] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[19] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[20] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[21] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[22] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[23] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      s := state_[3];
+      digest[24] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[25] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[26] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[27] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[28] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[29] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[30] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[31] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      s := state_[4];
+      digest[32] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[33] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[34] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[35] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[36] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[37] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[38] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[39] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      s := state_[5];
+      digest[40] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[41] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[42] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[43] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[44] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[45] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[46] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[47] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      s := state_[6];
+      digest[48] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[49] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[50] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[51] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[52] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[53] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[54] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[55] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      s := state_[7];
+      digest[56] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+      digest[57] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+      digest[58] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+      digest[59] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+      digest[60] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+      digest[61] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+      digest[62] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+      digest[63] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+      /*
+      var pos = 0;
+      for (i in [0,1,2,3,4,5,6,7].vals()) {
+        let s = state_[i];
+        digest[pos] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
+        digest[pos+1] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
+        digest[pos+2] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
+        digest[pos+3] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
+        digest[pos+4] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
+        digest[pos+5] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
+        digest[pos+6] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
+        digest[pos+7] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
+        pos += 8;
       };
-      Buffer.toArray(buf);
+      */
+      Array.freeze(digest);
     };
 
   }; // class Engine

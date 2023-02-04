@@ -15,4 +15,6 @@ sha512 variants: 40,128 cycles per chunk (128 bytes) or 313 cycles per byte
 
 This is about 80% faster than most other implementations that are being used right now.  
 
-sha256 of the empty blob takes 66,659 cycles. This means the per message overhead (setting up the Digest class, padding, length bytes, and extraction of the digest) is 39,063 cycles or 141% of the incremental cost of one chunk.
+sha256 of the empty blob takes 66,659 cycles. This means the per message overhead (setting up the Digest class, padding, length bytes, and extraction of the digest) is 39,063 cycles or equivalent ot the incremental cost of 1.41 chunks.
+
+sha512 of the empty blob takes 110,881 cycles. This means the per message overhead (setting up the Digest class, padding, length bytes, and extraction of the digest) is 70,753 cycles or equivalent to the incremental cost of 1.76 chunks.
