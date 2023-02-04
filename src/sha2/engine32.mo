@@ -201,16 +201,19 @@ module {
       state_[7] +%= h;
     };
 
+    let digest = Array.init<Nat8>(32,0);
+
     public func state() : [Nat8] {
-      let buf = Buffer.Buffer<Nat8>(32);
-      for (wi in state_.vals()) {
-        let w = BigEndian.fromNat32(wi);
-        buf.add(w[0]);
-        buf.add(w[1]);
-        buf.add(w[2]);
-        buf.add(w[3]);
+      var pos = 0;
+      for (i in Iter.range(0,7)) {
+        let w = BigEndian.fromNat32(state_[i]);
+        digest[pos] := w[0];
+        digest[pos+1] := w[1];
+        digest[pos+2] := w[2];
+        digest[pos+3] := w[3];
+        pos += 4;
       };
-      Buffer.toArray(buf);
+      Array.freeze(digest);
     };
 
   }; // class Engine

@@ -88,13 +88,15 @@ module {
       let n = len;
 
       // write padding
-      let t = len % block_size;
+      let t = len % block_size; 
       let m : Nat = block_size - len_size;
       let p : Nat = if (m > t) (m - t) else (block_size + m - t);
       let padding = Array.tabulate<Nat8>(p, func(i) { if (i == 0) 0x80 else 0 });
       ignore write(padding.vals());
 
       // write length
+      // Note: this exactly fills the block buffer, hence process_block will get 
+      // triggered inside this write
       ignore write(BigEndian.fromNat(len_size, n * 8).vals());
 
       // retrieve sum
