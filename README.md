@@ -1,6 +1,45 @@
 # motoko-lib
 Motoko general purpose libraries
 
+## Use this library
+
+vessel.dhall:
+```
+{
+  dependencies = [ "base", "mrr" ],
+  compiler = Some "0.7.6"
+}
+```
+
+package-set.dhall:
+```
+[ { dependencies = [] : List Text
+  , name = "base"
+  , repo = "https://github.com/dfinity/motoko-base.git"
+  , version = "moc-0.7.6"
+  }
+, { dependencies = [ "base" ]
+  , name = "mrr"
+  , repo = "https://github.com/research-ag/motoko-lib"
+  , version = "0.1"
+  }
+]
+```
+
+example.mo
+```
+import Sha2 "mo:mrr/Sha2";
+import Vec "mo:mrr/Vector";
+
+actor {
+  let v = Vec.new<Nat8>();
+
+  public query func greet() : async Blob  {
+    Sha2.fromIter(#sha256, Vec.vals(v));
+  };
+};
+```
+
 ## Library contents
 ### Vector
 
@@ -85,13 +124,3 @@ Sha2.fromBlob(#sha256,b)
 ```
 
 https://embed.smartcontracts.org/motoko/g/22dBpZybfm9PtMARHfxM8RR3VkF7GDW1gXhkPVeGfjQFDAsPsWWiLnRcu32UHrXem316pQJxMb7J3grsrWBTmVhum5sLLu6dh6p734kyfiRhU8Wof1hzWeXehJMt4LdbJnFj25VPJATeLkDr8HCquWpyW1zRPsRzVX8JjXeLiRowhxu1czC4MLPtCJzRTi11?lines=7
-
-### More
-
-```
-import Sha2 "mo:mrr/Sha2";
-import Vec "mo:mrr/Vector";
-
-let v = Vec.new<Nat8>();
-Sha2.fromIter(#sha256, Vec.vals(v));
-```
