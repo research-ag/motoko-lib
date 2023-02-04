@@ -5,8 +5,6 @@ import Sha2 "../../src/Sha2";
 import Array "mo:base/Array";
 import Nat8 "mo:base/Nat8";
 import Blob "mo:base/Blob";
-import Buffer "mo:base/Buffer";
-import BigEndian "../../src/sha2/bigendian";
 
 actor {
     let e32 = Engine32.Engine();
@@ -33,22 +31,4 @@ actor {
         E.countInstructions(func(){e64.process_block(block128)});
     };
 
-    public query func profile_state() : async (Nat64, Nat64, Nat64, Nat64) {
-      let a = E.countInstructions(func(){
-        let buf = Buffer.Buffer<Nat8>(32);
-      });
-      let buf = Buffer.Buffer<Nat8>(32);
-      let b = E.countInstructions(func(){
-        let w = BigEndian.fromNat32(0x7f7f7f7f : Nat32);
-      });      
-      let c = E.countInstructions(func(){
-        buf.add(0x7f : Nat8);
-      });
-      let d = E.countInstructions(func(){
-        ignore Buffer.toArray(buf);
-      });
-      (a, b, c, d)
-    };
-    // a + 8 * b + 32 * c + d
-    // 1.9 + 400 + 6.4 + 0.3
 };

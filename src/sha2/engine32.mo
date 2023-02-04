@@ -1,9 +1,7 @@
 import Nat32 "mo:base/Nat32";
 import Nat8 "mo:base/Nat8";
 import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
-import BigEndian "./bigendian";
 
 module {
   type Word = Nat32;
@@ -204,15 +202,46 @@ module {
     let digest = Array.init<Nat8>(32,0);
 
     public func state() : [Nat8] {
-      var pos = 0;
-      for (i in Iter.range(0,7)) {
-        let w = BigEndian.fromNat32(state_[i]);
-        digest[pos] := w[0];
-        digest[pos+1] := w[1];
-        digest[pos+2] := w[2];
-        digest[pos+3] := w[3];
-        pos += 4;
-      };
+      var s = state_[0];
+      digest[0] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[1] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[2] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[3] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
+      s := state_[1];
+      digest[4] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[5] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[6] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[7] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
+      s := state_[2];
+      digest[8] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[9] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[10] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[11] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
+      s := state_[3];
+      digest[12] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[13] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[14] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[15] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
+      s := state_[4];
+      digest[16] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[17] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[18] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[19] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
+      s := state_[5];
+      digest[20] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[21] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[22] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[23] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
+      s := state_[6];
+      digest[24] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[25] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[26] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[27] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
+      s := state_[7];
+      digest[28] := Nat8.fromIntWrap(Nat32.toNat((s >> 24) & 0xff));
+      digest[29] := Nat8.fromIntWrap(Nat32.toNat((s >> 16) & 0xff));
+      digest[30] := Nat8.fromIntWrap(Nat32.toNat((s >> 8) & 0xff));
+      digest[31] := Nat8.fromIntWrap(Nat32.toNat(s & 0xff));
       Array.freeze(digest);
     };
 

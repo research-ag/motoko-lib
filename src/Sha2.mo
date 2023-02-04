@@ -1,10 +1,11 @@
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Blob "mo:base/Blob";
+import Nat64 "mo:base/Nat64";
+import Nat8 "mo:base/Nat8";
 import BB "sha2/bb";
 import Engine32 "sha2/engine32";
 import Engine64 "sha2/engine64";
-import BigEndian "sha2/bigendian";
 
 module {
   public type Algorithm = {
@@ -97,7 +98,22 @@ module {
       // write length
       // Note: this exactly fills the block buffer, hence process_block will get 
       // triggered inside this write
-      ignore write(BigEndian.fromNat(len_size, n * 8).vals());
+      // Note: this implementation cannot handle message length >= 2^64 bits
+      if (len_size == 16) {
+        let eight_zeros : [Nat8] = [0,0,0,0,0,0,0,0];
+        ignore write(eight_zeros.vals());
+      };
+      let n64 = Nat64.fromNat(n) << 3;
+      let len_bytes = Array.init<Nat8>(8,0);
+      len_bytes[0] := Nat8.fromIntWrap(Nat64.toNat((n64 >> 56) & 0xff));
+      len_bytes[1] := Nat8.fromIntWrap(Nat64.toNat((n64 >> 48) & 0xff));
+      len_bytes[2] := Nat8.fromIntWrap(Nat64.toNat((n64 >> 40) & 0xff));
+      len_bytes[3] := Nat8.fromIntWrap(Nat64.toNat((n64 >> 32) & 0xff));
+      len_bytes[4] := Nat8.fromIntWrap(Nat64.toNat((n64 >> 24) & 0xff));
+      len_bytes[5] := Nat8.fromIntWrap(Nat64.toNat((n64 >> 16) & 0xff));
+      len_bytes[6] := Nat8.fromIntWrap(Nat64.toNat((n64 >> 8) & 0xff));
+      len_bytes[7] := Nat8.fromIntWrap(Nat64.toNat(n64 & 0xff));
+      ignore write(len_bytes.vals());
 
       // retrieve sum
       let state = engine.state();

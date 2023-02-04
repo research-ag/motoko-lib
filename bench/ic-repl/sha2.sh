@@ -12,4 +12,3 @@ call ic.install_code(
 let canister = id.canister_id;
 call canister.profile32();
 call canister.profile64();
-call canister.profile_state();
