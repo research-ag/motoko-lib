@@ -22,7 +22,22 @@ The incremental cost per block/chunk is:
 * sha224/sha256: 27,596 cycles per chunk (64 bytes) or 431 cycles per byte
 * sha512 variants: 40,128 cycles per chunk (128 bytes) or 313 cycles per byte
 
-The sha256 have been measured to be approximately 80% faster than the most commonly used implementations. 
+The cost for hashing the empty message is:
+
+* sha256: 66,659 cycles
+* sha512: 110,881 cycles
+
+This means the per message overhead (setting up the Digest class, padding, length bytes, and extraction of the digest) is:
+
+* sha256: 39,063 cycles (equivalent to 1.41 chunks)
+* sha512: 70,753 cycles (equivalent to 1.76 chunks)
+
+### Comparison
+
+We measured the most commonly used sha256 implementations as follows:
+
+* incremental cost per block/chunk: 48,818-49,717 cycles (ours is ~55% of that)
+* cost for hashing empty message: 94,384-98,924 cycles (ours is ~70% of that) 
 
 ## Unit tests
 
