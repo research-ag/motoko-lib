@@ -319,21 +319,6 @@ module {
       digest[61] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
       digest[62] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
       digest[63] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
-      /*
-      var pos = 0;
-      for (i in [0,1,2,3,4,5,6,7].vals()) {
-        let s = state_[i];
-        digest[pos] := Nat8.fromIntWrap(Nat64.toNat((s >> 56) & 0xff));
-        digest[pos+1] := Nat8.fromIntWrap(Nat64.toNat((s >> 48) & 0xff));
-        digest[pos+2] := Nat8.fromIntWrap(Nat64.toNat((s >> 40) & 0xff));
-        digest[pos+3] := Nat8.fromIntWrap(Nat64.toNat((s >> 32) & 0xff));
-        digest[pos+4] := Nat8.fromIntWrap(Nat64.toNat((s >> 24) & 0xff));
-        digest[pos+5] := Nat8.fromIntWrap(Nat64.toNat((s >> 16) & 0xff));
-        digest[pos+6] := Nat8.fromIntWrap(Nat64.toNat((s >> 8) & 0xff));
-        digest[pos+7] := Nat8.fromIntWrap(Nat64.toNat(s & 0xff));
-        pos += 8;
-      };
-      */
       Array.freeze(digest);
     };
 
