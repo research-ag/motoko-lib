@@ -1,24 +1,97 @@
 # motoko-lib
 Motoko general purpose libraries
 
-## vector
+## Library contents
+### Vector
 
 Vector with O(sqrt(n)) memory waste based on paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).
 
-## sha2
+### Sha2
 
-A new implementation of the whole SHA2 family that is also cycle optimized. 
-We benchmarked the incremental cost per block/chunk to be the following:
+A new optimization of the whole Sha2 family. The supported algorithms are:
 
-sha224/sha256: 27,596 cycles per chunk (64 bytes) or 431 cycles per byte
-sha512 variants: 40,128 cycles per chunk (128 bytes) or 313 cycles per byte
+* sha224
+* sha256
+* sha512-224
+* sha512-256
+* sha384
+* sha512
 
-sha256 of the empty blob takes 66,659 cycles. This means the per message overhead (setting up the Digest class, padding, length bytes, and extraction of the digest) is 39,063 cycles or equivalent ot the incremental cost of 1.41 chunks.
+The incremental cost per block/chunk is:
 
-sha512 of the empty blob takes 110,881 cycles. This means the per message overhead (setting up the Digest class, padding, length bytes, and extraction of the digest) is 70,753 cycles or equivalent to the incremental cost of 1.76 chunks.
+* sha224/sha256: 27,596 cycles per chunk (64 bytes) or 431 cycles per byte
+* sha512 variants: 40,128 cycles per chunk (128 bytes) or 313 cycles per byte
+
+The cost for hashing the empty message is:
+
+* sha256: 66,659 cycles
+* sha512: 110,881 cycles
+
+This means the per message overhead (setting up the Digest class, padding, length bytes, and extraction of the digest) is:
+
+* sha256: 39,063 cycles (equivalent to 1.41 chunks)
+* sha512: 70,753 cycles (equivalent to 1.76 chunks)
 
 ### Comparison
 
-We measured other implementations that are being used right now to have an incremental cost per block/chunk of 48,818-49,717 cycles for sha224/sha256. Our cost is ~55% of that.
+We measured the most commonly used sha256 implementations as follows:
 
-We measured other implementations that are being used right now to have a cost of 94,384-98,924 cycles for sha256 of the empty blob. Our implementation is ~70% of that.
+* incremental cost per block/chunk: 48,818-49,717 cycles (ours is ~55% of that)
+* cost for hashing empty message: 94,384-98,924 cycles (ours is ~70% of that) 
+
+## Unit tests
+
+```
+cd test
+make
+```
+
+Or, run individual tests by `make vector`, `make sha2`, etc.
+
+## Benchmarks
+
+```
+dfx start --background --clean
+cd bench
+dfx build --check vector_bench && ic-repl ic-repl/vector.sh
+dfx build --check sha2_bench && ic-repl ic-repl/sha2.sh
+```
+
+## Examples
+
+### Vector
+
+```
+//@package mrr research-ag/motoko-lib/main/src
+import Vector "mo:mrr/Vector";
+
+let v = Vector.new<Nat>();
+Vector.add(v,0);
+Vector.add(v,1);
+Vector.toArray(v);
+```
+
+https://embed.smartcontracts.org/motoko/g/9KrDof3FNdp1qgWFnTzABEdBZF9virfqsZ3Lf8ryFgR3toa4bV962Jiik3uV3dpn2ASmyatiiTJuuWNbttd8j2yqpjqNWr3svT5QPukqbDdDonPGpPsKvKfWTzuSPAM5YZwNbS3XZE4Pt16y9Y4nm4qNE229ERkrjTYYd4Z8Zzr?lines=8
+
+### Sha2
+
+```
+//@package mrr research-ag/motoko-lib/main/src
+import Sha2 "mo:mrr/Sha2";
+import Blob "mo:base/Blob";
+
+let b = Blob.fromArray([] : [Nat8]);
+Sha2.fromBlob(#sha256,b)
+```
+
+https://embed.smartcontracts.org/motoko/g/22dBpZybfm9PtMARHfxM8RR3VkF7GDW1gXhkPVeGfjQFDAsPsWWiLnRcu32UHrXem316pQJxMb7J3grsrWBTmVhum5sLLu6dh6p734kyfiRhU8Wof1hzWeXehJMt4LdbJnFj25VPJATeLkDr8HCquWpyW1zRPsRzVX8JjXeLiRowhxu1czC4MLPtCJzRTi11?lines=7
+
+### More
+
+```
+import Sha2 "mo:mrr/Sha2";
+import Vec "mo:mrr/Vector";
+
+let v = Vec.new<Nat8>();
+Sha2.fromIter(#sha256, Vec.vals(v));
+```
