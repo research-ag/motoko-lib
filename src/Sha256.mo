@@ -1,10 +1,8 @@
 import Array "mo:base/Array";
-import Iter "mo:base/Iter";
 import Blob "mo:base/Blob";
-import Nat64 "mo:base/Nat64";
-import Nat32 "mo:base/Nat32";
 import Nat8 "mo:base/Nat8";
-import Debug "mo:base/Debug";
+import Nat32 "mo:base/Nat32";
+import Nat64 "mo:base/Nat64";
 
 module {
   public type Algorithm = {
@@ -121,18 +119,18 @@ module {
 
     let state_ : [var Nat32] = Array.init<Nat32>(8, 0);
     let msg : [var Nat32] = Array.init<Nat32>(64, 0);
-    let digest = Array.init<Nat8>(32,0);
+    let digest = Array.init<Nat8>(sum_bytes, 0);
     var word : Nat32 = 0;
 
-    var i_msg : Nat = 0;
-    var i_byte : Nat = 0;
+    var i_msg : Nat8 = 0;
+    var i_byte : Nat8 = 4;
     var i_block : Nat64 = 0;
 
     public func reset() {
       i_msg := 0;
-      i_byte := 0;
+      i_byte := 4;
       i_block := 0;
-      for (i in Iter.range(0, 7)) {
+      for (i in [0, 1, 2, 3, 4, 5, 6, 7].vals()) {
         state_[i] := ivs[iv][i];
       };
     };
@@ -141,11 +139,11 @@ module {
 
     private func writeByte(val : Nat8) : () {
       word := (word << 8) ^ Nat32.fromIntWrap(Nat8.toNat(val));
-      i_byte += 1;
-      if (i_byte == 4) {
-        msg[i_msg] := word;
-        i_byte := 0;
-        i_msg += 1;
+      i_byte -%= 1;
+      if (i_byte == 0) {
+        msg[Nat8.toNat(i_msg)] := word;
+        i_byte := 4;
+        i_msg +%= 1;
         if (i_msg == 16) {
           process_block();
           i_msg := 0;
@@ -231,21 +229,25 @@ module {
 
     public func sum() : Blob {
       // calculate padding
-      let t = i_msg * 4 + i_byte;
-      let m = 56;
-      let p = if (t < 56) (56 - t) else (120 - t);
-      let padding = Array.tabulate<Nat8>(p, func(i) { if (i == 0) 0x80 else 0 });
-
-      // save length in bits
-      let n_bits = ((i_block << 6) +% Nat64.fromIntWrap(t)) << 3;
-      Debug.print("n_bits: " # debug_show(n_bits));
+      // t = bytes in the last incomplete block (0-63)
+      let t : Nat8 = (i_msg << 2) +% 4 -% i_byte;
+      // p = length of padding (1-64)
+      var p = if (t < 56) (56 -% t) else (120 -% t);
+      // n_bits = length of message in bits
+      // Note: This implementation only handles messages < 2^61 bytes
+      let n_bits = ((i_block << 6) +% Nat64.fromIntWrap(Nat8.toNat(t))) << 3;
 
       // write padding
-      writeArray(padding);
+      writeByte(0x80);
+      p -%= 1;
+      while (p != 0) {
+        writeByte(0x00);
+        p -%= 1;
+      };
 
       // write length
       // Note: this exactly fills the block buffer, hence process_block will get
-      // triggered inside this write
+      // triggered by the last writeByte call
       writeByte(Nat8.fromIntWrap(Nat64.toNat((n_bits >> 56) & 0xff)));
       writeByte(Nat8.fromIntWrap(Nat64.toNat((n_bits >> 48) & 0xff)));
       writeByte(Nat8.fromIntWrap(Nat64.toNat((n_bits >> 40) & 0xff)));
@@ -291,11 +293,13 @@ module {
       digest[25] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[26] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[27] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state_[7];
-      digest[28] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[29] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[30] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[31] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
+      if (algo_ == #sha256) {
+        word := state_[7];
+        digest[28] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
+        digest[29] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
+        digest[30] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
+        digest[31] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
+      };
       return Blob.fromArrayMut(digest);
     };
   }; // class Digest
@@ -308,7 +312,7 @@ module {
   };
 
   // Calculate SHA2 hash digest from Iter.
-  public func fromIter(algo : Algorithm, iter : Iter.Iter<Nat8>) : Blob {
+  public func fromIter(algo : Algorithm, iter : { next() : ?Nat8 }) : Blob {
     let digest = Digest(algo);
     digest.writeIter(iter);
     return digest.sum();

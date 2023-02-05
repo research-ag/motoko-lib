@@ -2,7 +2,9 @@ import E "mo:base/ExperimentalInternetComputer";
 import Engine32 "../../src/sha2/engine32";
 import Engine64 "../../src/sha2/engine64";
 import Sha2 "../../src/Sha2";
+import Sha256 "../../src/Sha256";
 import Array "mo:base/Array";
+import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
 import Blob "mo:base/Blob";
 
@@ -11,30 +13,35 @@ actor {
   let e64 = Engine64.Engine();
   e32.init(1);
   e64.init(1);
+  let block55 = Array.tabulate<Nat8>(55, func(i) { Nat8.fromNat(0xff -i) });
   let block64 = Array.tabulate<Nat8>(64, func(i) { Nat8.fromNat(0xff -i) });
   let block128 = Array.tabulate<Nat8>(128, func(i) { Nat8.fromNat(0xff -i) });
-  let block0 = Blob.fromArray([] : [Nat8]);
-  let block48 = Blob.fromArray(Array.tabulate<Nat8>(48, func(i) { 1 }));
+  let blob0 = Blob.fromArray([] : [Nat8]);
+  let blob48 = Blob.fromArray(Array.tabulate<Nat8>(48, func(i) { 1 }));
+  let blob55 = Blob.fromArray(block55);
+  let blob64 = Blob.fromArray(block64);
+  let blob128 = Blob.fromArray(block128);
   let d32 = Sha2.Digest(#sha256);
-
-  public query func profile32() : async (Nat64, Nat64, Nat64, Nat64) {
-    let a = E.countInstructions(func() { e32.process_block(block64) });
-    let b = E.countInstructions(func() { ignore e32.state() });
-    let c = E.countInstructions(func() { ignore Sha2.fromBlob(#sha256, block0) });
-    let sha256 = Sha2.Digest(#sha256);
-    let d = E.countInstructions(func() { ignore sha256.sum() });
-    (a, b, c, d)
-    // process_block, state, fromBlob, sum
-  };
 
   public query func profile64() : async (Nat64, Nat64, Nat64, Nat64) {
     let a = E.countInstructions(func() { e64.process_block(block128) });
     let b = E.countInstructions(func() { ignore e64.state() });
-    let c = E.countInstructions(func() { ignore Sha2.fromBlob(#sha512, block0) });
+    let c = E.countInstructions(func() { ignore Sha2.fromBlob(#sha512, blob0) });
     let sha512 = Sha2.Digest(#sha512);
-    let d = E.countInstructions(func() { ignore sha512.sum() });
+    let d = E.countInstructions(func() { ignore sha512.write_blob(blob128) });
     (a, b, c, d)
     // process_block, state, fromBlob, sum
   };
 
+  public query func profile32() : async [Nat64] {
+    var res = Buffer.Buffer<Nat64>(10);
+    for (i in [0, 1, 2, 5, 10, 100, 1000].vals()) {
+      let len = if (i == 0) 0 else 64*i-20;
+      let arr = Array.freeze(Array.init<Nat8>(len, 0));
+      let b = Blob.fromArray(arr);
+      let x = E.countInstructions(func() { ignore Sha256.fromBlob(#sha256, b) });
+      res.add(x);
+    };
+    Buffer.toArray(res);
+  };
 };
