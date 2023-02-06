@@ -245,7 +245,7 @@ module {
         p -%= 1;
       };
 
-      // write length
+      // write length (8 bytes)
       // Note: this exactly fills the block buffer, hence process_block will get
       // triggered by the last writeByte call
       writeByte(Nat8.fromIntWrap(Nat64.toNat((n_bits >> 56) & 0xff)));
@@ -293,13 +293,15 @@ module {
       digest[25] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[26] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[27] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      if (algo_ == #sha256) {
-        word := state_[7];
-        digest[28] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-        digest[29] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-        digest[30] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-        digest[31] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      };
+
+      if (algo_ == #sha224) return Blob.fromArrayMut(digest);
+
+      word := state_[7];
+      digest[28] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
+      digest[29] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
+      digest[30] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
+      digest[31] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
+
       return Blob.fromArrayMut(digest);
     };
   }; // class Digest
