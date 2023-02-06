@@ -117,7 +117,7 @@ module {
 
     public func algo() : Algorithm = algo_;
 
-    let state_ : [var Nat32] = Array.init<Nat32>(8, 0);
+    let state : [var Nat32] = Array.init<Nat32>(8, 0);
     let msg : [var Nat32] = Array.init<Nat32>(64, 0);
     let digest = Array.init<Nat8>(sum_bytes, 0);
     var word : Nat32 = 0;
@@ -131,7 +131,7 @@ module {
       i_byte := 4;
       i_block := 0;
       for (i in [0, 1, 2, 3, 4, 5, 6, 7].vals()) {
-        state_[i] := ivs[iv][i];
+        state[i] := ivs[iv][i];
       };
     };
 
@@ -160,18 +160,17 @@ module {
         //   let s0 = rot(v0, 07) ^ rot(v0, 18) ^ (v0 >> 03);
         //   let s1 = rot(v1, 17) ^ rot(v1, 19) ^ (v1 >> 10);
         //   msg[m] := msg[i] +% s0 +% msg[k] +% s1;
-        // Inlining has saved 144 cycles per block.
         msg[m] := msg[i] +% rot(v0, 07) ^ rot(v0, 18) ^ (v0 >> 03) +% msg[k] +% rot(v1, 17) ^ rot(v1, 19) ^ (v1 >> 10);
       };
       // compress
-      var a = state_[0];
-      var b = state_[1];
-      var c = state_[2];
-      var d = state_[3];
-      var e = state_[4];
-      var f = state_[5];
-      var g = state_[6];
-      var h = state_[7];
+      var a = state[0];
+      var b = state[1];
+      var c = state[2];
+      var d = state[3];
+      var e = state[4];
+      var f = state[5];
+      var g = state[6];
+      var h = state[7];
       for (i in compression_rounds.keys()) {
         //  Below is an inlined version of this code:
         //    let ch = (e & f) ^ (^ e & g);
@@ -187,7 +186,6 @@ module {
         //    c := b;
         //    b := a;
         //    a := t +% maj +% sigma0;
-        //  Inlining saves 608 cycles per block.
         let maj = (a & b) ^ (a & c) ^ (b & c);
         let t = h +% K[i] +% msg[i] +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25);
         h := g;
@@ -200,14 +198,14 @@ module {
         a := t +% maj +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
       };
       // final addition
-      state_[0] +%= a;
-      state_[1] +%= b;
-      state_[2] +%= c;
-      state_[3] +%= d;
-      state_[4] +%= e;
-      state_[5] +%= f;
-      state_[6] +%= g;
-      state_[7] +%= h;
+      state[0] +%= a;
+      state[1] +%= b;
+      state[2] +%= c;
+      state[3] +%= d;
+      state[4] +%= e;
+      state[5] +%= f;
+      state[6] +%= g;
+      state[7] +%= h;
     };
 
     public func writeIter(iter : { next() : ?Nat8 }) : () {
@@ -232,10 +230,9 @@ module {
       // t = bytes in the last incomplete block (0-63)
       let t : Nat8 = (i_msg << 2) +% 4 -% i_byte;
       // p = length of padding (1-64)
-      var p = if (t < 56) (56 -% t) else (120 -% t);
+      var p : Nat8 = if (t < 56) (56 -% t) else (120 -% t);
       // n_bits = length of message in bits
-      // Note: This implementation only handles messages < 2^61 bytes
-      let n_bits = ((i_block << 6) +% Nat64.fromIntWrap(Nat8.toNat(t))) << 3;
+      let n_bits : Nat64 = ((i_block << 6) +% Nat64.fromIntWrap(Nat8.toNat(t))) << 3;
 
       // write padding
       writeByte(0x80);
@@ -247,7 +244,7 @@ module {
 
       // write length (8 bytes)
       // Note: this exactly fills the block buffer, hence process_block will get
-      // triggered by the last writeByte call
+      // triggered by the last writeByte
       writeByte(Nat8.fromIntWrap(Nat64.toNat((n_bits >> 56) & 0xff)));
       writeByte(Nat8.fromIntWrap(Nat64.toNat((n_bits >> 48) & 0xff)));
       writeByte(Nat8.fromIntWrap(Nat64.toNat((n_bits >> 40) & 0xff)));
@@ -258,37 +255,37 @@ module {
       writeByte(Nat8.fromIntWrap(Nat64.toNat(n_bits & 0xff)));
 
       // retrieve sum
-      word := state_[0];
+      word := state[0];
       digest[0] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[1] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[2] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[3] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state_[1];
+      word := state[1];
       digest[4] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[5] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[6] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[7] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state_[2];
+      word := state[2];
       digest[8] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[9] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[10] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[11] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state_[3];
+      word := state[3];
       digest[12] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[13] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[14] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[15] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state_[4];
+      word := state[4];
       digest[16] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[17] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[18] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[19] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state_[5];
+      word := state[5];
       digest[20] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[21] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[22] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
       digest[23] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state_[6];
+      word := state[6];
       digest[24] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[25] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[26] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
@@ -296,7 +293,7 @@ module {
 
       if (algo_ == #sha224) return Blob.fromArrayMut(digest);
 
-      word := state_[7];
+      word := state[7];
       digest[28] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
       digest[29] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
       digest[30] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
