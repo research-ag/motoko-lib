@@ -110,11 +110,11 @@ https://embed.smartcontracts.org/motoko/g/9KrDof3FNdp1qgWFnTzABEdBZF9virfqsZ3Lf8
 
 ```
 //@package mrr research-ag/motoko-lib/main/src
-import Sha2 "mo:mrr/Sha256";
+import Sha256 "mo:mrr/Sha256";
 import Blob "mo:base/Blob";
 
 let b = Blob.fromArray([] : [Nat8]);
 Sha256.fromBlob(#sha256,b)
 ```
 
-https://embed.smartcontracts.org/motoko/g/5YAikwp8VvVu8AfcaT8L8ji7wBvptRDc6F2bXWX8uZ4DoAiuzL7EJyQYuYmcgxdCRDjWPbuBwU4Z35LTeh84xJtH57Jrt2HjkjmCDVWhuX4QmhxVd1MmwnyYn5mBeWR3JVS2Adswf9MPtkbkkHKzXyg85kFo1FGiAWawAmUTcVNg7rZLFBdtdzoPc9UD9yk5P?lines=7
+https://embed.smartcontracts.org/motoko/g/5YAikwp8VvVu8AfcaT8L8ji7wBvpt7SX8vBTzLrVouknSbV7GVWT6HESKFfMmREbLYYEUowKobUxB1hQNo52ysC8AFF1JTS5AriGfgb7ur7QczG1tcYCYDYYqsJaU6xHgPXQAWMzEp7i8toUa9m9jqS1P3Bx6aNJZzMcSCsFRTc4PPYLSSyqprA9YbwLRm3bz?lines=7
