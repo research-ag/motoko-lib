@@ -116,15 +116,14 @@ run(
   ),
 );
 
-func locate_readable<X>(index : Nat) : ?(Nat, Nat) {
-  // index is any Nat except for
-  if (index >= 2 ** 32 - 1) {
-    // We should check if index == 2 ** 32 - 1
-    return null;
+func locate_readable<X>(index : Nat) : (Nat, Nat) {
+  // index is any Nat32 except for
+  // blocks before super block s == 2 ** s
+  let i = Nat32.fromNat(index);
+  // element with index 0 located in data block with index 1
+  if (i == 0) {
+    return (1, 0);
   };
-  // it's convinient to work with index + 1
-  // because (blocks before super block s) + 1 == 2 ** s
-  let i = Nat32.fromNat(index) + 1;
   let lz = Nat32.bitcountLeadingZero(i);
   // super block s = bit length - 1 = (32 - leading zeros) - 1
   // i in binary = zeroes; 1; bits blocks mask; bits element mask
@@ -138,67 +137,67 @@ func locate_readable<X>(index : Nat) : ?(Nat, Nat) {
   let e_mask = 1 << up - 1;
   //block mask = floor(s / 2) ones in binary
   let b_mask = 1 << down - 1;
-  // data blocks in even super blocks before current = 2 ** ceil(s / 2) - 1
-  // data blocks in odd super blocks before current = 2 ** floor(s / 2) - 1
+  // data blocks in even super blocks before current = 2 ** ceil(s / 2)
+  // data blocks in odd super blocks before current = 2 ** floor(s / 2)
   // data blocks before the super block = element mask + block mask
-  // elements before the super block = 2 ** s - 1, in case of (index + 1) = 2 ** s
-  // first floor(s / 2) bits in (index + 1) after the highest bit = index of data block in super block
-  // the next floor(s / 2) to the end of binary representation of (index + 1) = index of element in data block
-  ?(Nat32.toNat(e_mask + b_mask + (i >> up) & b_mask), Nat32.toNat(i & e_mask));
+  // elements before the super block = 2 ** s
+  // first floor(s / 2) bits in index after the highest bit = index of data block in super block
+  // the next ceil(s / 2) to the end of binary representation of index + 1 = index of element in data block
+  (Nat32.toNat(e_mask + b_mask + 2 + (i >> up) & b_mask), Nat32.toNat(i & e_mask));
 };
 
 // this was optimized in terms of cycles
 func locate_optimal<X>(index : Nat) : (Nat, Nat) {
   // super block s = bit length - 1 = (32 - leading zeros) - 1
-  // it's convinient to work with index + 1
-  // because (blocks before super block s) + 1 == 2 ** s
-  let i = Nat32.fromNat(index) +% 1;
+  // blocks before super block s == 2 ** s
+  let i = Nat32.fromNat(index);
   let lz = Nat32.bitcountLeadingZero(i);
   let lz2 = lz >> 1;
   // we split into cases to apply different optimizations in each one
   if (lz & 1 == 0) {
-    // check index == 2 ** 32 - 1 as late as possible
-    if (i == 0) Prim.trap "Error";
     // ceil(s / 2)  = 16 - lz2
     // floor(s / 2) = 15 - lz2
     // i in binary = zeroes; 1; bits blocks mask; bits element mask
     // bit lengths =     lz; 1;         15 - lz2;          16 - lz2
-    // blocks before = 2 ** ceil(s / 2) - 1 + 2 ** floor(s / 2) - 1 =
-    //               = (2 ** ceil(s / 2) - 2) + 2 ** floor(s / 2)
-    //               = (mask ^ 1) + (1 << blocks mask length)
-    //                              so we don't need to clean this bit from i >> ceil(s / 2)
+    // blocks before = 2 ** ceil(s / 2) + 2 ** floor(s / 2)
+    
+    // so in order to calculate index of the data block
+    // we need to shift i by 16 - lz2 and set bit with number 16 - lz2, bit 15 - lz2 is already set
+    
     // element mask = 2 ** (16 - lz2) = (1 << 16) >> lz2 = 0xFFFF >> lz2
-    // data block in super block + (1 << blocks mask length) = i >> (16 - lz2) = (i << lz2) >> 16
     let mask = 0xFFFF >> lz2;
-    (Nat32.toNat((mask ^ 1) +% (i << lz2) >> 16), Nat32.toNat(i & mask));
+    (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
   } else {
     // s / 2 = ceil(s / 2) = floor(s / 2) = 15 - lz2
     // i in binary = zeroes; 1; bits blocks mask; bits element mask
     // bit lengths =     lz; 1;         15 - lz2;          15 - lz2
     // block mask = element mask = mask = 2 ** (s / 2) - 1 = 2 ** (15 - lz2) - 1 = (1 << 15) >> lz2 = 0x7FFF >> lz2
-    // blocks before = 2 * 2 ** (s / 2) - 2 = mask << 1
-    // data block in super block = (i >> (s / 2)) & mask = (i >> (15 - lz2)) & mask = ((i << lz2) >> 15) & mask
+    // blocks before = 2 * 2 ** (s / 2)
+    
+    // so in order to calculate index of the data block
+    // we need to shift i by 15 - lz2, set bit with number 16 - lz2 and unset bit 15 - lz2
 
-    // we can't repeat the same trick as with even leading zeros,
-    // because of the corner case index = 0 => i = 1, mask = 0, blocks before = 0
     let mask = 0x7FFF >> lz2;
-    (Nat32.toNat(mask << 1 +% ((i << lz2) >> 15) & mask), Nat32.toNat(i & mask));
+    (Nat32.toNat(((i << lz2) >> 15) ^ (0x18000 >> lz2)), Nat32.toNat(i & (0x7FFF >> lz2)));
   };
 };
 
 let locate_n = 1_000;
 var i = 0;
 while (i < locate_n) {
-  assert (Option.unwrap(locate_readable(i)) == locate_optimal(i));
-  assert (Option.unwrap(locate_readable(1_000_000 + i)) == locate_optimal(1_000_000 + i));
-  assert (Option.unwrap(locate_readable(1_000_000_000 + i)) == locate_optimal(1_000_000_000 + i));
-  assert (Option.unwrap(locate_readable(2_000_000_000 + i)) == locate_optimal(2_000_000_000 + i));
-  assert (Option.unwrap(locate_readable(2 ** 32 - 2 - i)) == locate_optimal(2 ** 32 - 2 - i));
+  assert (locate_readable(i) == locate_optimal(i));
+  assert (locate_readable(1_000_000 + i) == locate_optimal(1_000_000 + i));
+  assert (locate_readable(1_000_000_000 + i) == locate_optimal(1_000_000_000 + i));
+  assert (locate_readable(2_000_000_000 + i) == locate_optimal(2_000_000_000 + i));
+  assert (locate_readable(2 ** 32 - 1 - i) == locate_optimal(2 ** 32 - 1 - i));
   i += 1;
 };
 
 func locate(i : Nat32) : (Nat32, Nat32) {
   let lz = Nat32.bitcountLeadingZero(i);
   let lz2 = lz >> 1;
-  if (lz & 1 == 0) (((i << lz2) >> 16) ^ (0x10000 >> lz2), i & (0xFFFF >> lz2)) else (((i << lz2) >> 15) ^ (0x18000 >> lz2), i & (0x7FFF >> lz2));
+  if (lz & 1 == 0)
+    (((i << lz2) >> 16) ^ (0x10000 >> lz2), i & (0xFFFF >> lz2)) 
+  else
+    (((i << lz2) >> 15) ^ (0x18000 >> lz2), i & (0x7FFF >> lz2));
 };
