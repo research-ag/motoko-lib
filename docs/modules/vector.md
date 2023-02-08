@@ -22,4 +22,4 @@ When growing we resize data_blocks array so that it can store exactly one next s
 
 ## Examples
 
-<iframe src="https://embed.smartcontracts.org/motoko/g/DLr1Cy6mYjpKc4apwqWWSzBL6iYPq9EvGHUa5dDxt8wHhRUJJBCPZv6NdPU3fEvaaxG6iEdcybWdGHJ1sUFJADPeWmrv2WAgxwd35aesNfnqm6U5CfKJ2VM9iYjfj7udbiDNQLaEKSvmzpR4YoQBFVUt3pzMLoHiCk6wu8u5keX2JaE?lines=9" width="100%" height="336" style="border:0" title="Motoko code snippet" />
+<iframe src="https://embed.smartcontracts.org/motoko/g/dkCFWpwHLocXpeCoqYZ2UySHvuHtBp1mcmB9BZ68egVFy9otJnsENzyGPQciu5b4MBAHbmhzu99NN6UUQyij2XrdrokoZwoJ6mG9wcjwf58XaB81YHpFhoJ2zdTu28r9SqAaT8bCvP8th8aqHZMsxqmogKnduaCgReg5FsbJbVh4?lines=9" width="100%" height="336" style="border:0" title="Motoko code snippet" /> 
