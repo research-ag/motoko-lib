@@ -86,6 +86,7 @@ module {
 
   func shrink_index_block_if_needed<X>(vec : Vector<X>) {
     let i_block = Nat32(vec.i_block);
+    // kind of index of the first block in the super block
     if ((i_block << leadingZeros(i_block)) << 2 == 0) {
       let new_length = new_index_block_length(i_block);
       if (new_length < vec.data_blocks.size()) {
@@ -105,9 +106,10 @@ module {
       grow_index_block_if_needed(vec);
       let i_block = vec.i_block;
 
-      // When removing last we keep one more data block, so can be not null
+      // When removing last we keep one more data block, so can be not empty
       if (vec.data_blocks[i_block].size() == 0) {
         vec.data_blocks[i_block] := Array.init<?X>(
+          // formula for the size of given i_block
           Nat(1 <>> leadingZeros(Nat32(i_block) / 3)),
           null,
         );
@@ -158,6 +160,7 @@ module {
   };
 
   func locate(index : Nat) : (Nat, Nat) {
+    // see comments in tests
     let i = Nat32(index);
     let lz = leadingZeros(i);
     let lz2 = lz >> 1;

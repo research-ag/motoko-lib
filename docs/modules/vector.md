@@ -20,6 +20,12 @@ Except for data_blocks array the Vector itself constains pair i_block, i_element
 
 When growing we resize data_blocks array so that it can store exactly one next super block. When shrkinking we keep space in data_blocks array for two next super blocks.
 
+## Optimal memory waste
+
+The minimal possible memory waste is O(sqrt(n)), here is idea of proof.
+
+Assume store in n elements in A different sequential arrays. Let B be maximum size of such an array. Then memory waste is O(max(A, B)), because we have to store somehow pointers to all the arrays and we count it as memory waste, and maximum empty space is O(B), when new array is allocated. A * B >= n then minimal memory waste is O(sqrt(n)).
+
 ## Examples
 
-<iframe src="https://embed.smartcontracts.org/motoko/g/DLr1Cy6mYjpKc4apwqWWSzBL6iYPq9EvGHUa5dDxt8wHhRUJJBCPZv6NdPU3fEvaaxG6iEdcybWdGHJ1sUFJADPeWmrv2WAgxwd35aesNfnqm6U5CfKJ2VM9iYjfj7udbiDNQLaEKSvmzpR4YoQBFVUt3pzMLoHiCk6wu8u5keX2JaE?lines=9" width="100%" height="336" style="border:0" title="Motoko code snippet" />
+<iframe src="https://embed.smartcontracts.org/motoko/g/2fkWTFU9s4KAePQnz2SPmGQV6TQnhFUVpxE4BxC6YdxAbDUE7gF2Ukk6xL9BmniiJq8Pk9NYNwrMcmk6f9V4dN3HsvkCv75rWQCW2TMiSNg4okGghT8HgAGbL725V5zgucuAQV9D151NLDSkrhQ896mxCkDufa7is9Z2Wiz6EnnF5aEbebnyBtSyTNUPnY4NhysUWCQEurQfLEegNhD?lines=12" width="100%" height="408" style="border:0" title="Motoko code snippet" />
