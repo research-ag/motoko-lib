@@ -16,15 +16,15 @@ $f(0) = 0, f(1) = 1, f(i + 2) = 2 ^ i$ for $i >= 0$.
 
 Each super block of size $2 ^ i$ consists of $2^{\lfloor i / 2\rfloor}$ data blocks of size $2^{\lceil i / 2 \rceil}$.
 
-Except for data_blocks array the Vector itself constains pair i_block, i_element meaning that the next element should be assigned to data_blocks[i_block][i_element]. We don't store more fields to reduce memory, but we don't store only size to make addition faster.
+Except for data_blocks array the Vector itself constains pair i_block, i_element meaning that the next element should be assigned to $\verb|data_blocks|[\verb|i_block|][\verb|i_element|]$. We don't store more fields to reduce memory, but we don't store only size to make addition faster.
 
 When growing we resize data_blocks array so that it can store exactly one next super block. When shrkinking we keep space in data_blocks array for two next super blocks.
 
 ## Optimal memory waste
 
-The minimal possible memory waste is O(sqrt(n)), here is idea of proof.
+The minimal possible memory waste is $O(\sqrt{n})$, here is idea of proof.
 
-Assume store in n elements in A different sequential arrays. Let B be maximum size of such an array. Then memory waste is O(max(A, B)), because we have to store somehow pointers to all the arrays and we count it as memory waste, and maximum empty space is O(B), when new array is allocated. A * B >= n then minimal memory waste is O(sqrt(n)).
+Assume store in n elements in A different sequential arrays. Let B be maximum size of such an array. Then memory waste is $O(max(A, B))$, because we have to store somehow pointers to all the arrays and we count it as memory waste, and maximum empty space is $O(B)$, when new array is allocated. $A * B >= n$ then minimal memory waste is $O(\sqrt{n})$.
 
 ## Examples
 
