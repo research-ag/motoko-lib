@@ -1,4 +1,4 @@
 {
   dependencies = [ "base", "matchers" ],
-  compiler = None Text
+  compiler = Some "0.8.1"
 }
