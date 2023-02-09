@@ -31,7 +31,7 @@ module {
   };
 
 
-  /// Resets the buffer.
+  /// Resets the vector.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -39,7 +39,7 @@ module {
   /// Vector.add(vector, 10);
   /// Vector.add(vector, 11);
   /// Vector.add(vector, 12);
-  /// Vector.clear(vector); // buffer is now empty
+  /// Vector.clear(vector); // vector is now empty
   /// Vector.toArray(vector) // => []
   /// ```
   ///
@@ -150,7 +150,7 @@ module {
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 0); // add 0 to buffer
+  /// Vector.add(vector, 0); // add 0 to vector
   /// Vector.add(vector, 1);
   /// Vector.add(vector, 2);
   /// Vector.add(vector, 3);
@@ -307,7 +307,7 @@ module {
   ///
   /// Vector.add(vector, 10);
   /// Vector.put(vector, 0, 20); // overwrites 10 at index 0 with 20
-  /// Vector.toArray(buffer) // => [20]
+  /// Vector.toArray(vector) // => [20]
   /// ```
   ///
   /// Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.

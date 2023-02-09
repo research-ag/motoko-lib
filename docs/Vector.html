@@ -6,14 +6,14 @@ Based on paper &quot;Resizable Arrays in Optimal Time and Space&quot; by Brodnik
 </p></div><div class="declaration"><h4 class="function" id="new"><code><span class="keyword">public func </span><span class="fnname">new</span>&lt;<span class="type">X</span>&gt;() : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Creates a new Vector.</p>
 <p>Example:</p>
 <pre><code>motoko name=initialize
-let vector = Vector.new&lt;Nat&gt;(); // Creates a new Vector</code></pre></p></div><div class="declaration"><h4 class="function" id="clear"><code><span class="keyword">public func </span><span class="fnname">clear</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;)</code></h4><p><p>Resets the buffer.</p>
+let vector = Vector.new&lt;Nat&gt;(); // Creates a new Vector</code></pre></p></div><div class="declaration"><h4 class="function" id="clear"><code><span class="keyword">public func </span><span class="fnname">clear</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;)</code></h4><p><p>Resets the vector.</p>
 <p>Example:</p>
 <pre><code>motoko include=initialize
 
 Vector.add(vector, 10);
 Vector.add(vector, 11);
 Vector.add(vector, 12);
-Vector.clear(vector); // buffer is now empty
+Vector.clear(vector); // vector is now empty
 Vector.toArray(vector) // =&gt; []</code></pre>
 
 <p>Runtime: O(1)</p>
@@ -35,7 +35,7 @@ adding data block if needed, and resizing index block if needed.</p>
 <p>Example:</p>
 <pre><code>motoko include=initialize
 
-Vector.add(vector, 0); // add 0 to buffer
+Vector.add(vector, 0); // add 0 to vector
 Vector.add(vector, 1);
 Vector.add(vector, 2);
 Vector.add(vector, 3);
@@ -81,7 +81,7 @@ let y = Vector.getOpt(vector, 2); // =&gt; null</code></pre>
 
 Vector.add(vector, 10);
 Vector.put(vector, 0, 20); // overwrites 10 at index 0 with 20
-Vector.toArray(buffer) // =&gt; [20]</code></pre>
+Vector.toArray(vector) // =&gt; [20]</code></pre>
 
 <p>Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.</p>
 </p></div><div class="declaration"><h4 class="function" id="vals"><code><span class="keyword">public func </span><span class="fnname">vals</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : <span class="type">Iter.Iter</span>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Returns an Iterator (<code>Iter</code>) over the elements of this vector.
