@@ -1,3 +1,9 @@
+/// Cycle-optimized Sha256 variants.
+/// Features:
+/// * Algorithms: `sha256`, `sha224`
+/// * Input types: `Blob`, `[Nat8]`, `Iter<Nat8>`
+/// * Output types: `Blob`
+
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
@@ -317,7 +323,8 @@ module {
     return digest.sum();
   };
 
-  // Calculate SHA2 hash digest from Blob.
+  /// Calculate the SHA2 hash digest from `Blob`.
+  /// Allowed values for `algo` are: `#sha224`, `#256`
   public func fromBlob(algo : Algorithm, b : Blob) : Blob {
     let digest = Digest(algo);
     digest.writeIter(b.vals());
