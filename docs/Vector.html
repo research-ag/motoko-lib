@@ -1,2 +1,160 @@
 <!DOCTYPE html>
-<html><head title="Doc"><meta charset="UTF-8"/><link href="styles.css" rel="stylesheet"/></head><body><nav class="sidebar"><h3>Modules</h3><ul><li><li><a href="Sha256.html">Sha256</a></li></li><li><li><a href="Sha512.html">Sha512</a></li></li><li><li><a href="Vector.html">Vector</a></li></li></ul><h3>Declarations</h3><ul><li><li><a href="#type.Vector">Vector</a></li></li><li><li><a href="#new">new</a></li></li><li><li><a href="#clear">clear</a></li></li><li><li><a href="#clone">clone</a></li></li><li><li><a href="#size">size</a></li></li><li><li><a href="#add">add</a></li></li><li><li><a href="#removeLast">removeLast</a></li></li><li><li><a href="#get">get</a></li></li><li><li><a href="#getOpt">getOpt</a></li></li><li><li><a href="#put">put</a></li></li><li><li><a href="#vals">vals</a></li></li><li><li><a href="#fromIter">fromIter</a></li></li><li><li><a href="#toArray">toArray</a></li></li><li><li><a href="#fromArray">fromArray</a></li></li><li><li><a href="#toVarArray">toVarArray</a></li></li><li><li><a href="#fromVarArray">fromVarArray</a></li></li></ul></nav><div class="documentation"><h1>Vector</h1><div class="declaration"><h4 class="type-declaration" id="type.Vector"><span class="keyword">type </span><span class="type">Vector</span>&lt;<span class="type">X</span>&gt; = { <span class="keyword">var </span>data_blocks : [<span class="keyword">var </span>[<span class="keyword">var </span>?<span class="type">X</span>]]; <span class="keyword">var </span>i_block : <span class="type">Nat</span>; <span class="keyword">var </span>i_element : <span class="type">Nat</span> }</h4><p></p></div><div class="declaration"><h4 class="function" id="new"><code><span class="keyword">public func </span><span class="fnname">new</span>&lt;<span class="type">X</span>&gt;() : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p></p></div><div class="declaration"><h4 class="function" id="clear"><code><span class="keyword">public func </span><span class="fnname">clear</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;)</code></h4><p></p></div><div class="declaration"><h4 class="function" id="clone"><code><span class="keyword">public func </span><span class="fnname">clone</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p></p></div><div class="declaration"><h4 class="function" id="size"><code><span class="keyword">public func </span><span class="fnname">size</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : <span class="type">Nat</span></code></h4><p></p></div><div class="declaration"><h4 class="function" id="add"><code><span class="keyword">public func </span><span class="fnname">add</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <span class="parameter">element</span> : <span class="type">X</span>)</code></h4><p></p></div><div class="declaration"><h4 class="function" id="removeLast"><code><span class="keyword">public func </span><span class="fnname">removeLast</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : ?<span class="type">X</span></code></h4><p></p></div><div class="declaration"><h4 class="function" id="get"><code><span class="keyword">public func </span><span class="fnname">get</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <span class="parameter">index</span> : <span class="type">Nat</span>) : <span class="type">X</span></code></h4><p></p></div><div class="declaration"><h4 class="function" id="getOpt"><code><span class="keyword">public func </span><span class="fnname">getOpt</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <span class="parameter">index</span> : <span class="type">Nat</span>) : ?<span class="type">X</span></code></h4><p></p></div><div class="declaration"><h4 class="function" id="put"><code><span class="keyword">public func </span><span class="fnname">put</span>&lt;<span class="type">X</span>&gt;(<br/>  <span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <br/>  <span class="parameter">index</span> : <span class="type">Nat</span>, <br/>  <span class="parameter">value</span> : <span class="type">X</span><br/>)</code></h4><p></p></div><div class="declaration"><h4 class="function" id="vals"><code><span class="keyword">public func </span><span class="fnname">vals</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : <span class="type">Iter.Iter</span>&lt;<span class="type">X</span>&gt;</code></h4><p></p></div><div class="declaration"><h4 class="function" id="fromIter"><code><span class="keyword">public func </span><span class="fnname">fromIter</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">iter</span> : <span class="type">Iter.Iter</span>&lt;<span class="type">X</span>&gt;) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p></p></div><div class="declaration"><h4 class="function" id="toArray"><code><span class="keyword">public func </span><span class="fnname">toArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : [<span class="type">X</span>]</code></h4><p></p></div><div class="declaration"><h4 class="function" id="fromArray"><code><span class="keyword">public func </span><span class="fnname">fromArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">array</span> : [<span class="type">X</span>]) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p></p></div><div class="declaration"><h4 class="function" id="toVarArray"><code><span class="keyword">public func </span><span class="fnname">toVarArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : [<span class="keyword">var </span><span class="type">X</span>]</code></h4><p></p></div><div class="declaration"><h4 class="function" id="fromVarArray"><code><span class="keyword">public func </span><span class="fnname">fromVarArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">array</span> : [<span class="keyword">var </span><span class="type">X</span>]) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p></p></div></div></body></html>
+<html><head title="Doc"><meta charset="UTF-8"/><link href="styles.css" rel="stylesheet"/></head><body><nav class="sidebar"><h3>Modules</h3><ul><li><li><a href="Sha256.html">Sha256</a></li></li><li><li><a href="Sha512.html">Sha512</a></li></li><li><li><a href="Vector.html">Vector</a></li></li></ul><h3>Declarations</h3><ul><li><li><a href="#type.Vector">Vector</a></li></li><li><li><a href="#new">new</a></li></li><li><li><a href="#clear">clear</a></li></li><li><li><a href="#clone">clone</a></li></li><li><li><a href="#size">size</a></li></li><li><li><a href="#add">add</a></li></li><li><li><a href="#removeLast">removeLast</a></li></li><li><li><a href="#get">get</a></li></li><li><li><a href="#getOpt">getOpt</a></li></li><li><li><a href="#put">put</a></li></li><li><li><a href="#vals">vals</a></li></li><li><li><a href="#fromIter">fromIter</a></li></li><li><li><a href="#toArray">toArray</a></li></li><li><li><a href="#fromArray">fromArray</a></li></li><li><li><a href="#toVarArray">toVarArray</a></li></li><li><li><a href="#fromVarArray">fromVarArray</a></li></li></ul></nav><div class="documentation"><h1>Vector</h1><p>Resizable one-dimensional array with O(sqrt(size)) memory waste.</p>
+<div class="declaration"><h4 class="type-declaration" id="type.Vector"><span class="keyword">type </span><span class="type">Vector</span>&lt;<span class="type">X</span>&gt; = { <span class="keyword">var </span>data_blocks : [<span class="keyword">var </span>[<span class="keyword">var </span>?<span class="type">X</span>]]; <span class="keyword">var </span>i_block : <span class="type">Nat</span>; <span class="keyword">var </span>i_element : <span class="type">Nat</span> }</h4><p><p>Class <code>Vector&lt;X&gt;</code> provides a mutable list of elements of type <code>X</code>.
+It is substitution for <code>Buffer&lt;X&gt;</code> with <code>O(sqrt(size))</code> memory waste instead of <code>O(size)</code>.
+Based on paper &quot;Resizable Arrays in Optimal Time and Space&quot; by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).</p>
+</p></div><div class="declaration"><h4 class="function" id="new"><code><span class="keyword">public func </span><span class="fnname">new</span>&lt;<span class="type">X</span>&gt;() : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Creates a new Vector.</p>
+<p>Example:</p>
+<pre><code>motoko name=initialize
+let vector = Vector.new&lt;Nat&gt;(); // Creates a new Vector</code></pre></p></div><div class="declaration"><h4 class="function" id="clear"><code><span class="keyword">public func </span><span class="fnname">clear</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;)</code></h4><p><p>Resets the buffer.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 10);
+Vector.add(vector, 11);
+Vector.add(vector, 12);
+Vector.clear(vector); // buffer is now empty
+Vector.toArray(vector) // =&gt; []</code></pre>
+
+<p>Runtime: O(1)</p>
+</p></div><div class="declaration"><h4 class="function" id="clone"><code><span class="keyword">public func </span><span class="fnname">clone</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Returns a copy of <code>vector</code>, with the same capacity.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+vector.add(1);
+
+let clone = Vector.clone(vector);
+Vector.toArray(clone); // =&gt; [1]</code></pre></p></div><div class="declaration"><h4 class="function" id="size"><code><span class="keyword">public func </span><span class="fnname">size</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : <span class="type">Nat</span></code></h4><p><p>Returns the current number of elements in the vector.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+Vector.size(vector) // =&gt; 0</code></pre>
+
+<p>Runtime: O(1) (with some calculations)</p>
+</p></div><div class="declaration"><h4 class="function" id="add"><code><span class="keyword">public func </span><span class="fnname">add</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <span class="parameter">element</span> : <span class="type">X</span>)</code></h4><p><p>Adds a single element to the end of the vector, 
+adding data block if needed, and resizing index block if needed.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 0); // add 0 to buffer
+Vector.add(vector, 1);
+Vector.add(vector, 2);
+Vector.add(vector, 3);
+Vector.toArray(vector) // =&gt; [0, 1, 2, 3]</code></pre>
+
+<p>Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))</p>
+</p></div><div class="declaration"><h4 class="function" id="removeLast"><code><span class="keyword">public func </span><span class="fnname">removeLast</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : ?<span class="type">X</span></code></h4><p><p>Removes and returns the last item in the vector or <code>null</code> if
+the vector is empty.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 10);
+Vector.add(vector, 11);
+Vector.removeLast(vector); // =&gt; ?11</code></pre>
+
+<p>Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(size))</p>
+<p>Amortized Space: O(1), Worst Case Space: O(sqrt(size))</p>
+</p></div><div class="declaration"><h4 class="function" id="get"><code><span class="keyword">public func </span><span class="fnname">get</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <span class="parameter">index</span> : <span class="type">Nat</span>) : <span class="type">X</span></code></h4><p><p>Returns the element at index <code>index</code>. Indexing is zero-based.
+Traps if <code>index &gt;= size</code>, error message may be not descriptive.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 10);
+Vector.add(vector, 11);
+Vector.get(vector, 0); // =&gt; 10</code></pre>
+
+<p>Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.</p>
+</p></div><div class="declaration"><h4 class="function" id="getOpt"><code><span class="keyword">public func </span><span class="fnname">getOpt</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <span class="parameter">index</span> : <span class="type">Nat</span>) : ?<span class="type">X</span></code></h4><p><p>Returns the element at index <code>index</code> as an option.
+Returns <code>null</code> when <code>index &gt;= size</code>. Indexing is zero-based.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 10);
+Vector.add(vector, 11);
+let x = Vector.getOpt(vector, 0); // =&gt; ?10
+let y = Vector.getOpt(vector, 2); // =&gt; null</code></pre>
+
+<p>Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.</p>
+</p></div><div class="declaration"><h4 class="function" id="put"><code><span class="keyword">public func </span><span class="fnname">put</span>&lt;<span class="type">X</span>&gt;(<br/>  <span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;, <br/>  <span class="parameter">index</span> : <span class="type">Nat</span>, <br/>  <span class="parameter">value</span> : <span class="type">X</span><br/>)</code></h4><p><p>Overwrites the current element at <code>index</code> with <code>element</code>. Traps if
+<code>index</code> &gt;= size. Indexing is zero-based.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 10);
+Vector.put(vector, 0, 20); // overwrites 10 at index 0 with 20
+Vector.toArray(buffer) // =&gt; [20]</code></pre>
+
+<p>Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.</p>
+</p></div><div class="declaration"><h4 class="function" id="vals"><code><span class="keyword">public func </span><span class="fnname">vals</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : <span class="type">Iter.Iter</span>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Returns an Iterator (<code>Iter</code>) over the elements of this vector.
+Iterator provides a single method <code>next()</code>, which returns
+elements in order, or <code>null</code> when out of elements to iterate over.</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 10);
+Vector.add(vector, 11);
+Vector.add(vector, 12);
+
+var sum = 0;
+for (element in Vector.vals(vector)) {
+  sum += element;
+};
+sum // =&gt; 33</code></pre>
+
+<p>Runtime: O(1)</p>
+</p></div><div class="declaration"><h4 class="function" id="fromIter"><code><span class="keyword">public func </span><span class="fnname">fromIter</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">iter</span> : <span class="type">Iter.Iter</span>&lt;<span class="type">X</span>&gt;) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Creates a vector containing elements from <code>iter</code>.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+import Nat &quot;mo:base/Nat&quot;;
+
+let array = [1, 1, 1];
+let iter = array.vals();
+
+let vec = Vector.fromIter&lt;Nat&gt;(iter); // =&gt; [1, 1, 1]</code></pre>
+
+<p>Runtime: O(size)</p>
+</p></div><div class="declaration"><h4 class="function" id="toArray"><code><span class="keyword">public func </span><span class="fnname">toArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : [<span class="type">X</span>]</code></h4><p><p>Creates an array containing elements from <code>vector</code>.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 1);
+Vector.add(vector, 2);
+Vector.add(vector, 3);
+
+Vector.toArray&lt;Nat&gt;(vector); // =&gt; [1, 2, 3]
+
+</code></pre>
+
+<p>Runtime: O(size)</p>
+</p></div><div class="declaration"><h4 class="function" id="fromArray"><code><span class="keyword">public func </span><span class="fnname">fromArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">array</span> : [<span class="type">X</span>]) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Creates a vector containing elements from <code>array</code>.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+import Nat &quot;mo:base/Nat&quot;;
+
+let array = [2, 3];
+
+let vec = Vector.fromArray&lt;Nat&gt;(array); // =&gt; [2, 3]</code></pre>
+
+<p>Runtime: O(size)</p>
+</p></div><div class="declaration"><h4 class="function" id="toVarArray"><code><span class="keyword">public func </span><span class="fnname">toVarArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">vec</span> : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;) : [<span class="keyword">var </span><span class="type">X</span>]</code></h4><p><p>Creates a mutable containing elements from <code>vector</code>.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+
+Vector.add(vector, 1);
+Vector.add(vector, 2);
+Vector.add(vector, 3);
+
+Vector.toVarArray&lt;Nat&gt;(vector); // =&gt; [1, 2, 3]
+
+</code></pre>
+
+<p>Runtime: O(size)</p>
+</p></div><div class="declaration"><h4 class="function" id="fromVarArray"><code><span class="keyword">public func </span><span class="fnname">fromVarArray</span>&lt;<span class="type">X</span>&gt;(<span class="parameter">array</span> : [<span class="keyword">var </span><span class="type">X</span>]) : <a href="#type.Vector"><span class="type">Vector</span></a>&lt;<span class="type">X</span>&gt;</code></h4><p><p>Creates a vector containing elements from <code>array</code>.</p>
+<p>Example:</p>
+<pre><code>motoko include=initialize
+import Nat &quot;mo:base/Nat&quot;;
+
+let array = [var 2, 3];
+
+let vec = Vector.fromVarArray&lt;Nat&gt;(array); // =&gt; [2, 3]</code></pre>
+
+<p>Runtime: O(size)</p>
+</p></div></div></body></html>

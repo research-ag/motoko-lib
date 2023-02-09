@@ -1,3 +1,4 @@
+/// Resizable one-dimensional array with O(sqrt(size)) memory waste.
 import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:base/Nat32";
 import Array "mo:base/Array";
@@ -5,7 +6,7 @@ import Iter "mo:base/Iter";
 
 module {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
-  /// It is substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(n)`.
+  /// It is substitution for `Buffer<X>` with `O(sqrt(size))` memory waste instead of `O(size)`.
   /// Based on paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999). 
   public type Vector<X> = {
     /// the index block
