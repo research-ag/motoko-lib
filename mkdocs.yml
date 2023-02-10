@@ -4,10 +4,14 @@ repo_url: https://github.com/research-ag/motoko-lib
 site_url: https://research-ag.github.io/motoko-lib/
 copyright: Copyright &copy; 2023 MR Research AG
 nav:
-  - Home: index.md
+  - Home: home.md
   - Modules:
     - Vector: modules/vector.md
     - Sha2: modules/sha2.md
+  - Mo-docs:
+    - Vector: Vector.md
+    - Sha256: Sha256.md
+    - Sha512: Sha512.md
   - Contribute: contribute.md
   - About: about.md
 theme:

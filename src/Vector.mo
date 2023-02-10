@@ -25,7 +25,7 @@ module {
   /// Creates a new empty Vector for elements of type X.
   ///
   /// Example:
-  /// ```motoko name=initialize
+  /// ```
   /// let vec = Vector.new<Nat>(); // Creates a new Vector
   /// ```
   public func new<X>() : Vector<X> = {
@@ -38,7 +38,7 @@ module {
   /// Resets the vector to size 0, de-referencing all elements.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 10);
   /// Vector.add(vec, 11);
@@ -57,7 +57,7 @@ module {
   /// Returns a copy of a Vector, with the same size.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// vec.add(1);
   ///
@@ -81,7 +81,7 @@ module {
   /// Returns the current number of elements in the vector.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   /// Vector.size(vec) // => 0
   /// ```
   ///
@@ -154,7 +154,7 @@ module {
   /// and resizing the internal index block if needed.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 0); // add 0 to vector
   /// Vector.add(vec, 1);
@@ -196,7 +196,7 @@ module {
   /// the vector is empty.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 10);
   /// Vector.add(vec, 11);
@@ -253,7 +253,7 @@ module {
   /// Traps if `index >= size`, error message may not be descriptive.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 10);
   /// Vector.add(vec, 11);
@@ -287,7 +287,7 @@ module {
   /// Returns `null` when `index >= size`. Indexing is zero-based.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 10);
   /// Vector.add(vec, 11);
@@ -309,7 +309,7 @@ module {
   /// `index` >= size. Indexing is zero-based.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 10);
   /// Vector.put(vec, 0, 20); // overwrites 10 at index 0 with 20
@@ -328,7 +328,7 @@ module {
   /// Iterator provides a single method `next()`, which returns
   /// elements in order, or `null` when out of elements to iterate over.
   ///
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 10);
   /// Vector.add(vec, 11);
@@ -375,7 +375,7 @@ module {
   /// Creates a Vector containing elements from `iter`.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   /// import Nat "mo:base/Nat";
   ///
   /// let array = [1, 1, 1];
@@ -394,7 +394,7 @@ module {
   /// Creates an immutable array containing elements from a Vector.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 1);
   /// Vector.add(vec, 2);
@@ -410,7 +410,7 @@ module {
   /// Creates a Vector containing elements from an Array.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   /// import Nat "mo:base/Nat";
   ///
   /// let array = [2, 3];
@@ -424,7 +424,7 @@ module {
   /// Creates a mutable Array containing elements from a Vector.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   ///
   /// Vector.add(vec, 1);
   /// Vector.add(vec, 2);
@@ -440,7 +440,7 @@ module {
   /// Creates a Vector containing elements from a mutable Array.
   ///
   /// Example:
-  /// ```motoko include=initialize
+  /// ```
   /// import Nat "mo:base/Nat";
   ///
   /// let array = [var 2, 3];
