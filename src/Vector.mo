@@ -1,4 +1,4 @@
-/// Resizable one-dimensional array with O(sqrt(size)) memory waste.
+/// Resizable one-dimensional array with `O(sqrt(n))` memory waste.
 import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:base/Nat32";
 import Array "mo:base/Array";
@@ -6,8 +6,12 @@ import Iter "mo:base/Iter";
 
 module {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
-  /// It is substitution for `Buffer<X>` with `O(sqrt(size))` memory waste instead of `O(size)`.
-  /// Based on paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999). 
+  /// It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(n)` where
+  /// n is the size of the data strucuture.
+  /// Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999). 
+  /// Since this is internally a two-dimensional array the access times for put and get operations
+  /// will naturally be 2x slower than Buffer and Array. However, Array is not resizable and Buffer
+  /// has O(n) memory waste.
   public type Vector<X> = {
     /// the index block
     var data_blocks : [var [var ?X]];
@@ -18,11 +22,11 @@ module {
     var i_element : Nat;
   };
 
-  /// Creates a new Vector.
+  /// Creates a new empty Vector for elements of type X.
   ///
   /// Example:
   /// ```motoko name=initialize
-  /// let vector = Vector.new<Nat>(); // Creates a new Vector
+  /// let vec = Vector.new<Nat>(); // Creates a new Vector
   /// ```
   public func new<X>() : Vector<X> = {
     var data_blocks = [var [var]];
@@ -31,16 +35,16 @@ module {
   };
 
 
-  /// Resets the vector.
+  /// Resets the vector to size 0, de-referencing all elements.
   ///
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 10);
-  /// Vector.add(vector, 11);
-  /// Vector.add(vector, 12);
-  /// Vector.clear(vector); // vector is now empty
-  /// Vector.toArray(vector) // => []
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.add(vec, 12);
+  /// Vector.clear(vec); // vector is now empty
+  /// Vector.toArray(vec) // => []
   /// ```
   ///
   /// Runtime: O(1)
@@ -50,17 +54,18 @@ module {
     vec.i_element := 0;
   };
 
-  /// Returns a copy of `vector`, with the same capacity.
-  ///
+  /// Returns a copy of a Vector, with the same size.
   ///
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// vector.add(1);
+  /// vec.add(1);
   ///
-  /// let clone = Vector.clone(vector);
+  /// let clone = Vector.clone(vec);
   /// Vector.toArray(clone); // => [1]
   /// ```
+  ///
+  /// Runtime: O(n)
   public func clone<X>(vec : Vector<X>) : Vector<X> = {
     var data_blocks = Array.tabulateVar<[var ?X]>(
       vec.data_blocks.size(),
@@ -77,10 +82,10 @@ module {
   ///
   /// Example:
   /// ```motoko include=initialize
-  /// Vector.size(vector) // => 0
+  /// Vector.size(vec) // => 0
   /// ```
   ///
-  /// Runtime: O(1) (with some calculations)
+  /// Runtime: O(1) (with some internal calculations)
   public func size<X>(vec : Vector<X>) : Nat {
     let d = Nat32(vec.i_block);
     let i = Nat32(vec.i_element);
@@ -144,17 +149,18 @@ module {
     };
   };
 
-  /// Adds a single element to the end of the vector, 
-  /// adding data block if needed, and resizing index block if needed.
+  /// Adds a single element to the end of a Vector, 
+  /// allocating a new internal data block if needed, 
+  /// and resizing the internal index block if needed.
   ///
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 0); // add 0 to vector
-  /// Vector.add(vector, 1);
-  /// Vector.add(vector, 2);
-  /// Vector.add(vector, 3);
-  /// Vector.toArray(vector) // => [0, 1, 2, 3]
+  /// Vector.add(vec, 0); // add 0 to vector
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.toArray(vec) // => [0, 1, 2, 3]
   /// ```
   ///
   /// Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
@@ -192,14 +198,14 @@ module {
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 10);
-  /// Vector.add(vector, 11);
-  /// Vector.removeLast(vector); // => ?11
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.removeLast(vec); // => ?11
   /// ```
   ///
-  /// Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(size))
+  /// Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
   ///
-  /// Amortized Space: O(1), Worst Case Space: O(sqrt(size))
+  /// Amortized Space: O(1), Worst Case Space: O(sqrt(n))
   public func removeLast<X>(vec : Vector<X>) : ?X {
     var i_element = vec.i_element;
     if (i_element == 0) {
@@ -244,17 +250,17 @@ module {
   };
 
   /// Returns the element at index `index`. Indexing is zero-based.
-  /// Traps if `index >= size`, error message may be not descriptive.
+  /// Traps if `index >= size`, error message may not be descriptive.
   ///
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 10);
-  /// Vector.add(vector, 11);
-  /// Vector.get(vector, 0); // => 10
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.get(vec, 0); // => 10
   /// ```
   ///
-  /// Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.
+  /// Runtime: O(1) 
   public func get<X>(vec : Vector<X>, index : Nat) : X {
     // inlined version of:
     //   let (a,b) = locate(index);
@@ -283,13 +289,13 @@ module {
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 10);
-  /// Vector.add(vector, 11);
-  /// let x = Vector.getOpt(vector, 0); // => ?10
-  /// let y = Vector.getOpt(vector, 2); // => null
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// let x = Vector.getOpt(vec, 0); // => ?10
+  /// let y = Vector.getOpt(vec, 2); // => null
   /// ```
   ///
-  /// Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.
+  /// Runtime: O(1) 
   public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
     let (a, b) = locate(index);
     if (a < vec.i_block or vec.i_element != 0 and a == vec.i_block) {
@@ -305,12 +311,12 @@ module {
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 10);
-  /// Vector.put(vector, 0, 20); // overwrites 10 at index 0 with 20
-  /// Vector.toArray(vector) // => [20]
+  /// Vector.add(vec, 10);
+  /// Vector.put(vec, 0, 20); // overwrites 10 at index 0 with 20
+  /// Vector.toArray(vec) // => [20]
   /// ```
   ///
-  /// Runtime: O(1). Approximately two times slower than the Buffer.get if measured in cycles.
+  /// Runtime: O(1) 
   public func put<X>(vec : Vector<X>, index : Nat, value : X) {
     let (a, b) = locate(index);
     if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
@@ -318,22 +324,26 @@ module {
     } else Prim.trap "Vector index out of bounds in put";
   };
 
-  /// Returns an Iterator (`Iter`) over the elements of this vector.
+  /// Returns an Iterator (`Iter`) over the elements of a Vector.
   /// Iterator provides a single method `next()`, which returns
   /// elements in order, or `null` when out of elements to iterate over.
   ///
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 10);
-  /// Vector.add(vector, 11);
-  /// Vector.add(vector, 12);
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.add(vec, 12);
   ///
   /// var sum = 0;
-  /// for (element in Vector.vals(vector)) {
+  /// for (element in Vector.vals(vec)) {
   ///   sum += element;
   /// };
   /// sum // => 33
   /// ```
+  /// 
+  /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+  /// and instead the consumption of the iterator is interleaved with other operations on the 
+  /// Vector, then this may lead to unexpected results. 
   ///
   /// Runtime: O(1)
   public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
@@ -362,7 +372,7 @@ module {
     };
   };
 
-  /// Creates a vector containing elements from `iter`.
+  /// Creates a Vector containing elements from `iter`.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -374,30 +384,30 @@ module {
   /// let vec = Vector.fromIter<Nat>(iter); // => [1, 1, 1]
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: O(n)
   public func fromIter<X>(iter : Iter.Iter<X>) : Vector<X> {
     let vec = new<X>();
     for (element in iter) add(vec, element);
     vec;
   };
 
-  /// Creates an array containing elements from `vector`.
+  /// Creates an immutable array containing elements from a Vector.
   ///
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 1);
-  /// Vector.add(vector, 2);
-  /// Vector.add(vector, 3);
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
   ///
-  /// Vector.toArray<Nat>(vector); // => [1, 2, 3]
+  /// Vector.toArray<Nat>(vec); // => [1, 2, 3]
   ///
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: O(n)
   public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), func(i) = get(vec, i));
 
-  /// Creates a vector containing elements from `array`.
+  /// Creates a Vector containing elements from an Array.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -408,26 +418,26 @@ module {
   /// let vec = Vector.fromArray<Nat>(array); // => [2, 3]
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: O(n)
   public func fromArray<X>(array : [X]) : Vector<X> = fromIter(array.vals());
 
-  /// Creates a mutable containing elements from `vector`.
+  /// Creates a mutable Array containing elements from a Vector.
   ///
   /// Example:
   /// ```motoko include=initialize
   ///
-  /// Vector.add(vector, 1);
-  /// Vector.add(vector, 2);
-  /// Vector.add(vector, 3);
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
   ///
-  /// Vector.toVarArray<Nat>(vector); // => [1, 2, 3]
+  /// Vector.toVarArray<Nat>(vec); // => [1, 2, 3]
   ///
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: O(n)
   public func toVarArray<X>(vec : Vector<X>) : [var X] = Array.tabulateVar<X>(size(vec), func(i) = get(vec, i));
 
-  /// Creates a vector containing elements from `array`.
+  /// Creates a Vector containing elements from a mutable Array.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -438,6 +448,6 @@ module {
   /// let vec = Vector.fromVarArray<Nat>(array); // => [2, 3]
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: O(n)
   public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
 };
