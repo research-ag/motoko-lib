@@ -1,13 +1,5 @@
-# Motoko-lib
-A library of Motoko packages that extend Motoko's base library.
+# Index
 
-Modules:
-
-* [Vector](modules/vector.md) - a growable mutable array
-* [Sha2](modules/sha2.md) - the complete Sha2 family of hash functions
-
-Mo-docs:
-
-* [Sha256](Sha256.html)
-* [Sha512](Sha512.html)
-* [Vector](Vector.html)
+* [Sha256](Sha256.md) Cycle-optimized Sha256 variants.
+* [Sha512](Sha512.md) Cycle-optimized Sha512 variants.
+* [Vector](Vector.md) Resizable one-dimensional array with `O(sqrt(n))` memory waste.
