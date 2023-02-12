@@ -1,5 +1,7 @@
 /// Cycle-optimized Sha512 variants.
+///
 /// Features:
+///
 /// * Algorithms: `sha512_224`, `sha512_256`, `sha384`, `sha512`
 /// * Input types: `Blob`, `[Nat8]`, `Iter<Nat8>`
 /// * Output types: `Blob`

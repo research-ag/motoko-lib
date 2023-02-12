@@ -2,7 +2,7 @@
 Resizable one-dimensional array with `O(sqrt(n))` memory waste.
 
 ## Type `Vector`
-```
+``` motoko 
 type Vector<X> = { var data_blocks : [var [var ?X]]; var i_block : Nat; var i_element : Nat }
 ```
 
@@ -15,7 +15,7 @@ will naturally be 2x slower than Buffer and Array. However, Array is not resizab
 has O(n) memory waste.
 
 ## Function `new`
-```
+``` motoko 
 func new<X>() : Vector<X>
 ```
 
@@ -27,7 +27,7 @@ let vec = Vector.new<Nat>(); // Creates a new Vector
 ```
 
 ## Function `clear`
-```
+``` motoko 
 func clear<X>(vec : Vector<X>)
 ```
 
@@ -46,7 +46,7 @@ Vector.toArray(vec) // => []
 Runtime: O(1)
 
 ## Function `clone`
-```
+``` motoko 
 func clone<X>(vec : Vector<X>) : Vector<X>
 ```
 
@@ -64,7 +64,7 @@ Vector.toArray(clone); // => [1]
 Runtime: O(n)
 
 ## Function `size`
-```
+``` motoko 
 func size<X>(vec : Vector<X>) : Nat
 ```
 
@@ -78,7 +78,7 @@ Vector.size(vec) // => 0
 Runtime: O(1) (with some internal calculations)
 
 ## Function `add`
-```
+``` motoko 
 func add<X>(vec : Vector<X>, element : X)
 ```
 
@@ -99,7 +99,7 @@ Vector.toArray(vec) // => [0, 1, 2, 3]
 Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
 
 ## Function `removeLast`
-```
+``` motoko 
 func removeLast<X>(vec : Vector<X>) : ?X
 ```
 
@@ -119,7 +119,7 @@ Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
 Amortized Space: O(1), Worst Case Space: O(sqrt(n))
 
 ## Function `get`
-```
+``` motoko 
 func get<X>(vec : Vector<X>, index : Nat) : X
 ```
 
@@ -137,7 +137,7 @@ Vector.get(vec, 0); // => 10
 Runtime: O(1) 
 
 ## Function `getOpt`
-```
+``` motoko 
 func getOpt<X>(vec : Vector<X>, index : Nat) : ?X
 ```
 
@@ -156,7 +156,7 @@ let y = Vector.getOpt(vec, 2); // => null
 Runtime: O(1) 
 
 ## Function `put`
-```
+``` motoko 
 func put<X>(vec : Vector<X>, index : Nat, value : X)
 ```
 
@@ -174,7 +174,7 @@ Vector.toArray(vec) // => [20]
 Runtime: O(1) 
 
 ## Function `vals`
-```
+``` motoko 
 func vals<X>(vec : Vector<X>) : Iter.Iter<X>
 ```
 
@@ -202,7 +202,7 @@ Vector, then this may lead to unexpected results.
 Runtime: O(1)
 
 ## Function `fromIter`
-```
+``` motoko 
 func fromIter<X>(iter : Iter.Iter<X>) : Vector<X>
 ```
 
@@ -221,7 +221,7 @@ let vec = Vector.fromIter<Nat>(iter); // => [1, 1, 1]
 Runtime: O(n)
 
 ## Function `toArray`
-```
+``` motoko 
 func toArray<X>(vec : Vector<X>) : [X]
 ```
 
@@ -241,7 +241,7 @@ Vector.toArray<Nat>(vec); // => [1, 2, 3]
 Runtime: O(n)
 
 ## Function `fromArray`
-```
+``` motoko 
 func fromArray<X>(array : [X]) : Vector<X>
 ```
 
@@ -259,7 +259,7 @@ let vec = Vector.fromArray<Nat>(array); // => [2, 3]
 Runtime: O(n)
 
 ## Function `toVarArray`
-```
+``` motoko 
 func toVarArray<X>(vec : Vector<X>) : [var X]
 ```
 
@@ -279,7 +279,7 @@ Vector.toVarArray<Nat>(vec); // => [1, 2, 3]
 Runtime: O(n)
 
 ## Function `fromVarArray`
-```
+``` motoko 
 func fromVarArray<X>(array : [var X]) : Vector<X>
 ```
 

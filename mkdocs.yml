@@ -9,9 +9,9 @@ nav:
     - Vector: modules/vector.md
     - Sha2: modules/sha2.md
   - Mo-docs:
-    - Vector: Vector.md
-    - Sha256: Sha256.md
-    - Sha512: Sha512.md
+    - Vector: modoc/Vector.md
+    - Sha256: modoc/Sha256.md
+    - Sha512: modoc/Sha512.md
   - Contribute: contribute.md
   - About: about.md
 theme:

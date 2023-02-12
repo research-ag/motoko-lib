@@ -1,5 +1,7 @@
 /// Cycle-optimized Sha256 variants.
+///
 /// Features:
+///
 /// * Algorithms: `sha256`, `sha224`
 /// * Input types: `Blob`, `[Nat8]`, `Iter<Nat8>`
 /// * Output types: `Blob`
