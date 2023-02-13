@@ -1,15 +1,16 @@
-all: modoc/Sha256.md modoc/Sha512.md modoc/Vector.md 
+.PHONY: all clean modoc
 
-modoc/Sha256.md: Sha256.md
-	sed -e 's/no-repl//' <Sha256.md >modoc/Sha256.md
+modules := $(shell ls ../src/*.mo)
 
-modoc/Sha512.md: Sha512.md
-	sed -e 's/no-repl//' <Sha512.md >modoc/Sha512.md
+targets := $(modules:../src/%.mo=modoc/%.md)
+temps := $(modules:../src/%.mo=%.md)
 
-modoc/Vector.md: Vector.md
-	sed -e 's/no-repl//' <Vector.md >modoc/Vector.md
+all: $(targets)
 
-Sha256.md Sha512.md Vector.md:
+$(targets): modoc/%.md: %.md
+	sed -e 's/no-repl//' <$^ >$@
+
+$(temps): %.md: ../src/%.mo
 	cd ..; mo-doc --format plain
 
 clean:
