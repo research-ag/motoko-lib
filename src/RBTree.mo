@@ -13,9 +13,38 @@ module {
     #node : (Color, Node<K, V>, (K, ?V), Node<K, V>);
   };
 
-  public type LLLRBTree<K, V> = {
+  public type LLRBTree<K, V> = {
     var root : Node<K, V>;
     compare : (K, K) -> O.Order;
+  };
+
+  func turnBlack<K, V>(node : Node<K, V>) : Node<K, V> {
+    switch (node) {
+      case (#node(color, a, b, c)) #node(#black, a, b, c);
+      case (#leaf) #leaf;
+    };
+  };
+
+  func turnRed<K, V>(node : Node<K, V>) : Node<K, V> {
+    switch (node) {
+      case (#node(color, a, b, c)) #node(#red, a, b, c);
+      case (#leaf) #leaf;
+    };
+  };
+
+  func isBlackLeftBlack<K, V>(node : Node<K, V>) : Bool {
+    switch (node) {
+      case (#node(#black, #leaf, _, _)) true;
+      case (#node(#black, #node(#black, _, _, _), _, _)) true;
+      case (_) false;
+    };
+  };
+
+  func isBlackLeftRed<K, V>(node : Node<K, V>) : Bool {
+    switch (node) {
+      case (#node(#black, #node(#red, _, _, _), _, _)) true;
+      case (_) false;
+    };
   };
 
   func balance_left<K, V>(color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>) : Node<K, V> {
@@ -27,8 +56,8 @@ module {
               #red,
               #node(#black, a, b, c),
               left_pair,
-              #node(#black, left_right, pair, right)
-            )
+              #node(#black, left_right, pair, right),
+            );
           };
           case (_) #node(color, left, pair, right);
         };
@@ -39,50 +68,99 @@ module {
 
   func balance_right<K, V>(color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>) : Node<K, V> {
     switch (color, left, right) {
-      case(
+      case (
         #black,
         #node(#red, left_left, left_pair, left_right),
-        #node(#red, right_left, right_pair, right_right)
+        #node(#red, right_left, right_pair, right_right),
       ) {
         #node(
           #red,
           #node(#red, left_left, left_pair, left_right),
           pair,
-          #node(#red, right_left, right_pair, right_right)
+          #node(#red, right_left, right_pair, right_right),
         );
       };
-      case(
+      case (
         color,
         left,
-        #node(#red, right_left, right_pair, right_right)
+        #node(#red, right_left, right_pair, right_right),
       ) {
         #node(
           color,
           #node(#red, left, pair, right_left),
           right_pair,
-          right_right
+          right_right,
         );
       };
       case (_, _, _) {
         #node(color, left, pair, right);
-      }
+      };
     };
   };
+  public func insert<K, V>(tree : LLRBTree<K, V>, key : K, value : V) {
 
-  func insert<K, V>(key : K, value : V, node : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
-    switch (node) {
-      case (#leaf) #node(#red, #leaf, (key, ?value), #leaf);
-      case (#node(color, left, (key_in, value_in), right)) {
-        switch (compare(key, key_in)) {
-          case (#less) {
-            balance_left(color, insert(key, value, left, compare), (key_in, value_in), right);
-          };
-          case (#equal) #node(color, left, (key, ?value), right);
-          case (#greater) {
-            balance_right(color, left, (key_in, value_in), insert(key, value, right, compare));
+
+    func insert<K, V>(key : K, value : V, node : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+      switch (node) {
+        case (#leaf) #node(#red, #leaf, (key, ?value), #leaf);
+        case (#node(color, left, (key_in, value_in), right)) {
+          switch (compare(key, key_in)) {
+            case (#less) {
+              balance_left(color, insert(key, value, left, compare), (key_in, value_in), right);
+            };
+            case (#equal) #node(color, left, (key, ?value), right);
+            case (#greater) {
+              balance_right(color, left, (key_in, value_in), insert(key, value, right, compare));
+            };
           };
         };
       };
     };
+
+    tree.root := turnBlack(insert(key, value, tree.root, tree.compare));
   };
-}
+
+  public func delete<K, V>(tree : LLRBTree<K, V>, key : K) {
+    func delete_less<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+      switch (color, isBlackLeftBlack(left), right) {
+        case (#red, true, #node(#black, #node(#red, right_left_left, right_left_pair, right_left_right), right_pair, right_right)) {
+          if (isBlackLeftRed(right)) {
+            #node(#red, #node(#black, delete(key, turnRed(left), compare), pair, right_left_left), right_left_pair, #node(#black, right_left_right, right_pair, right_right))
+          } else {
+            balance_right(#black, delete(key, turnRed(left), compare), pair, turnRed(right));
+          }
+        };
+        case (_) #node(color, delete(key, left, compare), pair, right);
+      };
+    };
+
+    func delete_equal<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+
+    };
+
+    func delete_greater<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+      switch(left) {
+        case (#node(#red, left_left, left_pair, left_right)) {
+          balance_right(color, left_left, left_pair, delete(key, #node(#red, left_right, pair, right), compare));
+        };
+        case (_) {
+        };
+      };
+    };
+    
+    func delete<K, V>(key : K, node : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+      switch (node) {
+        case (#leaf) #leaf;
+        case (#node(color, left, (key_in, value_in), right)) {
+          switch (compare(key, key_in)) {
+            case (#less) delete_less(key, color, left, (key_in, value_in), right, compare);
+            case (#equal) delete_equal(key, color, left, (key_in, value_in), right, compare);
+            case (#greater) delete_greater(key, color, left, (key_in, value_in), right, compare);
+          };
+        };
+      };
+    };
+
+    tree.root := turnBlack(delete(key, turnRed(tree.root), tree.compare));
+  }
+};
