@@ -8,3 +8,6 @@ vector:
 
 sha2:
 	$(MOC) $(VESSEL_PKGS) -wasi-system-api sha2Test.mo && wasmtime sha2Test.wasm
+
+rbtree:
+	$(MOC) $(VESSEL_PKGS) -wasi-system-api RBTreeTest.mo && wasmtime RBTreeTest.wasm
