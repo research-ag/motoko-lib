@@ -2,27 +2,56 @@
 
 The Vector data structure is meant to be a replacement for Array when a growable and/or shrinkable data structure is needed.
 It provides random access like Array and Buffer and can grow and shrink at the end like Buffer can.
-Unlike Buffer the memory overhead for allocated but no yet used space is $O(\sqrt{n})$ instead of $O(n)$.
+Unlike Buffer, the memory overhead for allocated but no yet used space is $O(\sqrt{n})$ instead of $O(n)$.
 
 ## Design
 
-The data structure is based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999) ([pdf](https://sedgewick.io/wp-content/themes/sedgewick/papers/1999Optimal.pdf)).
+The data structure is based on the paper ["Resizable Arrays in Optimal Time and Space"](https://sedgewick.io/wp-content/themes/sedgewick/papers/1999Optimal.pdf) by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).
+
+The vector elements are stored in so-called data blocks and
+the whole data structure consists of a sequence of data blocks of increasing size.
+Hence it is in fact a two-dimensional array (but not a "square" one).
+
+The trick lies in the selection of the sizes of the data blocks. 
+They are chosen such that the conversion of the externally used single index 
+to the internally used index pair can be cheaply done by bit shifts.
+
+The data block sizes can be better understood when thinking of the data blocks being arranged in "super blocks".
+Super blocks are merely a virtual concept and have no manifestation in the implementation.
+The capacity of a super block is always a $2$-power.
+The $i$-th super block has capacity $2^i$ and consists of $2^{\lfloor i / 2\rfloor}$ data blocks of size $2^{\lceil i / 2 \rceil}$.
+This is followed by the next super block of capacity $2^{i+1}$ and so on.
+
+Hence, the sequence of data block sizes look like this:
+
+$$1,\ \ 2,\ \ 2,2,\ \ 4,4,\ \ 4,4,4,4,\ \ 8,8,8,8,\ \ ...$$
+
+where the additional white space indicates super block boundaries. 
 
 ## Implementation notes
 
-Our data structure is slightly different from that in the article. Here's explanation.
-The data structure consists of virtual super blocks, each super block consists of physical data blocks. Data blocks of each super block stored one by one in data_blocks array. Let $f(i)$ be size of $i$-th  super block, then
-$f(0) = 0, f(1) = 1, f(i + 2) = 2 ^ i$ for $i >= 0$.
+Each data block is a mutable array of type `[var ?X]` where `X` is the element type.
+The data blocks themselves are stored in the mutable array called `data_blocks`.
+Hence `data_blocks` has type `[var [var ?X]]`.
 
-Each super block of size $2 ^ i$ consists of $2^{\lfloor i / 2\rfloor}$ data blocks of size $2^{\lceil i / 2 \rceil}$.
+The present implementation differs from the article in that the data block indices are shifted by $2$ and we introduce two data blocks of size $0$ and $1$ at the beginning of the sequence.
+This makes the access faster because it eliminates the frequent computation of $i+2$ in the internal formulas needed for index conversion.
 
-Except for data_blocks array the Vector itself constains pair i_block, i_element meaning that the next element should be assigned to $\verb|data_blocks|[\verb|i_block|][\verb|i_element|]$. We don't store more fields to reduce memory, but we don't store only size to make addition faster.
+Besides the `data_blocks` array, the `Vector` type constains the index pair `i_block`, `i_element` which means the next position that should be written by an `add` operation:
+`data_blocks[i_block][i_element]$.
+We do not store any more information to reduce memory.
+But we also do not store less any information (such as only the total size in a single variable)
+as to not slow down access.
 
-When growing we resize data_blocks array so that it can store exactly one next super block. When shrkinking we keep space in data_blocks array for two next super blocks.
+When growing we resize `data_blocks` (the outer array) so that it can store exactly one next super block. But unused data blocks in the last super block are not allocated, i.e. set to the empty array. 
+
+When shrinking we keep space in `data_blocks` for two additional super blocks. But unused data blocks in the last two super blocks are deallocated, i.e. set to the empty array.
 
 ## Optimal memory waste
 
-The minimal possible memory waste is $O(\sqrt{n})$, here is idea of proof.
+The memory waste of this data structure is optimal in the following sense:
+The minimal possible memory waste is any data structure of this kind is $O(\sqrt{n})$.
+Here is an outline of the proof.
 
 Assume store in n elements in A different sequential arrays. Let B be maximum size of such an array. Then memory waste is $O(max(A, B))$, because we have to store somehow pointers to all the arrays and we count it as memory waste, and maximum empty space is $O(B)$, when new array is allocated. $A * B >= n$ then minimal memory waste is $O(\sqrt{n})$.
 

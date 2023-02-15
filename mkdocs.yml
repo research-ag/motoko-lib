@@ -6,12 +6,12 @@ copyright: Copyright &copy; 2023 MR Research AG
 nav:
   - Home: home.md
   - Modules:
+    - Sha256/512: modules/sha2.md
     - Vector: modules/vector.md
-    - Sha2: modules/sha2.md
-  - Mo-docs:
-    - Vector: modoc/Vector.md
+  - APIs:
     - Sha256: modoc/Sha256.md
     - Sha512: modoc/Sha512.md
+    - Vector: modoc/Vector.md
   - Contribute: contribute.md
   - About: about.md
 theme:
@@ -23,7 +23,6 @@ theme:
     - navigation.indexes
     - navigation.instant
     - navigation.tracking
-    - navigation.tabs
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
