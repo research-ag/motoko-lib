@@ -11,7 +11,7 @@ module {
 
   type Node<K, V> = {
     #leaf;
-    #node : (Color, Node<K, V>, (K, ?V), Node<K, V>);
+    #node : (Color, Node<K, V>, (K, V), Node<K, V>);
   };
 
   public type LLRBTree<K, V> = {
@@ -48,7 +48,7 @@ module {
     };
   };
 
-  func balance_left<K, V>(color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>) : Node<K, V> {
+  func balance_left<K, V>(color : Color, left : Node<K, V>, pair : (K, V), right : Node<K, V>) : Node<K, V> {
     switch (color, left) {
       case (#black, #node(#red, #node(#red, a, b, c), left_pair, left_right)) {
         #node(
@@ -62,7 +62,7 @@ module {
     };
   };
 
-  func balance_right<K, V>(color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>) : Node<K, V> {
+  func balance_right<K, V>(color : Color, left : Node<K, V>, pair : (K, V), right : Node<K, V>) : Node<K, V> {
     switch (color, left, right) {
       case (
         #black,
@@ -97,13 +97,13 @@ module {
   public func insert<K, V>(tree : LLRBTree<K, V>, key : K, value : V) {
     func insert<K, V>(key : K, value : V, node : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
       switch (node) {
-        case (#leaf) #node(#red, #leaf, (key, ?value), #leaf);
+        case (#leaf) #node(#red, #leaf, (key, value), #leaf);
         case (#node(color, left, (key_in, value_in), right)) {
           switch (compare(key, key_in)) {
             case (#less) {
               balance_left(color, insert(key, value, left, compare), (key_in, value_in), right);
             };
-            case (#equal) #node(color, left, (key, ?value), right);
+            case (#equal) #node(color, left, (key, value), right);
             case (#greater) {
               balance_right(color, left, (key_in, value_in), insert(key, value, right, compare));
             };
@@ -113,7 +113,6 @@ module {
     };
 
     tree.root := turn_black(insert(key, value, tree.root, tree.compare));
-    // Debug.print(print(tree.root));
   };
 
   public func delete<K, V>(tree : LLRBTree<K, V>, key : K) {
@@ -124,7 +123,7 @@ module {
       };
     };
 
-    func minimum<K, V>(node : Node<K, V>) : (K, ?V) {
+    func minimum<K, V>(node : Node<K, V>) : (K, V) {
       switch (node) {
         case (#node(_, #leaf, pair, _)) pair;
         case (#node(_, left, _, _)) minimum(left);
@@ -160,7 +159,7 @@ module {
       };
     };
 
-    func delete_less<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+    func delete_less<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
       if (color == #red and is_black_left_black(left)) {
         switch (right) {
           case (#node(#black, #node(#red, right_left_left, right_left_pair, right_left_right), right_pair, right_right)) {
@@ -175,7 +174,7 @@ module {
       };
     };
 
-    func delete_equal<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+    func delete_equal<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
       switch (color, left, right, is_black_left_black(right)) {
         case (#red, #leaf, #leaf, _) #leaf;
         case (color, #node(#red, left_left, left_pair, left_right), right, _) {
@@ -195,13 +194,12 @@ module {
           #node(#red, left, minimum(right), #node(#black, delete_min(right_left), right_pair, right_right));
         };
         case (_) {
-          // Debug.print(print(#node(color, left, pair, right)));
           Prim.trap("");
         };
       };
     };
 
-    func delete_greater<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, ?V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
+    func delete_greater<K, V>(key : K, color : Color, left : Node<K, V>, pair : (K, V), right : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
       switch (left) {
         case (#node(#red, left_left, left_pair, left_right)) {
           balance_right(color, left_left, left_pair, delete(key, #node(#red, left_right, pair, right), compare));
@@ -238,7 +236,23 @@ module {
     };
 
     tree.root := turn_black(delete(key, turn_red(tree.root), tree.compare));
-    // Debug.print(print(tree.root));
+  };
+
+  public func get<K, V>(tree : LLRBTree<K, V>, key : K) : ?V {
+    func get(node : Node<K, V>, key : K) : ?V {
+      switch (node) {
+        case (#node(_, left, (key_in, value), right)) {
+          switch (tree.compare(key, key_in)) {
+            case (#less) get(left, key);
+            case (#equal) ?value;
+            case (#greater) get(right, key);
+          };
+        };
+        case (#leaf) null;
+      };
+    };
+
+    get(tree.root, key);
   };
 
   func print<K, V>(node : Node<K, V>) : Text {

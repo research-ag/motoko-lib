@@ -14,7 +14,12 @@ while (i < 1000) {
 
 i := 0;
 while (i < 1000) {
+    assert(LLRBTree.get(t, i) == ?i);
+    i += 1;
+};
+
+i := 0;
+while (i < 1000) {
     LLRBTree.delete(t, i);
     i += 1;
-    // Debug.print(Nat.toText(i));
 };
