@@ -6,6 +6,8 @@ import O "mo:base/Order";
 import Bool "mo:base/Bool";
 import Prim "mo:⛔";
 import Option "mo:base/Option";
+import Iter "mo:base/Iter";
+import Array "mo:base/Array";
 
 module {
   type Color = { #red; #black };
@@ -136,24 +138,30 @@ module {
       switch (node) {
         case (#node(#red, #leaf, _, #leaf)) #leaf;
         case (#node(#red, left, pair, right)) {
-          if (is_red(left)) {
-            #node(#red, delete_min(left), pair, right);
-          } else if (is_black_left_black(left)) {
-            switch (right) {
-              case (#node(#black, #node(#red, right_left_left, right_left_pair, right_left_right), right_pair, right_right)) {
-                #node(
-                  #red,
-                  #node(#black, delete_min(turn_red(left)), pair, right_left_left),
-                  right_left_pair,
-                  #node(#black, right_left_right, right_pair, right_right),
-                );
-              };
-              case (_) {
-                balance_right(#black, delete_min(turn_red(left)), pair, turn_red(right));
+          switch(left) {
+            case (#node(#red, _, _, _)) {
+              #node(#red, delete_min(left), pair, right);
+            };
+            case (#node(#black, left_left, left_pair, left_right)) {
+              if (is_black_left_black(left)) {
+                switch (right) {
+                  case (#node(#black, #node(#red, right_left_left, right_left_pair, right_left_right), right_pair, right_right)) {
+                    #node(
+                      #red,
+                      #node(#black, delete_min(turn_red(left)), pair, right_left_left),
+                      right_left_pair,
+                      #node(#black, right_left_right, right_pair, right_right),
+                    );
+                  };
+                  case (_) {
+                    balance_right(#black, delete_min(turn_red(left)), pair, turn_red(right));
+                  };
+                };
+              } else {
+                #node(#red, #node(#black, delete_min(left_left), left_pair, left_right), pair, right);
               };
             };
-          } else {
-            #node(#red, delete_min(turn_red(left)), pair, turn_red(right));
+            case (#leaf) Prim.trap("");
           };
         };
         case (_) Prim.trap("");
@@ -256,6 +264,19 @@ module {
     get(tree.root, key);
   };
 
+  public func toArray<K, V>(tree : LLRBTree<K, V>) : [(K, V)] {
+    func toArray(node : Node<K, V>) : [(K, V)] {
+      switch (node) {
+        case (#leaf) [];
+        case (#node(_, left, pair, right)) {
+          Array.flatten([toArray(left), [pair], toArray(right)]);
+        };
+      };
+    };
+
+    toArray(tree.root);
+  };
+
   public func valid<K, V>(tree : LLRBTree<K, V>) : Bool {
     func is_black_same<K, V>(node : Node<K, V>) : ?Nat {
       switch (node) {
@@ -280,7 +301,26 @@ module {
       };
     };
 
-    not Option.isNull(is_black_same(tree.root)) and is_red_separate(#black, tree.root);
+    func is_left_lean<K, V>(node : Node<K, V>) : Bool {
+      switch (node) {
+        case (#leaf) true;
+        case (#node(#black, _, _, #node(#red, _, _, _))) false;
+        case (#node(_, left, _, right)) is_left_lean(left) and is_left_lean(right);
+      }
+    };
+
+    func is_ordered<K, V>(tree : LLRBTree<K, V>) : Bool {
+      let a = toArray(tree);
+      var i = 0;
+
+      while (i + 1 < a.size()) {
+        if (tree.compare(a[i].0, a[i + 1].0) != #less) return false;
+        i += 1;
+      };
+      return true;
+    };
+
+    not Option.isNull(is_black_same(tree.root)) and is_red_separate(#black, tree.root) and is_left_lean(tree.root) and is_ordered(tree);
   };
 
   func print<K, V>(node : Node<K, V>) : Text {
