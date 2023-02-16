@@ -5,6 +5,7 @@ import Nat "mo:base/Nat";
 import O "mo:base/Order";
 import Bool "mo:base/Bool";
 import Prim "mo:⛔";
+import Option "mo:base/Option";
 
 module {
   type Color = { #red; #black };
@@ -97,7 +98,6 @@ module {
   public func insert<K, V>(tree : LLRBTree<K, V>, key : K, value : V) {
     func insert<K, V>(key : K, value : V, node : Node<K, V>, compare : (K, K) -> O.Order) : Node<K, V> {
       switch (node) {
-        case (#leaf) #node(#red, #leaf, (key, value), #leaf);
         case (#node(color, left, (key_in, value_in), right)) {
           switch (compare(key, key_in)) {
             case (#less) {
@@ -109,6 +109,7 @@ module {
             };
           };
         };
+        case (#leaf) #node(#red, #leaf, (key, value), #leaf);
       };
     };
 
@@ -253,6 +254,33 @@ module {
     };
 
     get(tree.root, key);
+  };
+
+  public func valid<K, V>(tree : LLRBTree<K, V>) : Bool {
+    func is_black_same<K, V>(node : Node<K, V>) : ?Nat {
+      switch (node) {
+        case (#leaf) ?0;
+        case (#node(color, left, _, right)) {
+          let a = if (color == #red) { 0 } else { 1 };
+          switch(is_black_same(left), is_black_same(right)) {
+            case (?x, ?y) {
+              if (x == y) { ?(x + a) } else { null };
+            };
+            case (_, _) null;
+          };
+        };
+      };
+    };
+
+    func is_red_separate<K, V>(color : Color, node : Node<K, V>) : Bool {
+      switch (color, node) {
+        case (_, #leaf) true;
+        case (#red, #node(#red, _, _, _)) false;
+        case (_, #node(color, left, _, right)) is_red_separate(color, left) and is_red_separate(color, right);
+      };
+    };
+
+    not Option.isNull(is_black_same(tree.root)) and is_red_separate(#black, tree.root);
   };
 
   func print<K, V>(node : Node<K, V>) : Text {

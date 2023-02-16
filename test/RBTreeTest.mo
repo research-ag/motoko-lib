@@ -9,6 +9,7 @@ let t = LLRBTree.new<Nat, Nat>(Nat.compare);
 var i = 0;
 while (i < 1000) {
     LLRBTree.insert(t, i, i);
+    assert(LLRBTree.valid(t));
     i += 1;
 };
 
@@ -21,5 +22,6 @@ while (i < 1000) {
 i := 0;
 while (i < 1000) {
     LLRBTree.delete(t, i);
+    assert(LLRBTree.valid(t));
     i += 1;
 };
