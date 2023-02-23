@@ -3,6 +3,7 @@ import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:base/Nat32";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
+import Vector "Vector";
 
 module {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
@@ -11,7 +12,7 @@ module {
   /// Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999). 
   /// Since this is internally a two-dimensional array the access times for put and get operations
   /// will naturally be 2x slower than Buffer and Array. However, Array is not resizable and Buffer
-  /// has O(n) memory waste.
+  /// has `O(n)` memory waste.
   public type Vector<X> = {
     /// the index block
     var data_blocks : [var [var ?X]];
@@ -34,6 +35,32 @@ module {
     var i_element = 0;
   };
 
+  public func init<X>(size : Nat, initValue : X) : Vector<X> {
+    let (i_block, i_element) = locate(size);
+    
+    var capacity = 0;
+    var blocks = 1;
+    while (capacity < size) {
+      blocks := new_index_block_length(Nat32(blocks));
+      capacity := if (capacity == 0) { 1 } else { capacity * 2 };
+    };
+    
+    let data_blocks = Array.tabulateVar<[var ?X]>(blocks, func(i) {
+      if (i < i_block) {
+        Array.init<?X>(data_block_size(i_block), ?initValue)
+      } else if (i == i_block and i_element != 0) {
+        Array.tabulateVar<?X>(data_block_size(i_block), func(j) = if (j < i_element) { ?initValue } else { null })
+      } else {
+        [var]
+      }
+    });
+    
+    {
+      var data_blocks = data_blocks;
+      var i_block = i_block;
+      var i_element = i_element;
+    };
+  };
 
   /// Resets the vector to size 0, de-referencing all elements.
   ///
@@ -113,6 +140,11 @@ module {
     Nat((d -% (1 <>> lz)) <>> lz +% i);
   };
 
+  func data_block_size(i_block : Nat) : Nat {
+    // formula for the size of given i_block
+    Nat(1 <>> leadingZeros(Nat32(i_block) / 3));
+  };
+
   func new_index_block_length(i_block : Nat32) : Nat {
     // this works correct only when i_block is the first block in the super block
     if (i_block == 1) 2 else Nat(i_block +% 0x40000000 >> leadingZeros(i_block));
@@ -173,8 +205,7 @@ module {
       // When removing last we keep one more data block, so can be not empty
       if (vec.data_blocks[i_block].size() == 0) {
         vec.data_blocks[i_block] := Array.init<?X>(
-          // formula for the size of given i_block
-          Nat(1 <>> leadingZeros(Nat32(i_block) / 3)),
+          data_block_size(i_block),
           null,
         );
       };
@@ -324,6 +355,21 @@ module {
     } else Prim.trap "Vector index out of bounds in put";
   };
 
+  public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
+    for ((x, i) in items(vec)) {
+      if (equal(x, element)) return ?i;
+    };
+    null;
+  };
+
+  public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
+    var lastIndex = (null : ?Nat);
+    for ((x, i) in items(vec)) {
+      if (equal(x, element)) lastIndex := ?i;
+    };
+    lastIndex;
+  };
+
   /// Returns an Iterator (`Iter`) over the elements of a Vector.
   /// Iterator provides a single method `next()`, which returns
   /// elements in order, or `null` when out of elements to iterate over.
@@ -359,18 +405,49 @@ module {
         return null;
       };
       switch (block[i_element]) {
-        case (null) return null;
         case (?element) {
           i_element += 1;
           if (i_element == block.size()) {
             i_block += 1;
             i_element := 0;
           };
-          return ?element;
+          ?element;
         };
+        case (null) null;
       };
     };
   };
+
+  public func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
+    var i_block = 1;
+    var i_element = 0;
+    var i = 0;
+
+    public func next() : ?(X, Nat) {
+      if (i_block >= vec.data_blocks.size()) {
+        return null;
+      };
+      let block = vec.data_blocks[i_block];
+      if (block.size() == 0) {
+        return null;
+      };
+      switch (block[i_element]) {
+        case (?element) {
+          let ret = ?(element, i);
+          i += 1;
+          i_element += 1;
+          if (i_element == block.size()) {
+            i_block += 1;
+            i_element := 0;
+          };
+          ret;
+        };
+        case (null) null;
+      };
+    };
+  };
+
+  public func keys(vec : Vector<X>) : Iter.Iter<X> = Iter.range(size(vec));
 
   /// Creates a Vector containing elements from `iter`.
   ///
@@ -391,6 +468,10 @@ module {
     vec;
   };
 
+  public func append<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
+    for (element in iter) add(vec, element);
+  };
+ 
   /// Creates an immutable array containing elements from a Vector.
   ///
   /// Example:
