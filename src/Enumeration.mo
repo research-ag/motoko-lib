@@ -129,11 +129,11 @@ module {
     };
 
     public func get(i : Nat) : Blob {
-      if (i < size) { array[i]; } else { Prim.trap("Index out of bounds"); };
+      if (i < size) { array[i] } else { Prim.trap("Index out of bounds") };
     };
 
     public func toArray() : [var Blob] {
-      array;
+      Array.tabulateVar<Blob>(size, func(i) = array[i]);
     };
   };
 };
