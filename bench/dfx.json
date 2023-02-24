@@ -8,10 +8,6 @@
     "sha2_bench": {
       "type": "motoko",
       "main": "src/sha2Bench.mo"
-    },
-    "LLRBTree_bench": {
-      "type": "motoko",
-      "main": "src/LLRBTreeBench.mo"
     }
   },
   "defaults": {
