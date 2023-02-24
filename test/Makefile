@@ -1,4 +1,4 @@
-MOC=moc
+MOC=$(shell vessel bin)/moc
 VESSEL_PKGS=$(shell vessel sources)
 
 all: vector sha2 enumeration

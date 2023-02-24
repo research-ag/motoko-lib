@@ -8,7 +8,7 @@ module {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
   /// It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(n)` where
   /// n is the size of the data strucuture.
-  /// Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999). 
+  /// Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).
   /// Since this is internally a two-dimensional array the access times for put and get operations
   /// will naturally be 2x slower than Buffer and Array. However, Array is not resizable and Buffer
   /// has `O(n)` memory waste.
@@ -43,24 +43,25 @@ module {
   /// Runtime: O(size)
   public func init<X>(size : Nat, initValue : X) : Vector<X> {
     let (i_block, i_element) = locate(size);
-    
+
     var capacity = 0;
     var blocks = 1;
     while (capacity < size) {
       blocks := new_index_block_length(Nat32(blocks));
       capacity := if (capacity == 0) { 1 } else { capacity * 2 };
     };
-    
-    let data_blocks = Array.tabulateVar<[var ?X]>(blocks, func(i) {
-      if (i < i_block) {
-        Array.init<?X>(data_block_size(i), ?initValue)
-      } else if (i == i_block and i_element != 0) {
-        Array.tabulateVar<?X>(data_block_size(i), func(j) = if (j < i_element) { ?initValue } else { null })
-      } else {
-        [var]
-      }
-    });
-    
+
+    let data_blocks = Array.tabulateVar<[var ?X]>(
+      blocks,
+      func(i) {
+        if (i < i_block) {
+          Array.init<?X>(data_block_size(i), ?initValue);
+        } else if (i == i_block and i_element != 0) {
+          Array.tabulateVar<?X>(data_block_size(i), func(j) = if (j < i_element) { ?initValue } else { null });
+        } else { [var] };
+      },
+    );
+
     {
       var data_blocks = data_blocks;
       var i_block = i_block;
@@ -187,8 +188,8 @@ module {
     };
   };
 
-  /// Adds a single element to the end of a Vector, 
-  /// allocating a new internal data block if needed, 
+  /// Adds a single element to the end of a Vector,
+  /// allocating a new internal data block if needed,
   /// and resizing the internal index block if needed.
   ///
   /// Example:
@@ -297,7 +298,7 @@ module {
   /// Vector.get(vec, 0); // => 10
   /// ```
   ///
-  /// Runtime: O(1) 
+  /// Runtime: O(1)
   public func get<X>(vec : Vector<X>, index : Nat) : X {
     // inlined version of:
     //   let (a,b) = locate(index);
@@ -308,16 +309,14 @@ module {
     let i = Nat32(index);
     let lz = leadingZeros(i);
     let lz2 = lz >> 1;
-    switch (
-      if (lz & 1 == 0) {
-        vec.data_blocks[Nat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat(i & (0xFFFF >> lz2))];
-      } else {
-        vec.data_blocks[Nat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat(i & (0x7FFF >> lz2))];
-      },
-    ) {
-      case (?element) element;
-      case (null) Prim.trap "Vector index out of bounds in get";
+    let ?result = if (lz & 1 == 0) {
+      vec.data_blocks[Nat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat(i & (0xFFFF >> lz2))];
+    } else {
+      vec.data_blocks[Nat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat(i & (0x7FFF >> lz2))];
+    } else {
+      Prim.trap "Vector index out of bounds in get";
     };
+    result;
   };
 
   /// Returns the element at index `index` as an option.
@@ -332,7 +331,7 @@ module {
   /// let y = Vector.getOpt(vec, 2); // => null
   /// ```
   ///
-  /// Runtime: O(1) 
+  /// Runtime: O(1)
   public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
     let (a, b) = locate(index);
     if (a < vec.i_block or vec.i_element != 0 and a == vec.i_block) {
@@ -353,7 +352,7 @@ module {
   /// Vector.toArray(vec) // => [20]
   /// ```
   ///
-  /// Runtime: O(1) 
+  /// Runtime: O(1)
   public func put<X>(vec : Vector<X>, index : Nat, value : X) {
     let (a, b) = locate(index);
     if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
@@ -366,7 +365,7 @@ module {
   ///
   /// Example:
   /// ```
-  /// 
+  ///
   /// let vector = Vector.new<Nat>();
   /// vector.add(1);
   /// vector.add(2);
@@ -429,10 +428,10 @@ module {
   /// };
   /// sum // => 33
   /// ```
-  /// 
+  ///
   /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
-  /// and instead the consumption of the iterator is interleaved with other operations on the 
-  /// Vector, then this may lead to unexpected results. 
+  /// and instead the consumption of the iterator is interleaved with other operations on the
+  /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: O(1)
   public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
@@ -472,10 +471,10 @@ module {
   /// Vector.add(vec, 12);
   /// Iter.toArray(Vector.items(vec)); // [(10, 0), (11, 1), (12, 2)]
   /// ```
-  /// 
+  ///
   /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
-  /// and instead the consumption of the iterator is interleaved with other operations on the 
-  /// Vector, then this may lead to unexpected results. 
+  /// and instead the consumption of the iterator is interleaved with other operations on the
+  /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: O(1)
   public func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
@@ -518,9 +517,9 @@ module {
   /// Vector.add(vec, 12);
   /// Iter.toArray(Vector.items(vec)); // [0, 1, 2]
   /// ```
-  /// 
+  ///
   /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
-  /// and instead the consumption of the iterator is interleaved with other operations on the 
+  /// and instead the consumption of the iterator is interleaved with other operations on the
   /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: O(1)
@@ -562,7 +561,7 @@ module {
   public func append<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
     for (element in iter) add(vec, element);
   };
- 
+
   /// Creates an immutable array containing elements from a Vector.
   ///
   /// Example:
