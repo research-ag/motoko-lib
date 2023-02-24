@@ -1,5 +1,6 @@
 import Blob "mo:base/Blob";
 import Array "mo:base/Array";
+import Prim "mo:⛔";
 
 module {
   public type Tree = {
@@ -128,7 +129,7 @@ module {
     };
 
     public func get(i : Nat) : Blob {
-      array[i];
+      if (i < size) { array[i]; } else { Prim.trap("Index out of bounds"); };
     };
 
     public func toArray() : [var Blob] {
