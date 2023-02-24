@@ -38,7 +38,7 @@ The present implementation differs from the article in that the data block indic
 This makes the access faster because it eliminates the frequent computation of $i+2$ in the internal formulas needed for index conversion.
 
 Besides the `data_blocks` array, the `Vector` type constains the index pair `i_block`, `i_element` which means the next position that should be written by an `add` operation:
-`data_blocks[i_block][i_element]$.
+`data_blocks[i_block][i_element]`.
 We do not store any more information to reduce memory.
 But we also do not store less any information (such as only the total size in a single variable)
 as to not slow down access.

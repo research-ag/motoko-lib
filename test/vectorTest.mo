@@ -54,6 +54,24 @@ run(
   ),
 );
 
+run(
+  suite(
+    "init",
+    [
+      test(
+        "init with toArray",
+        Vector.toArray(Vector.init<Nat>(n, 0)),
+        M.equals(T.array(T.natTestable, Array.tabulate<Nat>(n, func(_) = 0))),
+      ),
+      test(
+        "init with vals",
+        Iter.toArray(Vector.vals(Vector.init<Nat>(n, 0))),
+        M.equals(T.array(T.natTestable, Array.tabulate<Nat>(n, func(_) = 0))),
+      ),
+    ],
+  ),
+);
+
 for (i in Iter.range(0, n)) {
   Vector.put(vector, i, n - i);
 };
@@ -160,10 +178,10 @@ func locate_optimal<X>(index : Nat) : (Nat, Nat) {
     // i in binary = zeroes; 1; bits blocks mask; bits element mask
     // bit lengths =     lz; 1;         15 - lz2;          16 - lz2
     // blocks before = 2 ** ceil(s / 2) + 2 ** floor(s / 2)
-    
+
     // so in order to calculate index of the data block
     // we need to shift i by 16 - lz2 and set bit with number 16 - lz2, bit 15 - lz2 is already set
-    
+
     // element mask = 2 ** (16 - lz2) = (1 << 16) >> lz2 = 0xFFFF >> lz2
     let mask = 0xFFFF >> lz2;
     (Nat32.toNat(((i << lz2) >> 16) ^ (0x10000 >> lz2)), Nat32.toNat(i & (0xFFFF >> lz2)));
@@ -173,7 +191,7 @@ func locate_optimal<X>(index : Nat) : (Nat, Nat) {
     // bit lengths =     lz; 1;         15 - lz2;          15 - lz2
     // block mask = element mask = mask = 2 ** (s / 2) - 1 = 2 ** (15 - lz2) - 1 = (1 << 15) >> lz2 = 0x7FFF >> lz2
     // blocks before = 2 * 2 ** (s / 2)
-    
+
     // so in order to calculate index of the data block
     // we need to shift i by 15 - lz2, set bit with number 16 - lz2 and unset bit 15 - lz2
 

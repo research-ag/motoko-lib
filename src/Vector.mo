@@ -3,7 +3,6 @@ import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:base/Nat32";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
-import Vector "Vector";
 
 module {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
@@ -35,6 +34,13 @@ module {
     var i_element = 0;
   };
 
+  /// Create a Vector with `size` copies of the initial value.
+  ///
+  /// ```
+  /// let vec = Vector.init<Nat>(4, 2); // [2, 2, 2, 2]
+  /// ```
+  ///
+  /// Runtime: O(size)
   public func init<X>(size : Nat, initValue : X) : Vector<X> {
     let (i_block, i_element) = locate(size);
     
@@ -47,9 +53,9 @@ module {
     
     let data_blocks = Array.tabulateVar<[var ?X]>(blocks, func(i) {
       if (i < i_block) {
-        Array.init<?X>(data_block_size(i_block), ?initValue)
+        Array.init<?X>(data_block_size(i), ?initValue)
       } else if (i == i_block and i_element != 0) {
-        Array.tabulateVar<?X>(data_block_size(i_block), func(j) = if (j < i_element) { ?initValue } else { null })
+        Array.tabulateVar<?X>(data_block_size(i), func(j) = if (j < i_element) { ?initValue } else { null })
       } else {
         [var]
       }
@@ -355,6 +361,24 @@ module {
     } else Prim.trap "Vector index out of bounds in put";
   };
 
+  /// Finds the first index of `element` in `vector` using equality of elements defined
+  /// by `equal`. Returns `null` if `element` is not found.
+  ///
+  /// Example:
+  /// ```
+  /// 
+  /// let vector = Vector.new<Nat>();
+  /// vector.add(1);
+  /// vector.add(2);
+  /// vector.add(3);
+  /// vector.add(4);
+  ///
+  /// Vector.indexOf<Nat>(3, vector, Nat.equal); // => ?2
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// *Runtime and space assumes that `equal` runs in O(1) time and space.
   public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
     for ((x, i) in items(vec)) {
       if (equal(x, element)) return ?i;
@@ -362,6 +386,25 @@ module {
     null;
   };
 
+  /// Finds the last index of `element` in `vector` using equality of elements defined
+  /// by `equal`. Returns `null` if `element` is not found.
+  ///
+  /// Example:
+  /// ```
+  /// let vector = Vector.new<Nat>();
+  /// vector.add(1);
+  /// vector.add(2);
+  /// vector.add(3);
+  /// vector.add(4);
+  /// vector.add(2);
+  /// vector.add(2);
+  ///
+  /// Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// *Runtime and space assumes that `equal` runs in O(1) time and space.
   public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
     var lastIndex = (null : ?Nat);
     for ((x, i) in items(vec)) {
@@ -418,6 +461,23 @@ module {
     };
   };
 
+  /// Returns an Iterator (`Iter`) over the items, i.e. pairs of value and index of a Vector.
+  /// Iterator provides a single method `next()`, which returns
+  /// elements in order, or `null` when out of elements to iterate over.
+  ///
+  /// ```
+  ///
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.add(vec, 12);
+  /// Iter.toArray(Vector.items(vec)); // [(10, 0), (11, 1), (12, 2)]
+  /// ```
+  /// 
+  /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+  /// and instead the consumption of the iterator is interleaved with other operations on the 
+  /// Vector, then this may lead to unexpected results. 
+  ///
+  /// Runtime: O(1)
   public func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
     var i_block = 1;
     var i_element = 0;
@@ -447,7 +507,24 @@ module {
     };
   };
 
-  public func keys(vec : Vector<X>) : Iter.Iter<X> = Iter.range(size(vec));
+  /// Returns an Iterator (`Iter`) over the keys (indices) of a Vector.
+  /// Iterator provides a single method `next()`, which returns
+  /// elements in order, or `null` when out of elements to iterate over.
+  ///
+  /// ```
+  ///
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.add(vec, 12);
+  /// Iter.toArray(Vector.items(vec)); // [0, 1, 2]
+  /// ```
+  /// 
+  /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+  /// and instead the consumption of the iterator is interleaved with other operations on the 
+  /// Vector, then this may lead to unexpected results.
+  ///
+  /// Runtime: O(1)
+  public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec));
 
   /// Creates a Vector containing elements from `iter`.
   ///
@@ -468,6 +545,20 @@ module {
     vec;
   };
 
+  /// Appends elements to a Vector from `iter`.
+  ///
+  /// Example:
+  /// ```
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let array = [1, 1, 1];
+  /// let iter = array.vals();
+  /// let vec = Vector.init<Nat>(1, 2);
+  ///
+  /// let vec = Vector.append<Nat>(vec, iter); // => [2, 1, 1, 1]
+  /// ```
+  ///
+  /// Runtime: O(n), where n is the size of iter.
   public func append<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
     for (element in iter) add(vec, element);
   };
