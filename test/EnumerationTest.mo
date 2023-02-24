@@ -37,13 +37,13 @@ while (i < n) {
 
 i := 0;
 while (i < n) {
-  assert (a.get_inverse(blobs[i]) == ?i);
+  assert (a.lookup(blobs[i]) == ?i);
   i += 1;
 };
 
 i := 0;
 while (i < n) {
-  assert (a.get_inverse(r.blob()) == null);
+  assert (a.lookup(r.blob()) == null);
   i += 1;
 };
 

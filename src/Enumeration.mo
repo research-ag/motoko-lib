@@ -111,7 +111,8 @@ module {
       };
 
       if (size == array.size()) {
-        array := Array.tabulateVar<Blob>(size * 2, func(i) = if (i < size) { array[i] } else { "" });
+        // sqrt(2) ~ 90 / 77
+        array := Array.tabulateVar<Blob>(((size * 90) + 77 - 1) / 77, func(i) = if (i < size) { array[i] } else { "" });
       };
       array[size] := x;
       size += 1;
@@ -124,7 +125,7 @@ module {
       };
     };
 
-    public func get_inverse(key : Blob) : ?Nat {
+    public func lookup(key : Blob) : ?Nat {
       get_in_tree(key, tree);
     };
 
@@ -132,8 +133,14 @@ module {
       if (i < size) { array[i] } else { Prim.trap("Index out of bounds") };
     };
 
-    public func toArray() : [var Blob] {
-      Array.tabulateVar<Blob>(size, func(i) = array[i]);
+    public func share() : (Tree, [Blob]) {
+      (tree, Array.tabulate<Blob>(size, func(i) = array[i]));
+    };
+
+    public func unshare(t : Tree, a : [Blob]) {
+      tree := t;
+      array := Array.thaw(a);
+      size := a.size();
     };
   };
 };
