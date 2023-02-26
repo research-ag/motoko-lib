@@ -9,10 +9,10 @@ type Vector<X> = { var data_blocks : [var [var ?X]]; var i_block : Nat; var i_el
 Class `Vector<X>` provides a mutable list of elements of type `X`.
 It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(n)` where
 n is the size of the data strucuture.
-Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999). 
+Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).
 Since this is internally a two-dimensional array the access times for put and get operations
 will naturally be 2x slower than Buffer and Array. However, Array is not resizable and Buffer
-has O(n) memory waste.
+has `O(n)` memory waste.
 
 ## Function `new`
 ``` motoko 
@@ -25,6 +25,19 @@ Example:
 ```
 let vec = Vector.new<Nat>(); // Creates a new Vector
 ```
+
+## Function `init`
+``` motoko 
+func init<X>(size : Nat, initValue : X) : Vector<X>
+```
+
+Create a Vector with `size` copies of the initial value.
+
+```
+let vec = Vector.init<Nat>(4, 2); // [2, 2, 2, 2]
+```
+
+Runtime: O(size)
 
 ## Function `clear`
 ``` motoko 
@@ -82,8 +95,8 @@ Runtime: O(1) (with some internal calculations)
 func add<X>(vec : Vector<X>, element : X)
 ```
 
-Adds a single element to the end of a Vector, 
-allocating a new internal data block if needed, 
+Adds a single element to the end of a Vector,
+allocating a new internal data block if needed,
 and resizing the internal index block if needed.
 
 Example:
@@ -134,7 +147,7 @@ Vector.add(vec, 11);
 Vector.get(vec, 0); // => 10
 ```
 
-Runtime: O(1) 
+Runtime: O(1)
 
 ## Function `getOpt`
 ``` motoko 
@@ -153,7 +166,7 @@ let x = Vector.getOpt(vec, 0); // => ?10
 let y = Vector.getOpt(vec, 2); // => null
 ```
 
-Runtime: O(1) 
+Runtime: O(1)
 
 ## Function `put`
 ``` motoko 
@@ -171,7 +184,56 @@ Vector.put(vec, 0, 20); // overwrites 10 at index 0 with 20
 Vector.toArray(vec) // => [20]
 ```
 
-Runtime: O(1) 
+Runtime: O(1)
+
+## Function `indexOf`
+``` motoko 
+func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat
+```
+
+Finds the first index of `element` in `vector` using equality of elements defined
+by `equal`. Returns `null` if `element` is not found.
+
+Example:
+```
+
+let vector = Vector.new<Nat>();
+vector.add(1);
+vector.add(2);
+vector.add(3);
+vector.add(4);
+
+Vector.indexOf<Nat>(3, vector, Nat.equal); // => ?2
+```
+
+Runtime: O(size)
+
+*Runtime and space assumes that `equal` runs in O(1) time and space.
+
+## Function `lastIndexOf`
+``` motoko 
+func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat
+```
+
+Finds the last index of `element` in `vector` using equality of elements defined
+by `equal`. Returns `null` if `element` is not found.
+
+Example:
+```
+let vector = Vector.new<Nat>();
+vector.add(1);
+vector.add(2);
+vector.add(3);
+vector.add(4);
+vector.add(2);
+vector.add(2);
+
+Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
+```
+
+Runtime: O(size)
+
+*Runtime and space assumes that `equal` runs in O(1) time and space.
 
 ## Function `vals`
 ``` motoko 
@@ -196,8 +258,54 @@ sum // => 33
 ```
 
 Note: This does not create a snapshot. If the returned iterator is not consumed at once,
-and instead the consumption of the iterator is interleaved with other operations on the 
-Vector, then this may lead to unexpected results. 
+and instead the consumption of the iterator is interleaved with other operations on the
+Vector, then this may lead to unexpected results.
+
+Runtime: O(1)
+
+## Function `items`
+``` motoko 
+func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)>
+```
+
+Returns an Iterator (`Iter`) over the items, i.e. pairs of value and index of a Vector.
+Iterator provides a single method `next()`, which returns
+elements in order, or `null` when out of elements to iterate over.
+
+```
+
+Vector.add(vec, 10);
+Vector.add(vec, 11);
+Vector.add(vec, 12);
+Iter.toArray(Vector.items(vec)); // [(10, 0), (11, 1), (12, 2)]
+```
+
+Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+and instead the consumption of the iterator is interleaved with other operations on the
+Vector, then this may lead to unexpected results.
+
+Runtime: O(1)
+
+## Function `keys`
+``` motoko 
+func keys<X>(vec : Vector<X>) : Iter.Iter<Nat>
+```
+
+Returns an Iterator (`Iter`) over the keys (indices) of a Vector.
+Iterator provides a single method `next()`, which returns
+elements in order, or `null` when out of elements to iterate over.
+
+```
+
+Vector.add(vec, 10);
+Vector.add(vec, 11);
+Vector.add(vec, 12);
+Iter.toArray(Vector.items(vec)); // [0, 1, 2]
+```
+
+Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+and instead the consumption of the iterator is interleaved with other operations on the
+Vector, then this may lead to unexpected results.
 
 Runtime: O(1)
 
@@ -219,6 +327,26 @@ let vec = Vector.fromIter<Nat>(iter); // => [1, 1, 1]
 ```
 
 Runtime: O(n)
+
+## Function `append`
+``` motoko 
+func append<X>(vec : Vector<X>, iter : Iter.Iter<X>)
+```
+
+Appends elements to a Vector from `iter`.
+
+Example:
+```
+import Nat "mo:base/Nat";
+
+let array = [1, 1, 1];
+let iter = array.vals();
+let vec = Vector.init<Nat>(1, 2);
+
+let vec = Vector.append<Nat>(vec, iter); // => [2, 1, 1, 1]
+```
+
+Runtime: O(n), where n is the size of iter.
 
 ## Function `toArray`
 ``` motoko 
