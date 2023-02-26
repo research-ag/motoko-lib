@@ -9,7 +9,7 @@ vessel.dhall:
 ```
 {
   dependencies = [ "base", "mrr" ],
-  compiler = Some "0.7.6"
+  compiler = Some "0.8.3"
 }
 ```
 
@@ -18,12 +18,12 @@ package-set.dhall:
 [ { dependencies = [] : List Text
   , name = "base"
   , repo = "https://github.com/dfinity/motoko-base.git"
-  , version = "moc-0.7.6"
+  , version = "moc-0.8.2"
   }
 , { dependencies = [ "base" ]
   , name = "mrr"
   , repo = "https://github.com/research-ag/motoko-lib"
-  , version = "0.2"
+  , version = "0.3"
   }
 ]
 ```
@@ -70,9 +70,18 @@ The cost for hashing the empty message is:
 
 This means the per message overhead for setting up the Digest class, padding, length bytes, and extraction of the digest is not noticeable.
 
-### Comparison
+#### Comparison
 
 We measured the most commonly used sha256 implementations at between 48k - 52k cycles per chunk and the empty message at around 100k cycles.
+
+### Enumeration
+
+An append-only buffer of `Blob`s which enforces uniqueness of the `Blob` values, i.e. the same `Blob` can only be added once.
+This creates an enumeration of the `Blobs` by consecutive numbers `0,1,2,..` in the order in which they are added.
+The data structures also provides the inverse map which allows to lookup a given `Blob` and, if the `Blob` is present, returns its index.
+Hence, if `N` `Blob`s have been added the Enumeration is an efficient bijective map `[0,N) -> Blob`.
+
+The `lookup` direction of the map is implemented efficiently with a purpose-built simplified RBTree.
 
 ## Unit tests
 
@@ -84,6 +93,8 @@ make
 Or, run individual tests by `make vector`, `make sha2`, etc.
 
 ## Benchmarks
+
+Currently only for Vector and Sha2. The performance of Enumeration is the same as Buffer and RBTree from motoko-base for the two map directions.
 
 ```
 cd bench
@@ -120,3 +131,22 @@ Sha256.fromBlob(#sha256,b)
 ```
 
 https://embed.smartcontracts.org/motoko/g/5YAikwp8VvVu8AfcaT8L8ji7wBvpt7SX8vBTzLrVouknSbV7GVWT6HESKFfMmREbLYYEUowKobUxB1hQNo52ysC8AFF1JTS5AriGfgb7ur7QczG1tcYCYDYYqsJaU6xHgPXQAWMzEp7i8toUa9m9jqS1P3Bx6aNJZzMcSCsFRTc4PPYLSSyqprA9YbwLRm3bz?lines=7
+
+### Enumeration
+
+```
+//@package mrr research-ag/motoko-lib/main/src
+import Array "mo:base/Array";
+import Enum "mo:mrr/Enumeration";
+import Debug "mo:base/Debug";
+
+let map = Enum.Enumeration();
+let blobs : [Blob] = ["", "\01", "\00"];
+for (b in blobs.vals()) {
+  map.add(b);
+};
+Debug.print(debug_show map.share().1);
+debug_show Array.map<Blob,?Nat>(blobs, map.lookup);
+```
+
+https://embed.smartcontracts.org/motoko/g/ErXSnfAra9mvwuXbkEcz5cAeADEuozpd4pS3RH7arZNJNxB6ds7HkXH9ZfsVYQe3dFaDLcQYd1ZSxaX3tHFGxY9PfudsLuiJ8FsRZbBj9uz7CEWtLHZ6TrnguHGCpEsenSpLG1LhCU1K6y3gwLG3wsLWFaE3uyPt9vyUJ8QbUs68ryNDSRkhpAkNc37YYMUDsnE2FocCC17eDzPuhykMXizhxCEchCMJszBvMLhVaQfncXrCWrsEmQfXGh7cBx5Xjjc2nobHD4rohvZyz5ZsTw46PJkttbzdKpuzdE2Rqm7BSdNadn2Bo4PZcSdWe?lines=13
