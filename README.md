@@ -9,7 +9,7 @@ vessel.dhall:
 ```
 {
   dependencies = [ "base", "mrr" ],
-  compiler = Some "0.7.6"
+  compiler = Some "0.8.3"
 }
 ```
 
@@ -18,12 +18,12 @@ package-set.dhall:
 [ { dependencies = [] : List Text
   , name = "base"
   , repo = "https://github.com/dfinity/motoko-base.git"
-  , version = "moc-0.7.6"
+  , version = "moc-0.8.2"
   }
 , { dependencies = [ "base" ]
   , name = "mrr"
   , repo = "https://github.com/research-ag/motoko-lib"
-  , version = "0.2"
+  , version = "0.3"
   }
 ]
 ```
@@ -70,9 +70,18 @@ The cost for hashing the empty message is:
 
 This means the per message overhead for setting up the Digest class, padding, length bytes, and extraction of the digest is not noticeable.
 
-### Comparison
+#### Comparison
 
 We measured the most commonly used sha256 implementations at between 48k - 52k cycles per chunk and the empty message at around 100k cycles.
+
+### Enumeration
+
+An append-only buffer of `Blob`s which enforces uniqueness of the `Blob` values, i.e. the same `Blob` can only be added once.
+This creates an enumeration of the `Blobs` by consecutive numbers `0,1,2,..` in the order in which they are added.
+The data structures also provides the inverse map which allows to lookup a given `Blob` and, if the `Blob` is present, returns its index.
+Hence, if `N` `Blob`s have been added the Enumeration is an efficient bijective map `[0,N) -> Blob`.
+
+The `lookup` direction of the map is implemented efficiently with a purpose-built simplified RBTree.
 
 ## Unit tests
 
@@ -84,6 +93,8 @@ make
 Or, run individual tests by `make vector`, `make sha2`, etc.
 
 ## Benchmarks
+
+Currently only for Vector and Sha2. The performance of Enumeration is the same as Buffer and RBTree from motoko-base for the two map directions.
 
 ```
 cd bench
