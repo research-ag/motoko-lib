@@ -1,7 +1,7 @@
 # motoko-lib
 Motoko general purpose libraries
 
-See documentation here: https://research-ag.github.io/motoko-lib/
+See documentation here: https://research-ag.github.io/motoko-lib/home/
 
 ## Use this library
 
