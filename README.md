@@ -131,3 +131,22 @@ Sha256.fromBlob(#sha256,b)
 ```
 
 https://embed.smartcontracts.org/motoko/g/5YAikwp8VvVu8AfcaT8L8ji7wBvpt7SX8vBTzLrVouknSbV7GVWT6HESKFfMmREbLYYEUowKobUxB1hQNo52ysC8AFF1JTS5AriGfgb7ur7QczG1tcYCYDYYqsJaU6xHgPXQAWMzEp7i8toUa9m9jqS1P3Bx6aNJZzMcSCsFRTc4PPYLSSyqprA9YbwLRm3bz?lines=7
+
+### Enumeration
+
+```
+//@package mrr research-ag/motoko-lib/main/src
+import Array "mo:base/Array";
+import Enum "mo:mrr/Enumeration";
+import Debug "mo:base/Debug";
+
+let map = Enum.Enumeration();
+let blobs : [Blob] = ["", "\01", "\00"];
+for (b in blobs.vals()) {
+  map.add(b);
+};
+Debug.print(debug_show map.share().1);
+debug_show Array.map<Blob,?Nat>(blobs, map.lookup);
+```
+
+https://embed.smartcontracts.org/motoko/g/ErXSnfAra9mvwuXbkEcz5cAeADEuozpd4pS3RH7arZNJNxB6ds7HkXH9ZfsVYQe3dFaDLcQYd1ZSxaX3tHFGxY9PfudsLuiJ8FsRZbBj9uz7CEWtLHZ6TrnguHGCpEsenSpLG1LhCU1K6y3gwLG3wsLWFaE3uyPt9vyUJ8QbUs68ryNDSRkhpAkNc37YYMUDsnE2FocCC17eDzPuhykMXizhxCEchCMJszBvMLhVaQfncXrCWrsEmQfXGh7cBx5Xjjc2nobHD4rohvZyz5ZsTw46PJkttbzdKpuzdE2Rqm7BSdNadn2Bo4PZcSdWe?lines=13
