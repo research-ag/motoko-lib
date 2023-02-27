@@ -69,6 +69,22 @@ module {
     };
   };
 
+  /// Add to vector `count` copies of the initial value.
+  ///
+  /// ```
+  /// let vec = Vector.init<Nat>(4, 2); // [2, 2, 2, 2]
+  /// Vector.addMany(vec, 2, 1); // [2, 2, 2, 2, 1, 1]
+  /// ```
+  ///
+  /// Runtime: O(count)
+  public func addMany<X>(vec : Vector<X>, count : Nat, initValue : X) {
+    var i = 0;
+    while (i < count) {
+      add(vec, initValue);
+      i += 1;
+    };
+  };
+
   /// Resets the vector to size 0, de-referencing all elements.
   ///
   /// Example:
