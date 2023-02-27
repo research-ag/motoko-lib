@@ -506,6 +506,93 @@ module {
     };
   };
 
+  /// Returns an Iterator (`Iter`) over the elements of a Vector in reverse order.
+  /// Iterator provides a single method `next()`, which returns
+  /// elements in reverse order, or `null` when out of elements to iterate over.
+  ///
+  /// ```
+  ///
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.add(vec, 12);
+  ///
+  /// var sum = 0;
+  /// for (element in Vector.vals(vec)) {
+  ///   sum += element;
+  /// };
+  /// sum // => 33
+  /// ```
+  ///
+  /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+  /// and instead the consumption of the iterator is interleaved with other operations on the
+  /// Vector, then this may lead to unexpected results.
+  ///
+  /// Runtime: O(1)
+  public func valsRev<X>(vec : Vector<X>) : Iter.Iter<X> = object {
+    var i_block = vec.i_block;
+    var i_element = vec.i_element;
+
+    public func next() : ?X {
+      if (i_block == 1) {
+        return null;
+      };
+      let block = if (i_element == 0) {
+        i_block -= 1;
+        let b = vec.data_blocks[i_block];
+        i_element := b.size() - 1;
+        b;
+      } else {
+        i_element -= 1;
+        vec.data_blocks[i_block];
+      };
+
+      block[i_element];
+    };
+  };
+
+  /// Returns an Iterator (`Iter`) over the items in reverse order, i.e. pairs of value and index of a Vector.
+  /// Iterator provides a single method `next()`, which returns
+  /// elements in reverse order, or `null` when out of elements to iterate over.
+  ///
+  /// ```
+  ///
+  /// Vector.add(vec, 10);
+  /// Vector.add(vec, 11);
+  /// Vector.add(vec, 12);
+  /// Iter.toArray(Vector.items(vec)); // [(12, 0), (11, 1), (10, 2)]
+  /// ```
+  ///
+  /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+  /// and instead the consumption of the iterator is interleaved with other operations on the
+  /// Vector, then this may lead to unexpected results.
+  ///
+  /// Runtime: O(1)
+  public func itemsRev<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
+    var i_block = vec.i_block;
+    var i_element = vec.i_element;
+    var i = size(vec);
+
+    public func next() : ?(X, Nat) {
+      if (i_block == 1) {
+        return null;
+      };
+      let block = if (i_element == 0) {
+        i_block -= 1;
+        let b = vec.data_blocks[i_block];
+        i_element := b.size() - 1;
+        b;
+      } else {
+        i_element -= 1;
+        vec.data_blocks[i_block];
+      };
+      i -= 1;
+
+      let ?x = block[i_element] else Prim.trap("Internal error in Vector");
+
+      ?(x, i);
+    };
+  };
+
   /// Returns an Iterator (`Iter`) over the keys (indices) of a Vector.
   /// Iterator provides a single method `next()`, which returns
   /// elements in order, or `null` when out of elements to iterate over.

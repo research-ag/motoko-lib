@@ -50,6 +50,11 @@ run(
         Iter.toArray(Vector.vals(vector)),
         M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
       ),
+      test(
+        "revElements",
+        Iter.toArray(Vector.valsRev(vector)),
+        M.equals(T.array(T.intTestable, Iter.toArray(Iter.revRange(n, 0)))),
+      )
     ],
   ),
 );
