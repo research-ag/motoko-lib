@@ -107,7 +107,8 @@ module {
     };
 
     /// Sets internal content from red-black tree for map from `Blob` to `Nat` and array of `Blob` for map from `Nat` to `Blob`.
-    public func unshare(t : Tree, a : [var Blob]) {
+    /// `t` should be a valid red-black tree and correspond to array `a`. This function doesn't do validation.
+    public func unsafeUnshare(t : Tree, a : [var Blob]) {
       tree := t;
       array := a;
       _size := a.size();
