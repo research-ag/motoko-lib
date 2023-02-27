@@ -58,15 +58,15 @@ A new optimization of the whole Sha2 family. The supported algorithms are:
 * sha384
 * sha512
 
-The cost per block/chunk is:
+The cost per block/chunk is (per moc 0.8.3):
 
-* sha224/sha256: 34,642 cycles per chunk (64 bytes) or 541 cycles per byte
-* sha512 variants: 53,930 cycles per chunk (128 bytes) or 421 cycles per byte
+* sha224/sha256: 34,578 cycles per chunk (64 bytes) or 540 cycles per byte
+* sha512 variants: 53,801 cycles per chunk (128 bytes) or 420 cycles per byte
 
-The cost for hashing the empty message is:
+The cost for hashing the empty message is (per moc 0.8.3):
 
-* sha256: 36,940 cycles
-* sha512: 56,233 cycles
+* sha256: 36,193 cycles
+* sha512: 54,590 cycles
 
 This means the per message overhead for setting up the Digest class, padding, length bytes, and extraction of the digest is not noticeable.
 
