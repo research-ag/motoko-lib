@@ -59,6 +59,9 @@ run(
   ),
 );
 
+let for_add_many = Vector.init<Nat>(n, 0);
+Vector.addMany(for_add_many, n, 0);
+
 run(
   suite(
     "init",
@@ -72,6 +75,16 @@ run(
         "init with vals",
         Iter.toArray(Vector.vals(Vector.init<Nat>(n, 0))),
         M.equals(T.array(T.natTestable, Array.tabulate<Nat>(n, func(_) = 0))),
+      ),
+      test(
+        "add many with toArray",
+        Vector.toArray(for_add_many),
+        M.equals(T.array(T.natTestable, Array.tabulate<Nat>(2 * n, func(_) = 0))),
+      ),
+      test(
+        "add many with vals",
+        Iter.toArray(Vector.vals(for_add_many)),
+        M.equals(T.array(T.natTestable, Array.tabulate<Nat>(2 * n, func(_) = 0))),
       ),
     ],
   ),

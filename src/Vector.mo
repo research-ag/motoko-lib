@@ -78,6 +78,23 @@ module {
   ///
   /// Runtime: O(count)
   public func addMany<X>(vec : Vector<X>, count : Nat, initValue : X) {
+    let new_size = size(vec) + count;
+    var capacity = 0;
+    var blocks = 1;
+    while (capacity < new_size) {
+      blocks := new_index_block_length(Nat32(blocks));
+      capacity := if (capacity == 0) { 1 } else { capacity * 2 };
+    };
+    
+    let old_blocks = vec.data_blocks.size();
+    if (old_blocks < blocks) {
+      let old_data_blocks = vec.data_blocks;
+      vec.data_blocks := Array.tabulateVar<[var ?X]>(
+        blocks,
+        func(i) = if (i < old_blocks) { old_data_blocks[i] } else { [var] },
+      );
+    };
+
     var i = 0;
     while (i < count) {
       add(vec, initValue);
