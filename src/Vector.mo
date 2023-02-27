@@ -405,11 +405,10 @@ module {
   ///
   /// *Runtime and space assumes that `equal` runs in O(1) time and space.
   public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
-    var lastIndex = (null : ?Nat);
-    for ((x, i) in items(vec)) {
-      if (equal(x, element)) lastIndex := ?i;
+    for ((x, i) in itemsRev(vec)) {
+      if (equal(x, element)) return ?i;
     };
-    lastIndex;
+    null;
   };
 
   /// Returns an Iterator (`Iter`) over the elements of a Vector.
