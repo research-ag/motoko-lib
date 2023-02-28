@@ -1,6 +1,7 @@
 /// Resizable one-dimensional array with `O(sqrt(n))` memory waste.
 import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:base/Nat32";
+import { min = min } "mo:base/Nat";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 
@@ -85,7 +86,7 @@ module {
       blocks := new_index_block_length(Nat32(blocks));
       capacity := if (capacity == 0) { 1 } else { capacity * 2 };
     };
-    
+
     let old_blocks = vec.data_blocks.size();
     if (old_blocks < blocks) {
       let old_data_blocks = vec.data_blocks;
@@ -95,10 +96,34 @@ module {
       );
     };
 
-    var i = 0;
-    while (i < count) {
-      add(vec, initValue);
-      i += 1;
+    var cnt = count;
+    while (cnt > 0) {
+      let db_size = data_block_size(vec.i_block);
+      if (vec.i_element == 0 and db_size <= cnt) {
+        vec.data_blocks[vec.i_block] := Array.init<?X>(db_size, ?initValue);
+        cnt -= db_size;
+        vec.i_block += 1;
+      } else {
+        if (vec.data_blocks[vec.i_block].size() == 0) {
+          vec.data_blocks[vec.i_block] := Array.init<?X>(db_size, null);
+        };
+        let from = vec.i_element;
+        let to = min(vec.i_element + cnt, db_size);
+
+        let block = vec.data_blocks[vec.i_block];
+        var i = from;
+        while (i < to) {
+          block[i] := ?initValue;
+          i += 1;
+        };
+
+        vec.i_element := to;
+        if (vec.i_element == db_size) {
+          vec.i_element := 0;
+          vec.i_block += 1;
+        };
+        cnt -= to - from;
+      };
     };
   };
 
