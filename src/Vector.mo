@@ -5,7 +5,7 @@ import { min = min } "mo:base/Nat";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 
-module {
+module Vector {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
   /// It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(size)` where
   /// n is the size of the data strucuture.
@@ -761,4 +761,21 @@ module {
   ///
   /// Runtime: `O(size)`
   public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
+
+  /// Submodule with Vector as a class
+  /// This allows to use VectorClass as a drop-in replacement of Buffer
+  public module VectorClass {
+    public class VectorClass<X>() {
+      let v : Vector.Vector<X> = Vector.new();
+      public func size() : Nat = Vector.size(v);
+      public func add(x : X) = Vector.add(v, x);
+      public func get(i : Nat) : X = Vector.get(v, i);
+      public func getOpt(i : Nat) : ?X = Vector.getOpt(v, i);
+      public func put(i : Nat, x : X) = Vector.put(v, i, x);
+      public func removeLast() : ?X = Vector.removeLast(v);
+      public func clear() = Vector.clear(v);
+      public func vals() : { next : () -> ?X } = Vector.vals(v);
+    };
+  };
+
 };
