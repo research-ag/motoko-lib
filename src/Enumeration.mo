@@ -39,11 +39,14 @@ module {
     };
 
     // approximate growth by sqrt(2) by 2-powers
-    func grow(i : Nat) : Nat {
-      if (i == 1) return 2;
-      let n = Nat32.fromIntWrap(i);
-      let s = 30 - Nat32.bitcountLeadingZero(n);
-      Nat32.toNat(((n >> s) +% 1) << s);
+    // the function will trap if n == 0 or n >= 3 * 2 ** 30
+    func next_size(n_ : Nat) : Nat {
+      if (n_ == 1) return 2;
+      let n = Nat32.fromNat(n_); // traps if n >= 2 ** 32
+      let s = 30 - Nat32.bitcountLeadingZero(n); // traps if n == 0
+      let m = ((n >> s) +% 1) << s;
+      assert (m != 0); // traps if n >= 3 * 2 ** 30
+      Nat32.toNat(m);
     };
 
     /// Add `key` to enumeration. Returns `size` if the key in new to the enumeration and index of key in enumeration otherwise.
@@ -93,7 +96,7 @@ module {
 
       if (index == size_) {
         if (size_ == array.size()) {
-          array := Array.tabulateVar<Blob>(grow(size_), func(i) = if (i < size_) { array[i] } else { "" });
+          array := Array.tabulateVar<Blob>(next_size(size_), func(i) = if (i < size_) { array[i] } else { "" });
         };
         array[size_] := key;
         size_ += 1;
