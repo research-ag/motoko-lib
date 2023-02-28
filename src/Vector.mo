@@ -52,16 +52,21 @@ module {
       capacity := if (capacity == 0) { 1 } else { capacity * 2 };
     };
 
-    let data_blocks = Array.tabulateVar<[var ?X]>(
-      blocks,
-      func(i) {
-        if (i < i_block) {
-          Array.init<?X>(data_block_size(i), ?initValue);
-        } else if (i == i_block and i_element != 0) {
-          Array.tabulateVar<?X>(data_block_size(i), func(j) = if (j < i_element) { ?initValue } else { null });
-        } else { [var] };
-      },
-    );
+    let data_blocks = Array.init<[var ?X]>(blocks, [var]);
+    var i = 0;
+    while (i < i_block) {
+      data_blocks[i] := Array.init<?X>(data_block_size(i), ?initValue);
+      i += 1;
+    };
+    if (i_element != 0 and i_block < blocks) {
+      let block = Array.init<?X>(data_block_size(i), null);
+      var j = 0;
+      while (j < i_element) {
+        block[j] := ?initValue;
+        j += 1;
+      };
+      data_blocks[i] := block;
+    };
 
     {
       var data_blocks = data_blocks;
@@ -90,10 +95,12 @@ module {
     let old_blocks = vec.data_blocks.size();
     if (old_blocks < blocks) {
       let old_data_blocks = vec.data_blocks;
-      vec.data_blocks := Array.tabulateVar<[var ?X]>(
-        blocks,
-        func(i) = if (i < old_blocks) { old_data_blocks[i] } else { [var] },
-      );
+      vec.data_blocks := Array.init<[var ?X]>(blocks, [var]);
+      var i = 0;
+      while (i < old_blocks) {
+        vec.data_blocks[i] := old_data_blocks[i];
+        i += 1;
+      };
     };
 
     var cnt = count;
@@ -217,16 +224,13 @@ module {
 
   func grow_index_block_if_needed<X>(vec : Vector<X>) {
     if (vec.data_blocks.size() == vec.i_block) {
-      vec.data_blocks := Array.tabulateVar<[var ?X]>(
-        new_index_block_length(Nat32(vec.i_block)),
-        func(i) {
-          if (i < vec.i_block) {
-            vec.data_blocks[i];
-          } else {
-            [var];
-          };
-        },
-      );
+      let new_blocks = Array.init<[var ?X]>(new_index_block_length(Nat32(vec.i_block)), [var]);
+      var i = 0;
+      while (i < vec.i_block) {
+        new_blocks[i] := vec.data_blocks[i];
+        i += 1;
+      };
+      vec.data_blocks := new_blocks;
     };
   };
 
@@ -236,12 +240,13 @@ module {
     if ((i_block << leadingZeros(i_block)) << 2 == 0) {
       let new_length = new_index_block_length(i_block);
       if (new_length < vec.data_blocks.size()) {
-        vec.data_blocks := Array.tabulateVar<[var ?X]>(
-          new_length,
-          func(i) {
-            vec.data_blocks[i];
-          },
-        );
+        let new_blocks = Array.init<[var ?X]>(new_length, [var]);
+        var i = 0;
+        while (i < new_length) {
+          new_blocks[i] := vec.data_blocks[i];
+          i += 1;
+        };
+        vec.data_blocks := new_blocks;
       };
     };
   };
