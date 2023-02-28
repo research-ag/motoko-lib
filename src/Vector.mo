@@ -165,25 +165,16 @@ module {
   /// ```
   ///
   /// Runtime: O(n)
-  public func clone<X>(vec : Vector<X>) : Vector<X> {
-    var data_blocks = Array.init<[var ?X]>(vec.data_blocks.size(), [var]);
-    var i = 0;
-    while (i < data_blocks.size()) {
-      let from_block = vec.data_blocks[i];
-      let to_block = Array.init<?X>(from_block.size(), null);
-      var j = 0;
-      while (j < from_block.size()) {
-        to_block[j] := from_block[j];
-        j += 1;
-      };
-      data_blocks[i] := to_block;
-      i += 1;
-    };
-    {
-      var data_blocks = data_blocks;
-      var i_block = vec.i_block;
-      var i_element = vec.i_element;
-    };
+  public func clone<X>(vec : Vector<X>) : Vector<X> = {
+    var data_blocks = Array.tabulateVar<[var ?X]>(
+      vec.data_blocks.size(),
+      func(i) = Array.tabulateVar<?X>(
+        vec.data_blocks[i].size(),
+        func(j) = vec.data_blocks[i][j],
+      ),
+    );
+    var i_block = vec.i_block;
+    var i_element = vec.i_element;
   };
 
   /// Returns the current number of elements in the vector.
