@@ -1,5 +1,6 @@
 import Blob "mo:base/Blob";
 import Array "mo:base/Array";
+import Nat32 "mo:base/Nat32";
 import Prim "mo:⛔";
 
 module {
@@ -31,6 +32,14 @@ module {
         case (l, #red(#red(l1, y1, r1), y2, r2)) #red(#black(l, y, l1), y1, #black(r1, y2, r2));
         case _ #black(left, y, right);
       };
+    };
+
+    // approximate growth by sqrt(2) by 2-powers
+    func grow(i : Nat) : Nat {
+      if (i == 1) return 2;
+      let n = Nat32.fromIntWrap(i);
+      let s = 30-Nat32.bitcountLeadingZero(n);
+      Nat32.toNat(((n >> s) +% 1) << s)
     };
 
     /// Add `key` to enumeration. Returns `size` if the key in new to the enumeration and index of key in enumeration otherwise.
@@ -73,8 +82,7 @@ module {
 
       if (index == size_) {
         if (size_ == array.size()) {
-          // sqrt(2) ~ 90 / 77
-          array := Array.tabulateVar<Blob>(((size_ * 90) + 77 - 1) / 77, func(i) = if (i < size_) { array[i] } else { "" });
+          array := Array.tabulateVar<Blob>(grow(size_), func(i) = if (i < size_) { array[i] } else { "" });
         };
         array[size_] := key;
         size_ += 1;
