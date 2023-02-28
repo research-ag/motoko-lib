@@ -29,11 +29,22 @@ let r = RNG();
 let a = Enumeration.Enumeration();
 let blobs = Array.tabulate<Blob>(n, func(i) = r.blob());
 
+assert(a.size() == 0);
 var i = 0;
 while (i < n) {
-  a.add(blobs[i]);
+  assert(a.add(blobs[i]) == i);
+  assert(a.size() == i + 1);
   i += 1;
 };
+
+i := 0;
+while (i < n) {
+  assert(a.add(blobs[i]) == i);
+  assert(a.size() == n);
+  i += 1;
+};
+
+a.unsafeUnshare(a.share());
 
 i := 0;
 while (i < n) {
