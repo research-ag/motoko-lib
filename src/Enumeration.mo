@@ -4,6 +4,7 @@ import Nat32 "mo:base/Nat32";
 import Prim "mo:⛔";
 
 module {
+  /// Red-black tree of key `Nat`.
   public type Tree = {
     #red : (Tree, Nat, Tree);
     #black : (Tree, Nat, Tree);
@@ -12,6 +13,9 @@ module {
 
   /// Bidirectional enumeration of `Blob`s in order they are added.
   /// For map from `Blob` to index `Nat` it's implemented as red-black tree, for map from index `Nat` to `Blob` the implementation is an array.
+  /// ```
+  /// let e = Enumeration.Enumeration();
+  /// ```
   public class Enumeration() {
     private var array = ([var ""] : [var Blob]);
     private var size_ = 0;
@@ -38,11 +42,18 @@ module {
     func grow(i : Nat) : Nat {
       if (i == 1) return 2;
       let n = Nat32.fromIntWrap(i);
-      let s = 30-Nat32.bitcountLeadingZero(n);
-      Nat32.toNat(((n >> s) +% 1) << s)
+      let s = 30 - Nat32.bitcountLeadingZero(n);
+      Nat32.toNat(((n >> s) +% 1) << s);
     };
 
     /// Add `key` to enumeration. Returns `size` if the key in new to the enumeration and index of key in enumeration otherwise.
+    /// ```
+    /// let e = Enumeration.Enumeration();
+    /// assert(e.add("abc") == 0);
+    /// assert(e.add("aaa") == 1);
+    /// assert(e.add("abc") == 0);
+    /// ```
+    /// Runtime: O(log(n))
     public func add(key : Blob) : Nat {
       var index = size_;
 
@@ -92,6 +103,15 @@ module {
     };
 
     /// Returns `?index` where `index` is the index of `key` in order it was added to enumeration, or `null` it `key` wasn't added.
+    /// ```
+    /// let e = Enumeration.Enumeration();
+    /// assert(e.add("abc") == 0);
+    /// assert(e.add("aaa") == 1);
+    /// assert(e.lookup("abc") == ?0);
+    /// assert(e.lookup("aaa") == ?1);
+    /// assert(e.lookup("bbb") == null);
+    /// ```
+    /// Runtime: O(log(n))
     public func lookup(key : Blob) : ?Nat {
       func get_in_tree(x : Blob, t : Tree) : ?Nat {
         switch t {
@@ -117,6 +137,14 @@ module {
     };
 
     /// Returns `Blob` with index `index`. Traps it index is out of bounds.
+    /// ```
+    /// let e = Enumeration.Enumeration();
+    /// assert(e.add("abc") == 0);
+    /// assert(e.add("aaa") == 1);
+    /// assert(e.get(0) == "abc");
+    /// assert(e.get(1) == "aaa");
+    /// ```
+    /// Runtime: O(1)
     public func get(index : Nat) : Blob {
       if (index < size_) { array[index] } else {
         Prim.trap("Index out of bounds");
@@ -124,13 +152,35 @@ module {
     };
 
     /// Returns number of unique keys added to enumration.
+    /// ```
+    /// let e = Enumeration.Enumeration();
+    /// assert(e.add("abc") == 0);
+    /// assert(e.add("aaa") == 1);
+    /// assert(e.size() == 2);
+    /// ```
+    /// Runtime: O(1)
     public func size() : Nat = size_;
 
     /// Returns pair of red-black tree for map from `Blob` to `Nat` and array of `Blob` for map from `Nat` to `Blob`.
+    /// Returns number of unique keys added to enumration.
+    /// ```
+    /// let e = Enumeration.Enumeration();
+    /// assert(e.add("abc") == 0);
+    /// assert(e.add("aaa") == 1);
+    /// e.unsafeUnshare(e.share()); // Nothing changed
+    /// ```
+    /// Runtime: O(1)
     public func share() : (Tree, [var Blob], Nat) = (tree, array, size_);
 
     /// Sets internal content from red-black tree for map from `Blob` to `Nat` and array of `Blob` for map from `Nat` to `Blob`.
     /// `t` should be a valid red-black tree and correspond to array `a`. This function doesn't do validation.
+    /// ```
+    /// let e = Enumeration.Enumeration();
+    /// assert(e.add("abc") == 0);
+    /// assert(e.add("aaa") == 1);
+    /// e.unsafeUnshare(e.share()); // Nothing changed
+    /// ```
+    /// Runtime: O(1)
     public func unsafeUnshare(data : (Tree, [var Blob], Nat)) {
       tree := data.0;
       array := data.1;
