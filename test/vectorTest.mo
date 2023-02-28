@@ -25,6 +25,19 @@ sizes.add(Vector.size(vector));
 
 run(
   suite(
+    "clone",
+    [
+      test(
+        "clone",
+        Vector.toArray(Vector.clone(vector)),
+        M.equals(T.array(T.natTestable, Vector.toArray(vector))),
+      ),
+    ],
+  ),
+); 
+
+run(
+  suite(
     "add",
     [
       test(
