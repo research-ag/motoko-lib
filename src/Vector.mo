@@ -45,13 +45,7 @@ module {
   public func init<X>(size : Nat, initValue : X) : Vector<X> {
     let (i_block, i_element) = locate(size);
 
-    var capacity = 0;
-    var blocks = 1;
-    while (capacity < size) {
-      blocks := new_index_block_length(Nat32(blocks));
-      capacity := if (capacity == 0) { 1 } else { capacity * 2 };
-    };
-
+    let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
     let data_blocks = Array.init<[var ?X]>(blocks, [var]);
     var i = 0;
     while (i < i_block) {
@@ -84,13 +78,8 @@ module {
   ///
   /// Runtime: O(count)
   public func addMany<X>(vec : Vector<X>, count : Nat, initValue : X) {
-    let new_size = size(vec) + count;
-    var capacity = 0;
-    var blocks = 1;
-    while (capacity < new_size) {
-      blocks := new_index_block_length(Nat32(blocks));
-      capacity := if (capacity == 0) { 1 } else { capacity * 2 };
-    };
+    let (i_block, i_element) = locate(size(vec) + count);
+    let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
 
     let old_blocks = vec.data_blocks.size();
     if (old_blocks < blocks) {
@@ -218,8 +207,10 @@ module {
   };
 
   func new_index_block_length(i_block : Nat32) : Nat {
-    // this works correct only when i_block is the first block in the super block
-    if (i_block == 1) 2 else Nat(i_block +% 0x40000000 >> leadingZeros(i_block));
+    if (i_block <= 1) 2 else {
+      let s = 30 - leadingZeros(i_block);
+      Nat(((i_block >> s) +% 1) << s);
+    };
   };
 
   func grow_index_block_if_needed<X>(vec : Vector<X>) {
