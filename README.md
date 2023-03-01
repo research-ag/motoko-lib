@@ -119,6 +119,28 @@ Vector.toArray(v);
 
 https://embed.smartcontracts.org/motoko/g/9KrDof3FNdp1qgWFnTzABEdBZF9virfqsZ3Lf8ryFgR3toa4bV962Jiik3uV3dpn2ASmyatiiTJuuWNbttd8j2yqpjqNWr3svT5QPukqbDdDonPGpPsKvKfWTzuSPAM5YZwNbS3XZE4Pt16y9Y4nm4qNE229ERkrjTYYd4Z8Zzr?lines=8
 
+`Vector` is also provided as a class so it can serve as a drop-in replacement for `Buffer`. 
+The class has public functions: `size, add, get, getOpt, put, removeLast, clear, vals`. 
+These additional methods from Buffer are not implemented: `sort, insertBuffer, insert , append, reserve, capacity, filterEntries, remove`. 
+
+One disadvantage of the class version is memory overhead. Each instance of the class stores one function pointer per public function. 
+The overhead is is relevant if you have many Vectors as for example in a Vector of Vectors.
+Another disadvantage of the class version is that it cannot be declared `stable`.   
+
+The class version is provided as a submodule called `Class` and is used like this:
+
+```
+//@package mrr research-ag/motoko-lib/main/src
+import { Class = Vector } "mo:mrr/Vector";
+
+let v = Vector.new<Nat>();
+let v = Vector.Vector<Nat>();
+v.add(0);
+v.add(1);
+v.add(2);
+v.size();
+```
+
 ### Sha2
 
 ```
