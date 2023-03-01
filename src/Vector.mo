@@ -766,7 +766,7 @@ module Static {
   /// This allows to use VectorClass as a drop-in replacement of Buffer
   public module Class {
     public class Vector<X>() {
-      let v : Static.Vector<X> = Static.new();
+      var v : Static.Vector<X> = Static.new();
       public func size() : Nat = Static.size(v);
       public func add(x : X) = Static.add(v, x);
       public func get(i : Nat) : X = Static.get(v, i);
@@ -775,6 +775,8 @@ module Static {
       public func removeLast() : ?X = Static.removeLast(v);
       public func clear() = Static.clear(v);
       public func vals() : { next : () -> ?X } = Static.vals(v);
+      public func share() : Static.Vector<X> = v;
+      public func unshare(v_ : Static.Vector<X>) { v := v_ };
       // we don't provide:
       //   sort
       //   insertBuffer
