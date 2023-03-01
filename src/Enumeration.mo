@@ -22,33 +22,6 @@ module {
 
     private var tree = (#leaf : Tree);
 
-    func lbalance(left : Tree, y : Nat, right : Tree) : Tree {
-      switch (left, right) {
-        case (#red(#red(l1, y1, r1), y2, r2), r) #red(#black(l1, y1, r1), y2, #black(r2, y, r));
-        case (#red(l1, y1, #red(l2, y2, r2)), r) #red(#black(l1, y1, l2), y2, #black(r2, y, r));
-        case _ #black(left, y, right);
-      };
-    };
-
-    func rbalance(left : Tree, y : Nat, right : Tree) : Tree {
-      switch (left, right) {
-        case (l, #red(l1, y1, #red(l2, y2, r2))) #red(#black(l, y, l1), y1, #black(l2, y2, r2));
-        case (l, #red(#red(l1, y1, r1), y2, r2)) #red(#black(l, y, l1), y1, #black(r1, y2, r2));
-        case _ #black(left, y, right);
-      };
-    };
-
-    // approximate growth by sqrt(2) by 2-powers
-    // the function will trap if n == 0 or n >= 3 * 2 ** 30
-    func next_size(n_ : Nat) : Nat {
-      if (n_ == 1) return 2;
-      let n = Nat32.fromNat(n_); // traps if n >= 2 ** 32
-      let s = 30 - Nat32.bitcountLeadingZero(n); // traps if n == 0
-      let m = ((n >> s) +% 1) << s;
-      assert (m != 0); // traps if n >= 3 * 2 ** 30
-      Nat32.toNat(m);
-    };
-
     /// Add `key` to enumeration. Returns `size` if the key in new to the enumeration and index of key in enumeration otherwise.
     /// ```
     /// let e = Enumeration.Enumeration();
@@ -59,6 +32,22 @@ module {
     /// Runtime: O(log(n))
     public func add(key : Blob) : Nat {
       var index = size_;
+
+      func lbalance(left : Tree, y : Nat, right : Tree) : Tree {
+        switch (left, right) {
+          case (#red(#red(l1, y1, r1), y2, r2), r) #red(#black(l1, y1, r1), y2, #black(r2, y, r));
+          case (#red(l1, y1, #red(l2, y2, r2)), r) #red(#black(l1, y1, l2), y2, #black(r2, y, r));
+          case _ #black(left, y, right);
+        };
+      };
+
+      func rbalance(left : Tree, y : Nat, right : Tree) : Tree {
+        switch (left, right) {
+          case (l, #red(l1, y1, #red(l2, y2, r2))) #red(#black(l, y, l1), y1, #black(l2, y2, r2));
+          case (l, #red(#red(l1, y1, r1), y2, r2)) #red(#black(l, y, l1), y1, #black(r1, y2, r2));
+          case _ #black(left, y, right);
+        };
+      };
 
       func insert(tree : Tree) : Tree {
         switch tree {
@@ -94,6 +83,17 @@ module {
         case other other;
       };
 
+      // approximate growth by sqrt(2) by 2-powers
+      // the function will trap if n == 0 or n >= 3 * 2 ** 30
+      func next_size(n_ : Nat) : Nat {
+        if (n_ == 1) return 2;
+        let n = Nat32.fromNat(n_); // traps if n >= 2 ** 32
+        let s = 30 - Nat32.bitcountLeadingZero(n); // traps if n == 0
+        let m = ((n >> s) +% 1) << s;
+        assert (m != 0); // traps if n >= 3 * 2 ** 30
+        Nat32.toNat(m);
+      };
+      
       if (index == size_) {
         if (size_ == array.size()) {
           array := Array.tabulateVar<Blob>(next_size(size_), func(i) = if (i < size_) { array[i] } else { "" });
