@@ -92,17 +92,6 @@ make
 
 Or, run individual tests by `make vector`, `make sha2`, etc.
 
-## Benchmarks
-
-Currently only for Vector and Sha2. The performance of Enumeration is the same as Buffer and RBTree from motoko-base for the two map directions.
-
-```
-cd bench
-dfx start --background --clean
-dfx build --check vector_bench && ic-repl ic-repl/vector.sh
-dfx build --check sha2_bench && ic-repl ic-repl/sha2.sh
-```
-
 ## Examples
 
 ### Vector
