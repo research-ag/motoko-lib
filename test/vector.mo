@@ -188,6 +188,22 @@ run(
   )
 );
 
+var sum = 0;
+Vector.iterate<Nat>(vector, func(i){ sum += i});
+
+run(
+  suite(
+    "iterate",
+    [
+      test(
+        "sum",
+        [sum],
+        M.equals(T.array(T.natTestable, [n*(n+1)/2])),
+      ),
+    ],
+  )
+);
+
 func locate_readable<X>(index : Nat) : (Nat, Nat) {
   // index is any Nat32 except for
   // blocks before super block s == 2 ** s

@@ -785,9 +785,9 @@ module {
   /// Example:
   /// ```
   ///
-  /// let vec = Vector.init<Nat>(10,1);
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
   ///
-  /// Vector.last(vec); // => 1
+  /// Vector.last(vec); // => 3
   /// ```
   ///
   /// Runtime: O(1)
@@ -801,5 +801,30 @@ module {
     };
     let ?x = vec.data_blocks[vec.i_block - 1][0] else Prim.trap "Vector index out of bounds in first";
     return x;
+  };
+
+  /// Applies `f` to each element in `vec`.
+  ///
+  /// Example:
+  /// ```
+  /// import Nat "mo:base/Nat";
+  /// import Debug "mo:base/Debug";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  ///
+  /// Vector.iterate<Nat>(vec, func (x) {
+  ///   Debug.print(Nat.toText(x)); // prints each element in buffer
+  /// });
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(size)
+  ///
+  /// *Runtime and space assumes that `f` runs in O(1) time and space.
+  public func iterate<X>(vec : Vector<X>, f : X -> ()) {
+    for (element in vals(vec)) {
+      f element
+    }
   };
 };
