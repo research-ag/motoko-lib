@@ -188,17 +188,31 @@ run(
   )
 );
 
-var sum = 0;
-Vector.iterate<Nat>(vector, func(i){ sum += i});
+var sumN = 0;
+Vector.iterate<Nat>(vector, func(i){ sumN += i});
+var sum1 = 0;
+Vector.iterate<Nat>(Vector.init<Nat>(1,1), func(i){ sum1 += i});
+var sum0 = 0;
+Vector.iterate<Nat>(Vector.new<Nat>(), func(i){ sum0 += i});
 
 run(
   suite(
     "iterate",
     [
       test(
-        "sum",
-        [sum],
+        "sumN",
+        [sumN],
         M.equals(T.array(T.natTestable, [n*(n+1)/2])),
+      ),
+      test(
+        "sum1",
+        [sum1],
+        M.equals(T.array(T.natTestable, [1])),
+      ),
+      test(
+        "sum0",
+        [sum0],
+        M.equals(T.array(T.natTestable, [0])),
       ),
     ],
   )

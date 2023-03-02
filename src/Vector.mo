@@ -823,27 +823,24 @@ module {
   ///
   /// *Runtime and space assumes that `f` runs in O(1) time and space.
   public func iterate<X>(vec : Vector<X>, f : X -> ()) {
-    var i_block = 1;
-    var i_element = 0;
-
     let blocks = vec.data_blocks.size();
-    if (blocks == 1) return; // vec is empty
-
-    var db = vec.data_blocks[i_block];
-    var size = db.size(); 
+    var i_block = 0;
+    var i_element = 0;
+    var size = 0;
+    var db : [var ?X] = [var];
 
     loop {
-      if (size == 0) return;
-      let ?x = db[i_element] else return; 
-      f(x);
-      i_element += 1;
       if (i_element == size) {
         i_block += 1;
-        i_element := 0;
         if (i_block >= blocks) return;
         db := vec.data_blocks[i_block];
         size := db.size();
+        if (size == 0) return;
+        i_element := 0;
       };
+      let ?x = db[i_element] else return; 
+      f(x);
+      i_element += 1;
     };
   };
        
