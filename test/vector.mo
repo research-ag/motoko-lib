@@ -73,6 +73,16 @@ run(
         Iter.toArray(Vector.keys(vector)),
         M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
       ),
+      test(
+        "items1",
+        Iter.toArray(Iter.map<(Nat,Nat),Nat>(Vector.items(vector), func((a,b)){a})),
+        M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+      ),
+      test(
+        "items2",
+        Iter.toArray(Iter.map<(Nat,Nat),Nat>(Vector.items(vector), func((a,b)){b})),
+        M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+      ),
     ],
   ),
 );
