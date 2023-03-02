@@ -5,12 +5,9 @@ module {
   /// Unique `Id` of element added to the `Queue`.
   public type Id = Nat;
 
-  type Node<X> = {
-    #node : {
-      value : X;
-      var next : Node<X>;
-    };
-    #leaf;
+  type Node<X> = ?{
+    value : X;
+    var next : Node<X>;
   };
 
   /// FIFO queue implemented as singly linked list.
@@ -20,8 +17,8 @@ module {
   /// let queue = Queue.Queue<Nat>();
   /// ```
   public class Queue<X>() {
-    var start = #leaf : Node<X>;
-    var end = #leaf : Node<X>;
+    var head = null : Node<X>;
+    var tail = null : Node<X>;
     var pushes = 0;
     var size_ = 0;
 
@@ -30,33 +27,33 @@ module {
     /// Example:
     /// ```motoko
     /// let queue = Queue.Queue<Nat>();
-    /// ignore queue.enqueue(0);
-    /// let id = queue.enqueue(1);
-    /// ignore queue.dequeue();
+    /// ignore queue.push(0);
+    /// let id = queue.push(1);
+    /// ignore queue.pop();
     /// assert queue.get(id) == ?1;
     /// ```
     ///
     /// Runtime: `O(n)` where `n` is the number of elements in the queue.
     public func get(id : Id) : ?X {
       let ?index = index_of(id) else return null;
-      let #node s = start else Prim.trap("Internal error in Queue");
+      let ?s = head else Prim.trap("Internal error in Queue");
 
       var i = 0;
       var node = s;
       while (i < index) {
-        let #node next = node.next else Prim.trap("Internal error in Queue");
+        let ?next = node.next else Prim.trap("Internal error in Queue");
         node := next;
         i += 1;
       };
       ?node.value;
     };
 
-    /// Returns position from the beginning of an element with `id` returned by `enqueue`.
+    /// Returns position from the beginning of an element with `id` returned by `push`.
     ///
     /// Example:
     /// ```motoko
     /// let queue = Queue.Queue<Nat>();
-    /// assert queue.index_of(queue.enqueue(1)) == ?0;
+    /// assert queue.index_of(queue.push(1)) == ?0;
     /// ```
     ///
     /// Runtime: `O(1)`.
@@ -65,33 +62,33 @@ module {
     };
 
     /// Inserts element to the back of the queue.
-    /// Returns unique among all the `enqueue` opertions `id` of the inserted element.
+    /// Returns unique among all the `push` opertions `id` of the inserted element.
     ///
     /// Example:
     /// ```motoko
     /// let queue = Queue.Queue<Nat>();
-    /// ignore queue.enqueue(1);
-    /// assert queue.dequeue() == ?1;
+    /// ignore queue.push(1);
+    /// assert queue.pop() == ?1;
     /// ```
     ///
     /// Runtime: `O(1)`.
-    public func enqueue(value : X) : Id {
-      switch (end) {
-        case (#leaf) {
-          let node = #node {
+    public func push(value : X) : Id {
+      switch (tail) {
+        case (null) {
+          let node = ?{
             value = value;
-            var next = #leaf;
+            var next = null;
           } : Node<X>;
-          end := node;
-          start := node;
+          tail := node;
+          head := node;
         };
-        case (#node x) {
-          let node = #node {
+        case (?x) {
+          let node = ?{
             value = value;
-            var next = #leaf;
+            var next = null;
           } : Node<X>;
           x.next := node;
-          end := node;
+          tail := node;
         };
       };
 
@@ -106,32 +103,32 @@ module {
     /// Example:
     /// ```motoko
     /// let queue = Queue.Queue<Nat>();
-    /// ignore queue.enqueue(1);
+    /// ignore queue.push(1);
     /// assert queue.peek() == ?1;
     /// ```
     ///
     /// Runtime: `O(1)`.
     public func peek() : ?X {
-      let #node { value } = start else return null;
+      let ?{ value } = head else return null;
       ?value;
     };
 
-    /// Remove the element on the front end of a queue.
+    /// Remove the element on the front tail of a queue.
     /// Returns `null` if `queue` is empty. Otherwise, it returns removed element.
     ///
     /// Example:
     /// ```motoko
     /// let queue = Queue.Queue<Nat>();
-    /// ignore queue.enqueue(1);
-    /// assert queue.dequeue() == ?1;
+    /// ignore queue.push(1);
+    /// assert queue.pop() == ?1;
     /// ```
     ///
     /// Runtime: `O(1)`.
-    public func dequeue() : ?X {
-      let #node x = start else return null;
+    public func pop() : ?X {
+      let ?x = head else return null;
 
-      start := x.next;
-      x.next := #leaf;
+      head := x.next;
+      x.next := null;
 
       size_ -= 1;
 
@@ -143,7 +140,7 @@ module {
     /// Example:
     /// ```motoko
     /// let queue = Queue.Queue<Nat>();
-    /// ignore queue.enqueue(1);
+    /// ignore queue.push(1);
     /// assert queue.size() == 1;
     /// ```
     ///

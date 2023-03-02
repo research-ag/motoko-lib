@@ -30,9 +30,9 @@ Returns element with `id` in queue and `null` if the element was already deleted
 Example:
 ```motoko
 let queue = Queue.Queue<Nat>();
-ignore queue.enqueue(0);
-let id = queue.enqueue(1);
-ignore queue.dequeue();
+ignore queue.push(0);
+let id = queue.push(1);
+ignore queue.pop();
 assert queue.get(id) == ?1;
 ```
 
@@ -44,30 +44,30 @@ Runtime: `O(n)` where `n` is the number of elements in the queue.
 func index_of(id : Id) : ?Nat
 ```
 
-Returns position from the beginning of an element with `id` returned by `enqueue`.
+Returns position from the beginning of an element with `id` returned by `push`.
 
 Example:
 ```motoko
 let queue = Queue.Queue<Nat>();
-assert queue.index_of(queue.enqueue(1)) == ?0;
+assert queue.index_of(queue.push(1)) == ?0;
 ```
 
 Runtime: `O(1)`.
 
 
-### Function `enqueue`
+### Function `push`
 ``` motoko
-func enqueue(value : X) : Id
+func push(value : X) : Id
 ```
 
 Inserts element to the back of the queue.
-Returns unique among all the `enqueue` opertions `id` of the inserted element.
+Returns unique among all the `push` opertions `id` of the inserted element.
 
 Example:
 ```motoko
 let queue = Queue.Queue<Nat>();
-ignore queue.enqueue(1);
-assert queue.dequeue() == ?1;
+ignore queue.push(1);
+assert queue.pop() == ?1;
 ```
 
 Runtime: `O(1)`.
@@ -83,26 +83,26 @@ Returns `null` if `queue` is empty. Otherwise, it returns first element in the q
 Example:
 ```motoko
 let queue = Queue.Queue<Nat>();
-ignore queue.enqueue(1);
+ignore queue.push(1);
 assert queue.peek() == ?1;
 ```
 
 Runtime: `O(1)`.
 
 
-### Function `dequeue`
+### Function `pop`
 ``` motoko
-func dequeue() : ?X
+func pop() : ?X
 ```
 
-Remove the element on the front end of a queue.
+Remove the element on the front tail of a queue.
 Returns `null` if `queue` is empty. Otherwise, it returns removed element.
 
 Example:
 ```motoko
 let queue = Queue.Queue<Nat>();
-ignore queue.enqueue(1);
-assert queue.dequeue() == ?1;
+ignore queue.push(1);
+assert queue.pop() == ?1;
 ```
 
 Runtime: `O(1)`.
@@ -118,7 +118,7 @@ Returns number of elements in the queue.
 Example:
 ```motoko
 let queue = Queue.Queue<Nat>();
-ignore queue.enqueue(1);
+ignore queue.push(1);
 assert queue.size() == 1;
 ```
 

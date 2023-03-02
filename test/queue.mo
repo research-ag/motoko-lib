@@ -8,7 +8,7 @@ assert (q.peek() == null);
 var i = 0;
 while (i < n + n) {
   assert (q.size() == i);
-  assert (q.enqueue(i) == i);
+  assert (q.push(i) == i);
   assert (q.peek() == ?0);
   i += 1;
 };
@@ -17,7 +17,7 @@ i := 0;
 while (i < n) {
   assert (q.size() == n + n - i);
   assert (q.peek() == ?i);
-  assert (q.dequeue() == ?i);
+  assert (q.pop() == ?i);
   i += 1;
 };
 
