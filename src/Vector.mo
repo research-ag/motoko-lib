@@ -7,12 +7,12 @@ import Iter "mo:base/Iter";
 
 module {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
-  /// It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(n)` where
+  /// It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(size)` where
   /// n is the size of the data strucuture.
   /// Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).
   /// Since this is internally a two-dimensional array the access times for put and get operations
   /// will naturally be 2x slower than Buffer and Array. However, Array is not resizable and Buffer
-  /// has `O(n)` memory waste.
+  /// has `O(size)` memory waste.
   public type Vector<X> = {
     /// the index block
     var data_blocks : [var [var ?X]];
@@ -41,7 +41,7 @@ module {
   /// let vec = Vector.init<Nat>(4, 2); // [2, 2, 2, 2]
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: `O(size)`
   public func init<X>(size : Nat, initValue : X) : Vector<X> {
     let (i_block, i_element) = locate(size);
 
@@ -135,7 +135,7 @@ module {
   /// Vector.toArray(vec) // => []
   /// ```
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func clear<X>(vec : Vector<X>) {
     vec.data_blocks := [var [var]];
     vec.i_block := 1;
@@ -153,7 +153,7 @@ module {
   /// Vector.toArray(clone); // => [1]
   /// ```
   ///
-  /// Runtime: O(n)
+  /// Runtime: `O(size)`
   public func clone<X>(vec : Vector<X>) : Vector<X> = {
     var data_blocks = Array.tabulateVar<[var ?X]>(
       vec.data_blocks.size(),
@@ -173,7 +173,7 @@ module {
   /// Vector.size(vec) // => 0
   /// ```
   ///
-  /// Runtime: O(1) (with some internal calculations)
+  /// Runtime: `O(1)` (with some internal calculations)
   public func size<X>(vec : Vector<X>) : Nat {
     let d = Nat32(vec.i_block);
     let i = Nat32(vec.i_element);
@@ -256,7 +256,7 @@ module {
   /// Vector.toArray(vec) // => [0, 1, 2, 3]
   /// ```
   ///
-  /// Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
+  /// Amortized Runtime: `O(1)`, Worst Case Runtime: `O(sqrt(n))`
   public func add<X>(vec : Vector<X>, element : X) {
     var i_element = vec.i_element;
     if (i_element == 0) {
@@ -295,9 +295,9 @@ module {
   /// Vector.removeLast(vec); // => ?11
   /// ```
   ///
-  /// Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
+  /// Amortized Runtime: `O(1)`, Worst Case Runtime: `O(sqrt(n))`
   ///
-  /// Amortized Space: O(1), Worst Case Space: O(sqrt(n))
+  /// Amortized Space: `O(1)`, Worst Case Space: `O(sqrt(n))`
   public func removeLast<X>(vec : Vector<X>) : ?X {
     var i_element = vec.i_element;
     if (i_element == 0) {
@@ -352,7 +352,7 @@ module {
   /// Vector.get(vec, 0); // => 10
   /// ```
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func get<X>(vec : Vector<X>, index : Nat) : X {
     // inlined version of:
     //   let (a,b) = locate(index);
@@ -385,7 +385,7 @@ module {
   /// let y = Vector.getOpt(vec, 2); // => null
   /// ```
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func getOpt<X>(vec : Vector<X>, index : Nat) : ?X {
     let (a, b) = locate(index);
     if (a < vec.i_block or vec.i_element != 0 and a == vec.i_block) {
@@ -406,7 +406,7 @@ module {
   /// Vector.toArray(vec) // => [20]
   /// ```
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func put<X>(vec : Vector<X>, index : Nat, value : X) {
     let (a, b) = locate(index);
     if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
@@ -429,9 +429,9 @@ module {
   /// Vector.indexOf<Nat>(3, vector, Nat.equal); // => ?2
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: `O(size)`
   ///
-  /// *Runtime and space assumes that `equal` runs in O(1) time and space.
+  /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
     for ((x, i) in items(vec)) {
       if (equal(x, element)) return ?i;
@@ -455,9 +455,9 @@ module {
   /// Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: `O(size)`
   ///
-  /// *Runtime and space assumes that `equal` runs in O(1) time and space.
+  /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
     for ((x, i) in itemsRev(vec)) {
       if (equal(x, element)) return ?i;
@@ -486,7 +486,7 @@ module {
   /// and instead the consumption of the iterator is interleaved with other operations on the
   /// Vector, then this may lead to unexpected results.
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
     var i_block = 1;
     var i_element = 0;
@@ -529,7 +529,7 @@ module {
   /// and instead the consumption of the iterator is interleaved with other operations on the
   /// Vector, then this may lead to unexpected results.
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
     var i_block = 1;
     var i_element = 0;
@@ -580,7 +580,7 @@ module {
   /// and instead the consumption of the iterator is interleaved with other operations on the
   /// Vector, then this may lead to unexpected results.
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func valsRev<X>(vec : Vector<X>) : Iter.Iter<X> = object {
     var i_block = vec.i_block;
     var i_element = vec.i_element;
@@ -619,7 +619,7 @@ module {
   /// and instead the consumption of the iterator is interleaved with other operations on the
   /// Vector, then this may lead to unexpected results.
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func itemsRev<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
     var i_block = vec.i_block;
     var i_element = vec.i_element;
@@ -662,7 +662,7 @@ module {
   /// and instead the consumption of the iterator is interleaved with other operations on the
   /// Vector, then this may lead to unexpected results.
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec));
 
   /// Creates a Vector containing elements from `iter`.
@@ -677,7 +677,7 @@ module {
   /// let vec = Vector.fromIter<Nat>(iter); // => [1, 1, 1]
   /// ```
   ///
-  /// Runtime: O(n)
+  /// Runtime: `O(size)`
   public func fromIter<X>(iter : Iter.Iter<X>) : Vector<X> {
     let vec = new<X>();
     for (element in iter) add(vec, element);
@@ -697,7 +697,7 @@ module {
   /// let vec = Vector.append<Nat>(vec, iter); // => [2, 1, 1, 1]
   /// ```
   ///
-  /// Runtime: O(n), where n is the size of iter.
+  /// Runtime: `O(size)`, where n is the size of iter.
   public func append<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
     for (element in iter) add(vec, element);
   };
@@ -715,7 +715,7 @@ module {
   ///
   /// ```
   ///
-  /// Runtime: O(n)
+  /// Runtime: `O(size)`
   public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), func(i) = get(vec, i));
 
   /// Creates a Vector containing elements from an Array.
@@ -729,7 +729,7 @@ module {
   /// let vec = Vector.fromArray<Nat>(array); // => [2, 3]
   /// ```
   ///
-  /// Runtime: O(n)
+  /// Runtime: `O(size)`
   public func fromArray<X>(array : [X]) : Vector<X> = fromIter(array.vals());
 
   /// Creates a mutable Array containing elements from a Vector.
@@ -745,7 +745,7 @@ module {
   ///
   /// ```
   ///
-  /// Runtime: O(n)
+  /// Runtime: `O(size)`
   public func toVarArray<X>(vec : Vector<X>) : [var X] = Array.tabulateVar<X>(size(vec), func(i) = get(vec, i));
 
   /// Creates a Vector containing elements from a mutable Array.
@@ -759,6 +759,6 @@ module {
   /// let vec = Vector.fromVarArray<Nat>(array); // => [2, 3]
   /// ```
   ///
-  /// Runtime: O(n)
+  /// Runtime: `O(size)`
   public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
 };

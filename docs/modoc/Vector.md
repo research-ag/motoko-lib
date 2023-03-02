@@ -7,12 +7,12 @@ type Vector<X> = { var data_blocks : [var [var ?X]]; var i_block : Nat; var i_el
 ```
 
 Class `Vector<X>` provides a mutable list of elements of type `X`.
-It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(n)` where
+It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(size)` where
 n is the size of the data strucuture.
 Based on the paper "Resizable Arrays in Optimal Time and Space" by Brodnik, Carlsson, Demaine, Munro and Sedgewick (1999).
 Since this is internally a two-dimensional array the access times for put and get operations
 will naturally be 2x slower than Buffer and Array. However, Array is not resizable and Buffer
-has `O(n)` memory waste.
+has `O(size)` memory waste.
 
 ## Function `new`
 ``` motoko
@@ -37,7 +37,7 @@ Create a Vector with `size` copies of the initial value.
 let vec = Vector.init<Nat>(4, 2); // [2, 2, 2, 2]
 ```
 
-Runtime: O(size)
+Runtime: `O(size)`
 
 ## Function `addMany`
 ``` motoko
@@ -70,7 +70,7 @@ Vector.clear(vec); // vector is now empty
 Vector.toArray(vec) // => []
 ```
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `clone`
 ``` motoko
@@ -88,7 +88,7 @@ let clone = Vector.clone(vec);
 Vector.toArray(clone); // => [1]
 ```
 
-Runtime: O(n)
+Runtime: `O(size)`
 
 ## Function `size`
 ``` motoko
@@ -102,7 +102,7 @@ Example:
 Vector.size(vec) // => 0
 ```
 
-Runtime: O(1) (with some internal calculations)
+Runtime: `O(1)` (with some internal calculations)
 
 ## Function `add`
 ``` motoko
@@ -123,7 +123,7 @@ Vector.add(vec, 3);
 Vector.toArray(vec) // => [0, 1, 2, 3]
 ```
 
-Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
+Amortized Runtime: `O(1)`, Worst Case Runtime: `O(sqrt(n))`
 
 ## Function `removeLast`
 ``` motoko
@@ -141,9 +141,9 @@ Vector.add(vec, 11);
 Vector.removeLast(vec); // => ?11
 ```
 
-Amortized Runtime: O(1), Worst Case Runtime: O(sqrt(n))
+Amortized Runtime: `O(1)`, Worst Case Runtime: `O(sqrt(n))`
 
-Amortized Space: O(1), Worst Case Space: O(sqrt(n))
+Amortized Space: `O(1)`, Worst Case Space: `O(sqrt(n))`
 
 ## Function `get`
 ``` motoko
@@ -161,7 +161,7 @@ Vector.add(vec, 11);
 Vector.get(vec, 0); // => 10
 ```
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `getOpt`
 ``` motoko
@@ -180,7 +180,7 @@ let x = Vector.getOpt(vec, 0); // => ?10
 let y = Vector.getOpt(vec, 2); // => null
 ```
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `put`
 ``` motoko
@@ -198,7 +198,7 @@ Vector.put(vec, 0, 20); // overwrites 10 at index 0 with 20
 Vector.toArray(vec) // => [20]
 ```
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `indexOf`
 ``` motoko
@@ -220,9 +220,9 @@ vector.add(4);
 Vector.indexOf<Nat>(3, vector, Nat.equal); // => ?2
 ```
 
-Runtime: O(size)
+Runtime: `O(size)`
 
-*Runtime and space assumes that `equal` runs in O(1) time and space.
+*Runtime and space assumes that `equal` runs in `O(1)` time and space.
 
 ## Function `lastIndexOf`
 ``` motoko
@@ -245,9 +245,9 @@ vector.add(2);
 Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
 ```
 
-Runtime: O(size)
+Runtime: `O(size)`
 
-*Runtime and space assumes that `equal` runs in O(1) time and space.
+*Runtime and space assumes that `equal` runs in `O(1)` time and space.
 
 ## Function `vals`
 ``` motoko
@@ -275,7 +275,7 @@ Note: This does not create a snapshot. If the returned iterator is not consumed 
 and instead the consumption of the iterator is interleaved with other operations on the
 Vector, then this may lead to unexpected results.
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `items`
 ``` motoko
@@ -298,7 +298,7 @@ Note: This does not create a snapshot. If the returned iterator is not consumed 
 and instead the consumption of the iterator is interleaved with other operations on the
 Vector, then this may lead to unexpected results.
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `valsRev`
 ``` motoko
@@ -326,7 +326,7 @@ Note: This does not create a snapshot. If the returned iterator is not consumed 
 and instead the consumption of the iterator is interleaved with other operations on the
 Vector, then this may lead to unexpected results.
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `itemsRev`
 ``` motoko
@@ -349,7 +349,7 @@ Note: This does not create a snapshot. If the returned iterator is not consumed 
 and instead the consumption of the iterator is interleaved with other operations on the
 Vector, then this may lead to unexpected results.
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `keys`
 ``` motoko
@@ -372,7 +372,7 @@ Note: This does not create a snapshot. If the returned iterator is not consumed 
 and instead the consumption of the iterator is interleaved with other operations on the
 Vector, then this may lead to unexpected results.
 
-Runtime: O(1)
+Runtime: `O(1)`
 
 ## Function `fromIter`
 ``` motoko
@@ -391,7 +391,7 @@ let iter = array.vals();
 let vec = Vector.fromIter<Nat>(iter); // => [1, 1, 1]
 ```
 
-Runtime: O(n)
+Runtime: `O(size)`
 
 ## Function `append`
 ``` motoko
@@ -411,7 +411,7 @@ let vec = Vector.init<Nat>(1, 2);
 let vec = Vector.append<Nat>(vec, iter); // => [2, 1, 1, 1]
 ```
 
-Runtime: O(n), where n is the size of iter.
+Runtime: `O(size)`, where n is the size of iter.
 
 ## Function `toArray`
 ``` motoko
@@ -431,7 +431,7 @@ Vector.toArray<Nat>(vec); // => [1, 2, 3]
 
 ```
 
-Runtime: O(n)
+Runtime: `O(size)`
 
 ## Function `fromArray`
 ``` motoko
@@ -449,7 +449,7 @@ let array = [2, 3];
 let vec = Vector.fromArray<Nat>(array); // => [2, 3]
 ```
 
-Runtime: O(n)
+Runtime: `O(size)`
 
 ## Function `toVarArray`
 ``` motoko
@@ -469,7 +469,7 @@ Vector.toVarArray<Nat>(vec); // => [1, 2, 3]
 
 ```
 
-Runtime: O(n)
+Runtime: `O(size)`
 
 ## Function `fromVarArray`
 ``` motoko
@@ -487,4 +487,4 @@ let array = [var 2, 3];
 let vec = Vector.fromVarArray<Nat>(array); // => [2, 3]
 ```
 
-Runtime: O(n)
+Runtime: `O(size)`
