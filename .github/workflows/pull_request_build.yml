@@ -5,8 +5,8 @@ on:
 
 env:
   vessel_version: v0.6.4
-  moc_version: 0.8.1
-  dfx_version: 0.12.2-beta.0
+  moc_version: 0.8.3
+  dfx_version: 0.13.1
   ic-repl_version: 0.3.12
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
 
       - uses: cachix/install-nix-action@v20
         with:
-          nix_path: nixpkgs=channel:nixos-22.05
+          nix_path: nixpkgs=channel:nixos-22.11
 
       - name: "Install wasmtime"
         run: |
