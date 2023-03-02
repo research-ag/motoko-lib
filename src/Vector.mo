@@ -433,10 +433,27 @@ module {
   ///
   /// *Runtime and space assumes that `equal` runs in O(1) time and space.
   public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
-    for ((x, i) in items(vec)) {
-      if (equal(x, element)) return ?i;
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
+    var i_element = 0;
+    var size = 0;
+    var db : [var ?X] = [var];
+    var i = 0;
+
+    loop {
+      if (i_element == size) {
+        i_block += 1;
+        if (i_block >= blocks) return null;
+        db := vec.data_blocks[i_block];
+        size := db.size();
+        if (size == 0) return null;
+        i_element := 0;
+      };
+      let ?x = db[i_element] else return null; 
+      if (equal(x,element)) return ?i;
+      i_element += 1;
+      i += 1;
     };
-    null;
   };
 
   /// Finds the last index of `element` in `vector` using equality of elements defined
