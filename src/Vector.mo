@@ -655,7 +655,7 @@ module {
   /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: O(1)
-  public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec));
+  public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec)-1);
 
   /// Creates a Vector containing elements from `iter`.
   ///
