@@ -762,11 +762,37 @@ module {
   /// Runtime: O(n)
   public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
 
+  /// Returns the first element of `vec`. Traps if `vec` is empty.
+  ///
+  /// Example:
+  /// ```
+  ///
+  /// let vec = Vector.init<Nat>(10,1);
+  ///
+  /// Vector.first(vec); // => 1
+  /// ```
+  ///
+  /// Runtime: O(1)
+  ///
+  /// Space: O(1)
   public func first<X>(vec : Vector<X>) : X {
     let ?x = vec.data_blocks[1][0] else Prim.trap "Vector index out of bounds in first";
     x
   };
 
+  /// Returns the last element of `vec`. Traps if `vec` is empty.
+  ///
+  /// Example:
+  /// ```
+  ///
+  /// let vec = Vector.init<Nat>(10,1);
+  ///
+  /// Vector.last(vec); // => 1
+  /// ```
+  ///
+  /// Runtime: O(1)
+  ///
+  /// Space: O(1)
   public func last<X>(vec : Vector<X>) : X {
     let e = vec.i_element;
     if (e > 0) {
