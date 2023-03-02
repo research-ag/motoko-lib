@@ -10,7 +10,7 @@ sha2:
 	$(MOC) $(VESSEL_PKGS) -wasi-system-api sha2Test.mo && wasmtime sha2Test.wasm
 
 enumeration:
-	$(MOC) $(VESSEL_PKGS) -wasi-system-api EnumerationTest.mo && wasmtime EnumerationTest.wasm
+	$(MOC) $(VESSEL_PKGS) -wasi-system-api enumeration.mo && wasmtime enumeration.wasm
 
 queue:
-	$(MOC) $(VESSEL_PKGS) -wasi-system-api queueTest.mo && wasmtime queueTest.wasm
+	$(MOC) $(VESSEL_PKGS) -wasi-system-api queue.mo && wasmtime queue.wasm
