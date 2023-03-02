@@ -4,51 +4,78 @@ import Array "mo:base/Array";
 module {
   public type Id = Nat;
 
-  public class Queue<X>() {
-    var array = [var (null : ?X)];
-    var size_ = 0;
-    var start = 0;
-    var pushes = 0;
-
-    func sum(a : Nat, b : Nat) : Nat {
-      let result = a + b;
-      if (result >= array.size()) { result - array.size() } else result;
+  type Node<X> = {
+    #node : {
+      value : X;
+      var next : Node<X>;
     };
+    #leaf;
+  };
+
+  public class Queue<X>() {
+    var start = #leaf : Node<X>;
+    var end = #leaf : Node<X>;
+    var pushes = 0;
+    var size_ = 0;
 
     public func get(id : Id) : ?X {
-      if (id >= pushes or pushes - id > size_) {
-        null;
-      } else {
-        array[(start + size_ + id - pushes) % array.size()];
+      let ?index = index_of(id) else return null;
+      let #node s = start else Prim.trap("Internal error in Queue");
+
+      var i = 0;
+      var node = s;
+      while (i < index) {
+        let #node next = node.next else Prim.trap("Internal error in Queue");
+        node := next;
+        i += 1;
       };
+      ?node.value;
+    };
+
+    public func index_of(id : Id) : ?Nat {
+      if (id >= pushes or pushes - id > size_) null else ?(size_ + id - pushes);
     };
 
     public func enqueue(value : X) : Id {
-      if (size_ == array.size()) {
-        array := Array.tabulateVar<?X>(
-          array.size() * 2,
-          func(i) = if (i < array.size()) {
-            array[sum(start, i)];
-          } else null,
-        );
+      switch (end) {
+        case (#leaf) {
+          let node = #node {
+            value = value;
+            var next = #leaf;
+          } : Node<X>;
+          end := node;
+          start := node;
+        };
+        case (#node x) {
+          let node = #node {
+            value = value;
+            var next = #leaf;
+          } : Node<X>;
+          x.next := node;
+          end := node;
+        };
       };
-      array[sum(start, size_)] := ?value;
-      size_ += 1;
+
       pushes += 1;
+      size_ += 1;
 
       pushes - 1;
     };
 
     public func peek() : ?X {
-      if (size_ == 0) null else array[sum(start, size_ - 1)];
+      let #node { value } = start else return null;
+      ?value;
     };
 
     public func dequeue() : ?X {
-      if (size_ == 0) return null;
-      let result = array[start];
-      start := sum(start, 1);
+      let #node x = start else return null;
+
+      start := x.next;
+      x.next := #leaf;
+      
       size_ -= 1;
-      result;
+
+      ?x.value;
     };
 
     public func size() : Nat = size_;
