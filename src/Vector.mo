@@ -527,31 +527,27 @@ module {
   ///
   /// Runtime: O(1)
   public func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
-    var i_block = 1;
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
     var i_element = 0;
+    var size = 0;
+    var db : [var ?X] = [var];
     var i = 0;
 
     public func next() : ?(X, Nat) {
-      if (i_block >= vec.data_blocks.size()) {
-        return null;
+      if (i_element == size) {
+        i_block += 1;
+        if (i_block >= blocks) return null;
+        db := vec.data_blocks[i_block];
+        size := db.size();
+        if (size == 0) return null;
+        i_element := 0;
       };
-      let block = vec.data_blocks[i_block];
-      if (block.size() == 0) {
-        return null;
-      };
-      switch (block[i_element]) {
-        case (?element) {
-          let ret = ?(element, i);
-          i += 1;
-          i_element += 1;
-          if (i_element == block.size()) {
-            i_block += 1;
-            i_element := 0;
-          };
-          ret;
-        };
-        case (null) null;
-      };
+      let ?x = db[i_element] else return null; 
+      let ret = ?(x, i);
+      i_element += 1;
+      i += 1;
+      return ret;
     };
   };
 
