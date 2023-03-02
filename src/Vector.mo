@@ -708,7 +708,29 @@ module {
   /// ```
   ///
   /// Runtime: O(n)
-  public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), func(i) = get(vec, i));
+  public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), fast_tab(vec).next);
+
+  private func fast_tab<X>(vec : Vector<X>) : { next : Nat -> X } = object {
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
+    var i_element = 0;
+    var db_size = 0;
+    var db : [var ?X] = [var];
+
+    public func next(i : Nat) : X {
+      if (i_element == db_size) {
+        i_block += 1;
+        if (i_block >= blocks) Prim.trap("internal error in Vector");
+        db := vec.data_blocks[i_block];
+        db_size := db.size();
+        if (db_size == 0) Prim.trap("internal error in Vector");
+        i_element := 0;
+      };
+      let ?x = db[i_element] else Prim.trap("internal error in Vector"); 
+      i_element += 1;
+      return x;
+    };
+  };
 
   /// Creates a Vector containing elements from an Array.
   ///
