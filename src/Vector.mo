@@ -732,6 +732,28 @@ module {
     };
   };
 
+  private func fast_vals<X>(vec : Vector<X>) : { next : () -> X } = object {
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
+    var i_element = 0;
+    var db_size = 0;
+    var db : [var ?X] = [var];
+
+    public func next() : X {
+      if (i_element == db_size) {
+        i_block += 1;
+        if (i_block >= blocks) Prim.trap("internal error in Vector");
+        db := vec.data_blocks[i_block];
+        db_size := db.size();
+        if (db_size == 0) Prim.trap("internal error in Vector");
+        i_element := 0;
+      };
+      let ?x = db[i_element] else Prim.trap("internal error in Vector"); 
+      i_element += 1;
+      return x;
+    };
+  };
+
   /// Creates a Vector containing elements from an Array.
   ///
   /// Example:
@@ -760,7 +782,20 @@ module {
   /// ```
   ///
   /// Runtime: O(n)
-  public func toVarArray<X>(vec : Vector<X>) : [var X] = Array.tabulateVar<X>(size(vec), func(i) = get(vec, i));
+  public func toVarArray<X>(vec : Vector<X>) : [var X] {
+    let s = size(vec);
+    if (s == 0) return [var];
+    let arr = Array.init<X>(s, first(vec));
+    var i = 0;
+    let next = fast_vals(vec).next;
+    while (i < s) {
+      arr[i] := next();
+      i += 1;
+    };
+    arr;
+  };
+
+  //= Array.tabulateVar<X>(size(vec), func(i) = get(vec, i));
 
   /// Creates a Vector containing elements from a mutable Array.
   ///
