@@ -761,4 +761,19 @@ module {
   ///
   /// Runtime: O(n)
   public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
+
+  public func first<X>(vec : Vector<X>) : X {
+    let ?x = vec.data_blocks[1][0] else Prim.trap "Vector index out of bounds in first";
+    x
+  };
+
+  public func last<X>(vec : Vector<X>) : X {
+    let e = vec.i_element;
+    if (e > 0) {
+      let ?x = vec.data_blocks[vec.i_block][e - 1] else Prim.trap "Internal errror in Vector";
+      return x;
+    };
+    let ?x = vec.data_blocks[vec.i_block - 1][0] else Prim.trap "Vector index out of bounds in first";
+    return x;
+  };
 };

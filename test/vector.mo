@@ -165,6 +165,29 @@ run(
   ),
 );
 
+run(
+  suite(
+    "firstAndLast",
+    [
+      test(
+        "first",
+        [Vector.first(vector)],
+        M.equals(T.array(T.natTestable, [0])),
+      ),
+      test(
+        "last of len N",
+        [Vector.last(vector)],
+        M.equals(T.array(T.natTestable, [n])),
+      ),
+      test(
+        "last of len 1",
+        [Vector.last(Vector.init<Nat>(1,1))],
+        M.equals(T.array(T.natTestable, [1])),
+      ),
+    ],
+  )
+);
+
 func locate_readable<X>(index : Nat) : (Nat, Nat) {
   // index is any Nat32 except for
   // blocks before super block s == 2 ** s
