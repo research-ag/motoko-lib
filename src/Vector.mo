@@ -6,7 +6,6 @@ import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 
 module Static {
-module Static {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
   /// It is a substitution for `Buffer<X>` with `O(sqrt(n))` memory waste instead of `O(size)` where
   /// n is the size of the data strucuture.
@@ -789,5 +788,4 @@ module Static {
       //   remove
     };
   };
-
 };
