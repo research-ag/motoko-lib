@@ -9,7 +9,7 @@ import Nat64 "mo:base/Nat64";
 import Iter "mo:base/Iter";
 
 module {
-    public class PRNG() {
+    public class Seiran128() {
         private let state: [var Nat64] = Array.init<Nat64>(2, 0);
 
         public func init(seed: Nat64) {

@@ -1,11 +1,11 @@
 import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
-import PRNG_Seiran128 "../src/Prng_Seiran128";
+import Prng "../src/Prng";
 
 import Debug "mo:base/Debug";
 
-let prng = PRNG_Seiran128.PRNG();
+let prng = Prng.Seiran128();
 prng.init(401);
 
 //Debug.print("Testing first values");
