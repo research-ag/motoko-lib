@@ -449,8 +449,8 @@ module Static {
         if (size == 0) return null;
         i_element := 0;
       };
-      let ?x = db[i_element] else return null; 
-      if (equal(x,element)) return ?i;
+      let ?x = db[i_element] else return null;
+      if (equal(x, element)) return ?i;
       i_element += 1;
       i += 1;
     };
@@ -520,7 +520,7 @@ module Static {
         if (size == 0) return null;
         i_element := 0;
       };
-      let ?x = db[i_element] else return null; 
+      let ?x = db[i_element] else return null;
       i_element += 1;
       return ?x;
     };
@@ -560,7 +560,7 @@ module Static {
         if (size == 0) return null;
         i_element := 0;
       };
-      let ?x = db[i_element] else return null; 
+      let ?x = db[i_element] else return null;
       let ret = ?(x, i);
       i_element += 1;
       i += 1;
@@ -672,7 +672,7 @@ module Static {
   /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: O(1)
-  public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec)-1);
+  public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec) - 1);
 
   /// Creates a Vector containing elements from `iter`.
   ///
@@ -743,7 +743,7 @@ module Static {
         if (db_size == 0) Prim.trap("internal error in Vector");
         i_element := 0;
       };
-      let ?x = db[i_element] else Prim.trap("internal error in Vector"); 
+      let ?x = db[i_element] else Prim.trap("internal error in Vector");
       i_element += 1;
       return x;
     };
@@ -765,7 +765,7 @@ module Static {
         if (db_size == 0) Prim.trap("internal error in Vector");
         i_element := 0;
       };
-      let ?x = db[i_element] else Prim.trap("internal error in Vector"); 
+      let ?x = db[i_element] else Prim.trap("internal error in Vector");
       i_element += 1;
       return x;
     };
@@ -841,7 +841,7 @@ module Static {
   /// Space: O(1)
   public func first<X>(vec : Vector<X>) : X {
     let ?x = vec.data_blocks[1][0] else Prim.trap "Vector index out of bounds in first";
-    x
+    x;
   };
 
   /// Returns the last element of `vec`. Traps if `vec` is empty.
@@ -902,12 +902,12 @@ module Static {
         if (size == 0) return;
         i_element := 0;
       };
-      let ?x = db[i_element] else return; 
+      let ?x = db[i_element] else return;
       f(x);
       i_element += 1;
     };
   };
-       
+
   /// Submodule with Vector as a class
   /// This allows to use VectorClass as a drop-in replacement of Buffer
   public module Class {
@@ -923,15 +923,15 @@ module Static {
       public func clear() = Static.clear(v);
       public func vals() : { next : () -> ?X } = Static.vals(v);
       public func keys() : { next : () -> ?Nat } = Static.keys(v);
-      public func items() : { next : () -> ?(X,Nat) } = Static.items(v);
+      public func items() : { next : () -> ?(X, Nat) } = Static.items(v);
       public func valsRev() : { next : () -> ?X } = Static.valsRev(v);
-      public func itemsRev() : { next : () -> ?(X,Nat) } = Static.itemsRev(v);
+      public func itemsRev() : { next : () -> ?(X, Nat) } = Static.itemsRev(v);
       public func share() : Static.Vector<X> = v;
       public func unshare(v_ : Static.Vector<X>) { v := v_ };
       // we don't provide:
       //   sort
       //   insertBuffer
-      //   insert 
+      //   insert
       //   append
       //   reserve
       //   capacity
@@ -939,8 +939,8 @@ module Static {
       //   remove
     };
 
-    public func first<X>(vec : Vector<X>) : X = Static.first(vec.share()); 
-    public func last<X>(vec : Vector<X>) : X = Static.first(vec.share()); 
+    public func first<X>(vec : Vector<X>) : X = Static.first(vec.share());
+    public func last<X>(vec : Vector<X>) : X = Static.first(vec.share());
     public func iterate<X>(vec : Vector<X>, f : X -> ()) = Static.iterate(vec.share(), f);
     public func toArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
     public func toVarArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
