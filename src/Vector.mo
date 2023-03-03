@@ -915,12 +915,17 @@ module Static {
       var v : Static.Vector<X> = Static.new();
       public func size() : Nat = Static.size(v);
       public func add(x : X) = Static.add(v, x);
+      public func addMany(n : Nat, x : X) = Static.addMany(v, n, x);
       public func get(i : Nat) : X = Static.get(v, i);
       public func getOpt(i : Nat) : ?X = Static.getOpt(v, i);
       public func put(i : Nat, x : X) = Static.put(v, i, x);
       public func removeLast() : ?X = Static.removeLast(v);
       public func clear() = Static.clear(v);
       public func vals() : { next : () -> ?X } = Static.vals(v);
+      public func keys() : { next : () -> ?Nat } = Static.keys(v);
+      public func items() : { next : () -> ?(X,Nat) } = Static.items(v);
+      public func valsRev() : { next : () -> ?X } = Static.valsRev(v);
+      public func itemsRev() : { next : () -> ?(X,Nat) } = Static.itemsRev(v);
       public func share() : Static.Vector<X> = v;
       public func unshare(v_ : Static.Vector<X>) { v := v_ };
       // we don't provide:
@@ -933,5 +938,19 @@ module Static {
       //   filterEntries
       //   remove
     };
+
+    public func first<X>(vec : Vector<X>) : X = Static.first(vec.share()); 
+    public func last<X>(vec : Vector<X>) : X = Static.first(vec.share()); 
+    public func iterate<X>(vec : Vector<X>, f : X -> ()) = Static.iterate(vec.share(), f);
+    public func toArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
+    public func toVarArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
+    public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.indexOf(element, vec.share(), equal);
+    public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.lastIndexOf(element, vec.share(), equal);
+    // TODO init (Buffer calls it make)
+    // TODO fromArray, fromVarArray
+    // TODO clone
+    // TODO fromIter
+    // TODO append
   };
+
 };
