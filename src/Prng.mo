@@ -4,9 +4,7 @@
 /// WARNING: This is not a cryptographically secure pseudorandom
 /// number generator.
 
-import Array "mo:base/Array";
-import Nat64 "mo:base/Nat64";
-import Iter "mo:base/Iter";
+import { range } "mo:base/Iter";
 
 module {
     public class Seiran128() {
@@ -37,14 +35,16 @@ module {
             var t0: Nat64 = 0;
             var t1: Nat64 = 0;
 
-            // Constrain to 2?
             for (jp in jumppoly.vals()) {
-                for (b in Iter.range(0, 63)) {
-                    if ((jp >> Nat64.fromNat(b)) & 1 == 1) {
+                var w = jp;
+                for (b in range(0, 63)) {
+                    if (w & 1 == 1) {
                         t0 ^= state0;
                         t1 ^= state1;
                     };
-                    let t = next();
+
+                    w >>= 1;
+                    ignore next();
                 };
             };
 
