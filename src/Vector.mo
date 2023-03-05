@@ -504,27 +504,7 @@ module Static {
   /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: `O(1)`
-  public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
-    let blocks = vec.data_blocks.size();
-    var i_block = 0;
-    var i_element = 0;
-    var size = 0;
-    var db : [var ?X] = [var];
-
-    public func next() : ?X {
-      if (i_element == size) {
-        i_block += 1;
-        if (i_block >= blocks) return null;
-        db := vec.data_blocks[i_block];
-        size := db.size();
-        if (size == 0) return null;
-        i_element := 0;
-      };
-      let ?x = db[i_element] else return null;
-      i_element += 1;
-      return ?x;
-    };
-  };
+  public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = vals_(vec);
 
   /// Returns an Iterator (`Iter`) over the items, i.e. pairs of value and index of a Vector.
   /// Iterator provides a single method `next()`, which returns
@@ -725,16 +705,40 @@ module Static {
   /// ```
   ///
   /// Runtime: O(size)
-  public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), fast_tab(vec).next);
+  public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), vals_(vec).unsafe_next_i);
 
-  private func fast_tab<X>(vec : Vector<X>) : { next : Nat -> X } = object {
+  private func vals_<X>(vec : Vector<X>) : {
+    next : () -> ?X;
+    unsafe_next : () -> X;
+    unsafe_next_i : Nat -> X;
+  } = object {
     let blocks = vec.data_blocks.size();
     var i_block = 0;
     var i_element = 0;
     var db_size = 0;
     var db : [var ?X] = [var];
 
-    public func next(i : Nat) : X {
+    public func next() : ?X {
+      if (i_element == db_size) {
+        i_block += 1;
+        if (i_block >= blocks) return null;
+        db := vec.data_blocks[i_block];
+        db_size := db.size();
+        if (db_size == 0) return null;
+        i_element := 0;
+      };
+      let ?x = db[i_element] else return null;
+      i_element += 1;
+      return ?x;
+    };
+
+    // version of next() without option type
+    // inlined version of
+    //   public func unsafe_next() : X = {
+    //     let ?x = next() else Prim.trap("internal error in Vector");
+    //     x;
+    //   };
+    public func unsafe_next() : X {
       if (i_element == db_size) {
         i_block += 1;
         if (i_block >= blocks) Prim.trap("internal error in Vector");
@@ -747,16 +751,11 @@ module Static {
       i_element += 1;
       return x;
     };
-  };
 
-  private func fast_vals<X>(vec : Vector<X>) : { next : () -> X } = object {
-    let blocks = vec.data_blocks.size();
-    var i_block = 0;
-    var i_element = 0;
-    var db_size = 0;
-    var db : [var ?X] = [var];
-
-    public func next() : X {
+    // version of next() without option type and throw-away argument
+    // inlined version of
+    //   public func unsafe_next_(i : Nat) : X = unsafe_next();
+    public func unsafe_next_i(i : Nat) : X {
       if (i_element == db_size) {
         i_block += 1;
         if (i_block >= blocks) Prim.trap("internal error in Vector");
@@ -804,7 +803,7 @@ module Static {
     if (s == 0) return [var];
     let arr = Array.init<X>(s, first(vec));
     var i = 0;
-    let next = fast_vals(vec).next;
+    let next = vals_(vec).unsafe_next;
     while (i < s) {
       arr[i] := next();
       i += 1;
