@@ -47,7 +47,7 @@ module Static {
 
     let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
     let data_blocks = Array.init<[var ?X]>(blocks, [var]);
-    var i = 0;
+    var i = 1;
     while (i < i_block) {
       data_blocks[i] := Array.init<?X>(data_block_size(i), ?initValue);
       i += 1;
@@ -782,7 +782,41 @@ module Static {
   /// ```
   ///
   /// Runtime: `O(size)`
-  public func fromArray<X>(array : [X]) : Vector<X> = fromIter(array.vals());
+  public func fromArray<X>(array : [X]) : Vector<X> {
+    let (i_block, i_element) = locate(array.size());
+
+    let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
+    let data_blocks = Array.init<[var ?X]>(blocks, [var]);
+    var i = 1;
+    var pos = 0;
+
+    func make_block(len : Nat, fill : Nat) : [var ?X] {
+      let block = Array.init<?X>(len, null);
+      var j = 0;
+      while (j < fill) {
+        block[j] := ?array[pos];
+        j += 1;
+        pos += 1;
+      };
+      block;
+    };
+
+    while (i < i_block) {
+      let len = data_block_size(i);
+      data_blocks[i] := make_block(len, len);
+      i += 1;
+    };
+    if (i_element != 0 and i_block < blocks) {
+      data_blocks[i] := make_block(data_block_size(i), i_element);
+    };
+
+    {
+      var data_blocks = data_blocks;
+      var i_block = i_block;
+      var i_element = i_element;
+    };
+
+  };
 
   /// Creates a mutable Array containing elements from a Vector.
   ///
@@ -823,7 +857,41 @@ module Static {
   /// ```
   ///
   /// Runtime: `O(size)`
-  public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
+  public func fromVarArray<X>(array : [var X]) : Vector<X> {
+    let (i_block, i_element) = locate(array.size());
+
+    let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
+    let data_blocks = Array.init<[var ?X]>(blocks, [var]);
+    var i = 1;
+    var pos = 0;
+
+    func make_block(len : Nat, fill : Nat) : [var ?X] {
+      let block = Array.init<?X>(len, null);
+      var j = 0;
+      while (j < fill) {
+        block[j] := ?array[pos];
+        j += 1;
+        pos += 1;
+      };
+      block;
+    };
+
+    while (i < i_block) {
+      let len = data_block_size(i);
+      data_blocks[i] := make_block(len, len);
+      i += 1;
+    };
+    if (i_element != 0 and i_block < blocks) {
+      data_blocks[i] := make_block(data_block_size(i), i_element);
+    };
+
+    {
+      var data_blocks = data_blocks;
+      var i_block = i_block;
+      var i_element = i_element;
+    };
+
+  };
 
   /// Returns the first element of `vec`. Traps if `vec` is empty.
   ///
