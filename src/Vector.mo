@@ -673,7 +673,7 @@ module Static {
     vec;
   };
 
-  /// Appends elements to a Vector from `iter`.
+  /// Adds elements to a Vector from `iter`.
   ///
   /// Example:
   /// ```
@@ -683,11 +683,11 @@ module Static {
   /// let iter = array.vals();
   /// let vec = Vector.init<Nat>(1, 2);
   ///
-  /// let vec = Vector.append<Nat>(vec, iter); // => [2, 1, 1, 1]
+  /// let vec = Vector.addFromIter<Nat>(vec, iter); // => [2, 1, 1, 1]
   /// ```
   ///
   /// Runtime: `O(size)`, where n is the size of iter.
-  public func append<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
+  public func addFromIter<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
     for (element in iter) add(vec, element);
   };
 
@@ -999,7 +999,7 @@ module Static {
       //   sort
       //   insertBuffer
       //   insert
-      //   append
+      //   addFromIter
       //   reserve
       //   capacity
       //   filterEntries
@@ -1013,11 +1013,11 @@ module Static {
     public func toVarArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
     public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.indexOf(element, vec.share(), equal);
     public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.lastIndexOf(element, vec.share(), equal);
-    // TODO init (Buffer calls it make)
+    // TODO init
     // TODO fromArray, fromVarArray
     // TODO clone
     // TODO fromIter
-    // TODO append
+    // TODO addFromIter
   };
 
 };
