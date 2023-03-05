@@ -999,7 +999,7 @@ module Static {
       //   sort
       //   insertBuffer
       //   insert
-      //   addFromIter
+      //   append
       //   reserve
       //   capacity
       //   filterEntries
@@ -1013,11 +1013,34 @@ module Static {
     public func toVarArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
     public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.indexOf(element, vec.share(), equal);
     public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.lastIndexOf(element, vec.share(), equal);
-    // TODO init
-    // TODO fromArray, fromVarArray
-    // TODO clone
-    // TODO fromIter
-    // TODO addFromIter
+    public func init<X>(size : Nat, initValue : X) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.init(size, initValue));
+      v;
+    }; 
+    public func fromArray<X>(array : [X]) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.fromArray(array));
+      v;
+    }; 
+    public func fromVarArray<X>(array : [var X]) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.fromVarArray(array));
+      v;
+    }; 
+    public func clone<X>(vec : Vector<X>) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.clone(vec.share()));
+      v;
+    }; 
+    public func fromIter<X>(iter : Iter.Iter<X>) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.fromIter(iter));
+      v;
+    }; 
+    public func addFromIter<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
+      Static.addFromIter(vec.share(), iter);
+    }; 
   };
 
 };
