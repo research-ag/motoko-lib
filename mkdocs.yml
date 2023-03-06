@@ -62,4 +62,4 @@ extra_javascript:
   - javascripts/highlight.min.js
   - javascripts/config.js
 extra_css:
-  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css
+  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/hybrid.min.css
