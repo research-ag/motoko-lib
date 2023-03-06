@@ -67,7 +67,22 @@ run(
         "revElements",
         Iter.toArray(Vector.valsRev(vector)),
         M.equals(T.array(T.intTestable, Iter.toArray(Iter.revRange(n, 0)))),
-      )
+      ),
+      test(
+        "keys",
+        Iter.toArray(Vector.keys(vector)),
+        M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+      ),
+      test(
+        "items1",
+        Iter.toArray(Iter.map<(Nat,Nat),Nat>(Vector.items(vector), func((a,b)){a})),
+        M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+      ),
+      test(
+        "items2",
+        Iter.toArray(Iter.map<(Nat,Nat),Nat>(Vector.items(vector), func((a,b)){b})),
+        M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+      ),
     ],
   ),
 );
@@ -163,6 +178,59 @@ run(
       ),
     ],
   ),
+);
+
+run(
+  suite(
+    "firstAndLast",
+    [
+      test(
+        "first",
+        [Vector.first(vector)],
+        M.equals(T.array(T.natTestable, [0])),
+      ),
+      test(
+        "last of len N",
+        [Vector.last(vector)],
+        M.equals(T.array(T.natTestable, [n])),
+      ),
+      test(
+        "last of len 1",
+        [Vector.last(Vector.init<Nat>(1,1))],
+        M.equals(T.array(T.natTestable, [1])),
+      ),
+    ],
+  )
+);
+
+var sumN = 0;
+Vector.iterate<Nat>(vector, func(i){ sumN += i});
+var sum1 = 0;
+Vector.iterate<Nat>(Vector.init<Nat>(1,1), func(i){ sum1 += i});
+var sum0 = 0;
+Vector.iterate<Nat>(Vector.new<Nat>(), func(i){ sum0 += i});
+
+run(
+  suite(
+    "iterate",
+    [
+      test(
+        "sumN",
+        [sumN],
+        M.equals(T.array(T.natTestable, [n*(n+1)/2])),
+      ),
+      test(
+        "sum1",
+        [sum1],
+        M.equals(T.array(T.natTestable, [1])),
+      ),
+      test(
+        "sum0",
+        [sum0],
+        M.equals(T.array(T.natTestable, [0])),
+      ),
+    ],
+  )
 );
 
 func locate_readable<X>(index : Nat) : (Nat, Nat) {

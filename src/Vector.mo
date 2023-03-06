@@ -47,7 +47,7 @@ module Static {
 
     let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
     let data_blocks = Array.init<[var ?X]>(blocks, [var]);
-    var i = 0;
+    var i = 1;
     while (i < i_block) {
       data_blocks[i] := Array.init<?X>(data_block_size(i), ?initValue);
       i += 1;
@@ -203,6 +203,7 @@ module Static {
 
   func data_block_size(i_block : Nat) : Nat {
     // formula for the size of given i_block
+    // don't call it for i_block == 0
     Nat(1 <>> leadingZeros(Nat32(i_block) / 3));
   };
 
@@ -433,10 +434,27 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
-    for ((x, i) in items(vec)) {
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
+    var i_element = 0;
+    var size = 0;
+    var db : [var ?X] = [var];
+    var i = 0;
+
+    loop {
+      if (i_element == size) {
+        i_block += 1;
+        if (i_block >= blocks) return null;
+        db := vec.data_blocks[i_block];
+        size := db.size();
+        if (size == 0) return null;
+        i_element := 0;
+      };
+      let ?x = db[i_element] else return null;
       if (equal(x, element)) return ?i;
+      i_element += 1;
+      i += 1;
     };
-    null;
   };
 
   /// Finds the last index of `element` in `vector` using equality of elements defined
@@ -487,31 +505,7 @@ module Static {
   /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: `O(1)`
-  public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = object {
-    var i_block = 1;
-    var i_element = 0;
-
-    public func next() : ?X {
-      if (i_block >= vec.data_blocks.size()) {
-        return null;
-      };
-      let block = vec.data_blocks[i_block];
-      if (block.size() == 0) {
-        return null;
-      };
-      switch (block[i_element]) {
-        case (?element) {
-          i_element += 1;
-          if (i_element == block.size()) {
-            i_block += 1;
-            i_element := 0;
-          };
-          ?element;
-        };
-        case (null) null;
-      };
-    };
-  };
+  public func vals<X>(vec : Vector<X>) : Iter.Iter<X> = vals_(vec);
 
   /// Returns an Iterator (`Iter`) over the items, i.e. pairs of value and index of a Vector.
   /// Iterator provides a single method `next()`, which returns
@@ -531,31 +525,27 @@ module Static {
   ///
   /// Runtime: `O(1)`
   public func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
-    var i_block = 1;
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
     var i_element = 0;
+    var size = 0;
+    var db : [var ?X] = [var];
     var i = 0;
 
     public func next() : ?(X, Nat) {
-      if (i_block >= vec.data_blocks.size()) {
-        return null;
+      if (i_element == size) {
+        i_block += 1;
+        if (i_block >= blocks) return null;
+        db := vec.data_blocks[i_block];
+        size := db.size();
+        if (size == 0) return null;
+        i_element := 0;
       };
-      let block = vec.data_blocks[i_block];
-      if (block.size() == 0) {
-        return null;
-      };
-      switch (block[i_element]) {
-        case (?element) {
-          let ret = ?(element, i);
-          i += 1;
-          i_element += 1;
-          if (i_element == block.size()) {
-            i_block += 1;
-            i_element := 0;
-          };
-          ret;
-        };
-        case (null) null;
-      };
+      let ?x = db[i_element] else return null;
+      let ret = ?(x, i);
+      i_element += 1;
+      i += 1;
+      return ret;
     };
   };
 
@@ -662,8 +652,8 @@ module Static {
   /// and instead the consumption of the iterator is interleaved with other operations on the
   /// Vector, then this may lead to unexpected results.
   ///
-  /// Runtime: `O(1)`
-  public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec));
+  /// Runtime: O(1)
+  public func keys<X>(vec : Vector<X>) : Iter.Iter<Nat> = Iter.range(0, size(vec) - 1);
 
   /// Creates a Vector containing elements from `iter`.
   ///
@@ -684,7 +674,7 @@ module Static {
     vec;
   };
 
-  /// Appends elements to a Vector from `iter`.
+  /// Adds elements to a Vector from `iter`.
   ///
   /// Example:
   /// ```
@@ -694,11 +684,11 @@ module Static {
   /// let iter = array.vals();
   /// let vec = Vector.init<Nat>(1, 2);
   ///
-  /// let vec = Vector.append<Nat>(vec, iter); // => [2, 1, 1, 1]
+  /// let vec = Vector.addFromIter<Nat>(vec, iter); // => [2, 1, 1, 1]
   /// ```
   ///
   /// Runtime: `O(size)`, where n is the size of iter.
-  public func append<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
+  public func addFromIter<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
     for (element in iter) add(vec, element);
   };
 
@@ -715,8 +705,71 @@ module Static {
   ///
   /// ```
   ///
-  /// Runtime: `O(size)`
-  public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), func(i) = get(vec, i));
+  /// Runtime: O(size)
+  public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), vals_(vec).unsafe_next_i);
+
+  private func vals_<X>(vec : Vector<X>) : {
+    next : () -> ?X;
+    unsafe_next : () -> X;
+    unsafe_next_i : Nat -> X;
+  } = object {
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
+    var i_element = 0;
+    var db_size = 0;
+    var db : [var ?X] = [var];
+
+    public func next() : ?X {
+      if (i_element == db_size) {
+        i_block += 1;
+        if (i_block >= blocks) return null;
+        db := vec.data_blocks[i_block];
+        db_size := db.size();
+        if (db_size == 0) return null;
+        i_element := 0;
+      };
+      let ?x = db[i_element] else return null;
+      i_element += 1;
+      return ?x;
+    };
+
+    // version of next() without option type
+    // inlined version of
+    //   public func unsafe_next() : X = {
+    //     let ?x = next() else Prim.trap("internal error in Vector");
+    //     x;
+    //   };
+    public func unsafe_next() : X {
+      if (i_element == db_size) {
+        i_block += 1;
+        if (i_block >= blocks) Prim.trap("internal error in Vector");
+        db := vec.data_blocks[i_block];
+        db_size := db.size();
+        if (db_size == 0) Prim.trap("internal error in Vector");
+        i_element := 0;
+      };
+      let ?x = db[i_element] else Prim.trap("internal error in Vector");
+      i_element += 1;
+      return x;
+    };
+
+    // version of next() without option type and throw-away argument
+    // inlined version of
+    //   public func unsafe_next_(i : Nat) : X = unsafe_next();
+    public func unsafe_next_i(i : Nat) : X {
+      if (i_element == db_size) {
+        i_block += 1;
+        if (i_block >= blocks) Prim.trap("internal error in Vector");
+        db := vec.data_blocks[i_block];
+        db_size := db.size();
+        if (db_size == 0) Prim.trap("internal error in Vector");
+        i_element := 0;
+      };
+      let ?x = db[i_element] else Prim.trap("internal error in Vector");
+      i_element += 1;
+      return x;
+    };
+  };
 
   /// Creates a Vector containing elements from an Array.
   ///
@@ -730,7 +783,41 @@ module Static {
   /// ```
   ///
   /// Runtime: `O(size)`
-  public func fromArray<X>(array : [X]) : Vector<X> = fromIter(array.vals());
+  public func fromArray<X>(array : [X]) : Vector<X> {
+    let (i_block, i_element) = locate(array.size());
+
+    let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
+    let data_blocks = Array.init<[var ?X]>(blocks, [var]);
+    var i = 1;
+    var pos = 0;
+
+    func make_block(len : Nat, fill : Nat) : [var ?X] {
+      let block = Array.init<?X>(len, null);
+      var j = 0;
+      while (j < fill) {
+        block[j] := ?array[pos];
+        j += 1;
+        pos += 1;
+      };
+      block;
+    };
+
+    while (i < i_block) {
+      let len = data_block_size(i);
+      data_blocks[i] := make_block(len, len);
+      i += 1;
+    };
+    if (i_element != 0 and i_block < blocks) {
+      data_blocks[i] := make_block(data_block_size(i), i_element);
+    };
+
+    {
+      var data_blocks = data_blocks;
+      var i_block = i_block;
+      var i_element = i_element;
+    };
+
+  };
 
   /// Creates a mutable Array containing elements from a Vector.
   ///
@@ -745,8 +832,19 @@ module Static {
   ///
   /// ```
   ///
-  /// Runtime: `O(size)`
-  public func toVarArray<X>(vec : Vector<X>) : [var X] = Array.tabulateVar<X>(size(vec), func(i) = get(vec, i));
+  /// Runtime: O(size)
+  public func toVarArray<X>(vec : Vector<X>) : [var X] {
+    let s = size(vec);
+    if (s == 0) return [var];
+    let arr = Array.init<X>(s, first(vec));
+    var i = 0;
+    let next = vals_(vec).unsafe_next;
+    while (i < s) {
+      arr[i] := next();
+      i += 1;
+    };
+    arr;
+  };
 
   /// Creates a Vector containing elements from a mutable Array.
   ///
@@ -760,7 +858,123 @@ module Static {
   /// ```
   ///
   /// Runtime: `O(size)`
-  public func fromVarArray<X>(array : [var X]) : Vector<X> = fromIter(array.vals());
+  public func fromVarArray<X>(array : [var X]) : Vector<X> {
+    let (i_block, i_element) = locate(array.size());
+
+    let blocks = new_index_block_length(Nat32(if (i_element == 0) { i_block - 1 } else i_block));
+    let data_blocks = Array.init<[var ?X]>(blocks, [var]);
+    var i = 1;
+    var pos = 0;
+
+    func make_block(len : Nat, fill : Nat) : [var ?X] {
+      let block = Array.init<?X>(len, null);
+      var j = 0;
+      while (j < fill) {
+        block[j] := ?array[pos];
+        j += 1;
+        pos += 1;
+      };
+      block;
+    };
+
+    while (i < i_block) {
+      let len = data_block_size(i);
+      data_blocks[i] := make_block(len, len);
+      i += 1;
+    };
+    if (i_element != 0 and i_block < blocks) {
+      data_blocks[i] := make_block(data_block_size(i), i_element);
+    };
+
+    {
+      var data_blocks = data_blocks;
+      var i_block = i_block;
+      var i_element = i_element;
+    };
+
+  };
+
+  /// Returns the first element of `vec`. Traps if `vec` is empty.
+  ///
+  /// Example:
+  /// ```
+  ///
+  /// let vec = Vector.init<Nat>(10,1);
+  ///
+  /// Vector.first(vec); // => 1
+  /// ```
+  ///
+  /// Runtime: O(1)
+  ///
+  /// Space: O(1)
+  public func first<X>(vec : Vector<X>) : X {
+    let ?x = vec.data_blocks[1][0] else Prim.trap "Vector index out of bounds in first";
+    x;
+  };
+
+  /// Returns the last element of `vec`. Traps if `vec` is empty.
+  ///
+  /// Example:
+  /// ```
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  ///
+  /// Vector.last(vec); // => 3
+  /// ```
+  ///
+  /// Runtime: O(1)
+  ///
+  /// Space: O(1)
+  public func last<X>(vec : Vector<X>) : X {
+    let e = vec.i_element;
+    if (e > 0) {
+      let ?x = vec.data_blocks[vec.i_block][e - 1] else Prim.trap "Internal errror in Vector";
+      return x;
+    };
+    let ?x = vec.data_blocks[vec.i_block - 1][0] else Prim.trap "Vector index out of bounds in first";
+    return x;
+  };
+
+  /// Applies `f` to each element in `vec`.
+  ///
+  /// Example:
+  /// ```
+  /// import Nat "mo:base/Nat";
+  /// import Debug "mo:base/Debug";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  ///
+  /// Vector.iterate<Nat>(vec, func (x) {
+  ///   Debug.print(Nat.toText(x)); // prints each element in buffer
+  /// });
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(size)
+  ///
+  /// *Runtime and space assumes that `f` runs in O(1) time and space.
+  public func iterate<X>(vec : Vector<X>, f : X -> ()) {
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
+    var i_element = 0;
+    var size = 0;
+    var db : [var ?X] = [var];
+
+    loop {
+      if (i_element == size) {
+        i_block += 1;
+        if (i_block >= blocks) return;
+        db := vec.data_blocks[i_block];
+        size := db.size();
+        if (size == 0) return;
+        i_element := 0;
+      };
+      let ?x = db[i_element] else return;
+      f(x);
+      i_element += 1;
+    };
+  };
 
   /// Submodule with Vector as a class
   /// This allows to use VectorClass as a drop-in replacement of Buffer
@@ -769,23 +983,65 @@ module Static {
       var v : Static.Vector<X> = Static.new();
       public func size() : Nat = Static.size(v);
       public func add(x : X) = Static.add(v, x);
+      public func addMany(n : Nat, x : X) = Static.addMany(v, n, x);
       public func get(i : Nat) : X = Static.get(v, i);
       public func getOpt(i : Nat) : ?X = Static.getOpt(v, i);
       public func put(i : Nat, x : X) = Static.put(v, i, x);
       public func removeLast() : ?X = Static.removeLast(v);
       public func clear() = Static.clear(v);
       public func vals() : { next : () -> ?X } = Static.vals(v);
+      public func keys() : { next : () -> ?Nat } = Static.keys(v);
+      public func items() : { next : () -> ?(X, Nat) } = Static.items(v);
+      public func valsRev() : { next : () -> ?X } = Static.valsRev(v);
+      public func itemsRev() : { next : () -> ?(X, Nat) } = Static.itemsRev(v);
       public func share() : Static.Vector<X> = v;
       public func unshare(v_ : Static.Vector<X>) { v := v_ };
       // we don't provide:
       //   sort
       //   insertBuffer
-      //   insert 
+      //   insert
       //   append
       //   reserve
       //   capacity
       //   filterEntries
       //   remove
     };
+
+    public func first<X>(vec : Vector<X>) : X = Static.first(vec.share());
+    public func last<X>(vec : Vector<X>) : X = Static.first(vec.share());
+    public func iterate<X>(vec : Vector<X>, f : X -> ()) = Static.iterate(vec.share(), f);
+    public func toArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
+    public func toVarArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
+    public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.indexOf(element, vec.share(), equal);
+    public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.lastIndexOf(element, vec.share(), equal);
+    public func init<X>(size : Nat, initValue : X) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.init(size, initValue));
+      v;
+    }; 
+    public func fromArray<X>(array : [X]) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.fromArray(array));
+      v;
+    }; 
+    public func fromVarArray<X>(array : [var X]) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.fromVarArray(array));
+      v;
+    }; 
+    public func clone<X>(vec : Vector<X>) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.clone(vec.share()));
+      v;
+    }; 
+    public func fromIter<X>(iter : Iter.Iter<X>) : Vector<X> {
+      let v = Vector<X>();
+      v.unshare(Static.fromIter(iter));
+      v;
+    }; 
+    public func addFromIter<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
+      Static.addFromIter(vec.share(), iter);
+    }; 
   };
+
 };
