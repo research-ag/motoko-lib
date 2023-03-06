@@ -372,7 +372,7 @@ Note: This does not create a snapshot. If the returned iterator is not consumed 
 and instead the consumption of the iterator is interleaved with other operations on the
 Vector, then this may lead to unexpected results.
 
-Runtime: `O(1)`
+Runtime: O(1)
 
 ## Function `fromIter`
 ``` motoko
@@ -393,12 +393,12 @@ let vec = Vector.fromIter<Nat>(iter); // => [1, 1, 1]
 
 Runtime: `O(size)`
 
-## Function `append`
+## Function `addFromIter`
 ``` motoko
-func append<X>(vec : Vector<X>, iter : Iter.Iter<X>)
+func addFromIter<X>(vec : Vector<X>, iter : Iter.Iter<X>)
 ```
 
-Appends elements to a Vector from `iter`.
+Adds elements to a Vector from `iter`.
 
 Example:
 ```
@@ -408,7 +408,7 @@ let array = [1, 1, 1];
 let iter = array.vals();
 let vec = Vector.init<Nat>(1, 2);
 
-let vec = Vector.append<Nat>(vec, iter); // => [2, 1, 1, 1]
+let vec = Vector.addFromIter<Nat>(vec, iter); // => [2, 1, 1, 1]
 ```
 
 Runtime: `O(size)`, where n is the size of iter.
@@ -431,7 +431,7 @@ Vector.toArray<Nat>(vec); // => [1, 2, 3]
 
 ```
 
-Runtime: `O(size)`
+Runtime: O(size)
 
 ## Function `fromArray`
 ``` motoko
@@ -469,7 +469,7 @@ Vector.toVarArray<Nat>(vec); // => [1, 2, 3]
 
 ```
 
-Runtime: `O(size)`
+Runtime: O(size)
 
 ## Function `fromVarArray`
 ``` motoko
@@ -488,3 +488,74 @@ let vec = Vector.fromVarArray<Nat>(array); // => [2, 3]
 ```
 
 Runtime: `O(size)`
+
+## Function `first`
+``` motoko
+func first<X>(vec : Vector<X>) : X
+```
+
+Returns the first element of `vec`. Traps if `vec` is empty.
+
+Example:
+```
+
+let vec = Vector.init<Nat>(10,1);
+
+Vector.first(vec); // => 1
+```
+
+Runtime: O(1)
+
+Space: O(1)
+
+## Function `last`
+``` motoko
+func last<X>(vec : Vector<X>) : X
+```
+
+Returns the last element of `vec`. Traps if `vec` is empty.
+
+Example:
+```
+
+let vec = Vector.fromArray<Nat>([1,2,3]);
+
+Vector.last(vec); // => 3
+```
+
+Runtime: O(1)
+
+Space: O(1)
+
+## Function `iterate`
+``` motoko
+func iterate<X>(vec : Vector<X>, f : X -> ())
+```
+
+Applies `f` to each element in `vec`.
+
+Example:
+```
+import Nat "mo:base/Nat";
+import Debug "mo:base/Debug";
+
+let vec = Vector.fromArray<Nat>([1,2,3]);
+
+Vector.iterate<Nat>(vec, func (x) {
+  Debug.print(Nat.toText(x)); // prints each element in buffer
+});
+```
+
+Runtime: O(size)
+
+Space: O(size)
+
+*Runtime and space assumes that `f` runs in O(1) time and space.
+
+## Value `Class`
+``` motoko
+let Class
+```
+
+Submodule with Vector as a class
+This allows to use VectorClass as a drop-in replacement of Buffer
