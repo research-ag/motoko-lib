@@ -203,6 +203,7 @@ module Static {
 
   func data_block_size(i_block : Nat) : Nat {
     // formula for the size of given i_block
+    // don't call it for i_block == 0
     Nat(1 <>> leadingZeros(Nat32(i_block) / 3));
   };
 
