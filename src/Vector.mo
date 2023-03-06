@@ -422,10 +422,10 @@ module Static {
   /// ```
   ///
   /// let vector = Vector.new<Nat>();
-  /// vector.add(1);
-  /// vector.add(2);
-  /// vector.add(3);
-  /// vector.add(4);
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.add(vec, 4);
   ///
   /// Vector.indexOf<Nat>(3, vector, Nat.equal); // => ?2
   /// ```
@@ -434,6 +434,55 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
+    // inlining would save 10 cycles per entry
+    firstIndexWith<X>(vec, func(x) : Bool = equal(element, x));
+  };
+
+  /// Finds the last index of `element` in `vec` using equality of elements defined
+  /// by `equal`. Returns `null` if `element` is not found.
+  ///
+  /// Example:
+  /// ```
+  /// let vector = Vector.new<Nat>();
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.add(vec, 4);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 2);
+  ///
+  /// Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
+  /// ```
+  ///
+  /// Runtime: `O(size)`
+  ///
+  /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
+  public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
+    for ((x, i) in itemsRev(vec)) {
+      if (equal(x, element)) return ?i;
+    };
+    null;
+  };
+
+  /// Finds the index of the first element in `vec` for which `predicate` is true.
+  /// Returns `null` if no such element is found.
+  ///
+  /// Example:
+  /// ```
+  ///
+  /// let vector = Vector.new<Nat>();
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.add(vec, 4);
+  ///
+  /// Vector.indexOf<Nat>(vector, func(i){i % 2 == 0); // => ?1
+  /// ```
+  ///
+  /// Runtime: `O(size)`
+  ///
+  /// *Runtime and space assumes that `predicate` runs in `O(1)` time and space.
+  public func firstIndexWith<X>(vec : Vector<X>, predicate : X -> Bool) : ?Nat {
     let blocks = vec.data_blocks.size();
     var i_block = 0;
     var i_element = 0;
@@ -451,37 +500,75 @@ module Static {
         i_element := 0;
       };
       let ?x = db[i_element] else return null;
-      if (equal(x, element)) return ?i;
+      if (predicate(x)) return ?i;
       i_element += 1;
       i += 1;
     };
   };
 
-  /// Finds the last index of `element` in `vector` using equality of elements defined
-  /// by `equal`. Returns `null` if `element` is not found.
+  /// Returns true iff every element in `vec` satisfies `predicate`.
   ///
   /// Example:
-  /// ```
-  /// let vector = Vector.new<Nat>();
-  /// vector.add(1);
-  /// vector.add(2);
-  /// vector.add(3);
-  /// vector.add(4);
-  /// vector.add(2);
-  /// vector.add(2);
+  /// ```motoko include=initialize
   ///
-  /// Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.add(vec, 4);
+  ///
+  /// Vector.forAll<Nat>(vec, func x { x > 1 }); // => true
   /// ```
   ///
-  /// Runtime: `O(size)`
+  /// Runtime: O(size)
   ///
-  /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
-  public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
-    for ((x, i) in itemsRev(vec)) {
-      if (equal(x, element)) return ?i;
-    };
-    null;
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `predicate` runs in O(1) time and space.
+  public func forAll<X>(vec : Vector<X>, predicate : X -> Bool) : Bool {
+    not forSome<X>(vec, func(x) : Bool = not predicate(x));
   };
+
+  /// Returns true iff some element in `vec` satisfies `predicate`.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  ///
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.add(vec, 4);
+  ///
+  /// Vector.forSome<Nat>(vec, func x { x > 3 }); // => true
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `predicate` runs in O(1) time and space.
+  public func forSome<X>(vec : Vector<X>, predicate : X -> Bool) : Bool {
+    switch (firstIndexWith(vec, predicate)) {
+      case (null) false;
+      case (_) true;
+    };
+  };
+
+  /// Returns true iff no element in `vec` satisfies `predicate`.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  ///
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.add(vec, 4);
+  ///
+  /// Vector.forNone<Nat>(vec, func x { x == 0 }); // => true
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `predicate` runs in O(1) time and space.
+  public func forNone<X>(vec : Vector<X>, predicate : X -> Bool) : Bool = not forSome(vec, predicate);
 
   /// Returns an Iterator (`Iter`) over the elements of a Vector.
   /// Iterator provides a single method `next()`, which returns
@@ -1018,30 +1105,30 @@ module Static {
       let v = Vector<X>();
       v.unshare(Static.init(size, initValue));
       v;
-    }; 
+    };
     public func fromArray<X>(array : [X]) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.fromArray(array));
       v;
-    }; 
+    };
     public func fromVarArray<X>(array : [var X]) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.fromVarArray(array));
       v;
-    }; 
+    };
     public func clone<X>(vec : Vector<X>) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.clone(vec.share()));
       v;
-    }; 
+    };
     public func fromIter<X>(iter : Iter.Iter<X>) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.fromIter(iter));
       v;
-    }; 
+    };
     public func addFromIter<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
       Static.addFromIter(vec.share(), iter);
-    }; 
+    };
   };
 
 };
