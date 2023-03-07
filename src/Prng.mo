@@ -68,7 +68,7 @@ module {
         };
     };
 
-    public class SFC(
+    public class SFC64(
       p: Nat64,
       q: Nat64,
       r: Nat64,
@@ -79,9 +79,9 @@ module {
         private var state3: Nat64 = 0;
 
         public func init3(seed1: Nat64, seed2: Nat64, seed3: Nat64) {
-            state0 := seed1;
+            state0 := seed3;
             state1 := seed2;
-            state2 := seed3;
+            state2 := seed1;
             state3 := 1;
 
             // why 11 you ask?...
@@ -109,4 +109,60 @@ module {
             return tmp;
         };
     };
+
+    public class SFC32(
+      p: Nat32,
+      q: Nat32,
+      r: Nat32,
+    ) {
+        private var state0: Nat32 = 0;
+        private var state1: Nat32 = 0;
+        private var state2: Nat32 = 0;
+        private var state3: Nat32 = 0;
+
+        public func init3(seed1: Nat32, seed2: Nat32, seed3: Nat32) {
+            state0 := seed3;
+            state1 := seed2;
+            state2 := seed1;
+            state3 := 1;
+
+            // why 11 you ask?...
+            for (i in range(0, 11)) {
+                ignore next();
+            };
+        };
+
+        // Initialize the PRNG with a particular seed
+        public func init1(seed: Nat32) {
+            init3(seed, seed, seed);
+        };
+
+        public func init() {
+            let s :Nat32 = 0xbeef5eed;
+            init1(s);
+        };
+
+        public func next() : Nat32 {
+            let tmp = state0 +% state1 +% state3;
+            state3 +%= 1;
+            state0 := state1 ^ (state1 >> q);
+            state1 := state2 +% (state2 << r);
+            state2 := (state2 <<> p) +% tmp;
+            return tmp;
+        };
+    };
+
+    // --- Use these ---
+    // SFC64a is same as numpy:
+    // https://github.com/numpy/numpy/blob/b6d372c25fab5033b828dd9de551eb0b7fa55800/numpy/random/src/sfc64/sfc64.h#L28
+    public func SFC64a() : SFC64 { SFC64(24,11,3) };
+
+    public func SFC32a() : SFC32 { SFC32(21,9,3) };
+    public func SFC32b() : SFC32 { SFC32(15,8,3) };
+
+    // --- Not recommended ---
+    public func SFC64b() : SFC64 { SFC64(25,12,3) };
+
+    public func SFC32c() : SFC32 { SFC32(25,8,3) };
+
 };
