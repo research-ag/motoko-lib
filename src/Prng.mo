@@ -67,4 +67,46 @@ module {
             jump([0x185F4DF8B7634607, 0x95A98C7025F908B2]);
         };
     };
+
+    public class SFC(
+      p: Nat64,
+      q: Nat64,
+      r: Nat64,
+    ) {
+        private var state0: Nat64 = 0;
+        private var state1: Nat64 = 0;
+        private var state2: Nat64 = 0;
+        private var state3: Nat64 = 0;
+
+        public func init3(seed1: Nat64, seed2: Nat64, seed3: Nat64) {
+            state0 := seed1;
+            state1 := seed2;
+            state2 := seed3;
+            state3 := 1;
+
+            // why 11 you ask?...
+            for (i in range(0, 11)) {
+                ignore next();
+            };
+        };
+
+        // Initialize the PRNG with a particular seed
+        public func init1(seed: Nat64) {
+            init3(seed, seed, seed);
+        };
+
+        public func init() {
+            let s :Nat64 = 0xcafef00dbeef5eed;
+            init1(s);
+        };
+
+        public func next() : Nat64 {
+            let tmp = state0 +% state1 +% state3;
+            state3 +%= 1;
+            state0 := state1 ^ (state1 >> q);
+            state1 := state2 +% (state2 << r);
+            state2 := (state2 <<> p) +% tmp;
+            return tmp;
+        };
+    };
 };
