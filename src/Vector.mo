@@ -499,8 +499,10 @@ module Static {
         if (size == 0) return null;
         i_element := 0;
       };
-      let ?x = db[i_element] else return null;
-      if (predicate(x)) return ?i;
+      switch (db[i_element]) {
+        case (?x) if (predicate(x)) return ?i;
+        case (_) return null;
+      };
       i_element += 1;
       i += 1;
     };
@@ -543,10 +545,13 @@ module Static {
       } else {
         i_element -= 1;
       };
-
-      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
-      i -= 1;
-      if (predicate(x)) return ?i;
+      switch (db[i_element]) {
+        case (?x) {
+          i -= 1;
+          if (predicate(x)) return ?i;
+        };
+        case (_) Prim.trap(INTERNAL_ERROR);
+      };
     };
   };
 
