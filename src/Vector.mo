@@ -366,14 +366,16 @@ module Static {
     let i = Nat32(index);
     let lz = leadingZeros(i);
     let lz2 = lz >> 1;
-    let ?result = if (lz & 1 == 0) {
-      vec.data_blocks[Nat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat(i & (0xFFFF >> lz2))];
-    } else {
-      vec.data_blocks[Nat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat(i & (0x7FFF >> lz2))];
-    } else {
-      Prim.trap "Vector index out of bounds in get";
+    switch (
+      if (lz & 1 == 0) {
+        vec.data_blocks[Nat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat(i & (0xFFFF >> lz2))];
+      } else {
+        vec.data_blocks[Nat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat(i & (0x7FFF >> lz2))];
+      },
+    ) {
+      case (?result) return result;
+      case (_) Prim.trap "Vector index out of bounds in get";
     };
-    result;
   };
 
   /// Returns the element at index `index` as an option.
@@ -461,7 +463,7 @@ module Static {
   /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
     // inlining would save 10 cycles per entry
-    lastIndexWith<X>(vec, func (x) = equal(element, x));
+    lastIndexWith<X>(vec, func(x) = equal(element, x));
   };
 
   /// Finds the index of the first element in `vec` for which `predicate` is true.
@@ -679,11 +681,15 @@ module Static {
         if (size == 0) return null;
         i_element := 0;
       };
-      let ?x = db[i_element] else return null;
-      let ret = ?(x, i);
-      i_element += 1;
-      i += 1;
-      return ret;
+      switch (db[i_element]) {
+        case (?x) {
+          let ret = ?(x, i);
+          i_element += 1;
+          i += 1;
+          return ret;
+        };
+        case (_) return null;
+      };
     };
   };
 
@@ -770,10 +776,13 @@ module Static {
       } else {
         i_element -= 1;
       };
-
-      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
-      i -= 1;
-      ?(x, i);
+      switch (db[i_element]) {
+        case (?x) {
+          i -= 1;
+          return ?(x, i);
+        };
+        case (_) Prim.trap(INTERNAL_ERROR);
+      };
     };
   };
 
@@ -869,9 +878,13 @@ module Static {
         if (db_size == 0) return null;
         i_element := 0;
       };
-      let ?x = db[i_element] else return null;
-      i_element += 1;
-      return ?x;
+      switch (db[i_element]) {
+        case (?x) {
+          i_element += 1;
+          return ?x;
+        };
+        case (_) return null;
+      };
     };
 
     // version of next() without option type
@@ -889,9 +902,13 @@ module Static {
         if (db_size == 0) Prim.trap(INTERNAL_ERROR);
         i_element := 0;
       };
-      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
-      i_element += 1;
-      return x;
+      switch (db[i_element]) {
+        case (?x) {
+          i_element += 1;
+          return x;
+        };
+        case (_) Prim.trap(INTERNAL_ERROR);
+      };
     };
 
     // version of next() without option type and throw-away argument
@@ -906,9 +923,13 @@ module Static {
         if (db_size == 0) Prim.trap(INTERNAL_ERROR);
         i_element := 0;
       };
-      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
-      i_element += 1;
-      return x;
+      switch (db[i_element]) {
+        case (?x) {
+          i_element += 1;
+          return x;
+        };
+        case (_) Prim.trap(INTERNAL_ERROR);
+      };
     };
   };
 
@@ -1111,9 +1132,13 @@ module Static {
         if (size == 0) return;
         i_element := 0;
       };
-      let ?x = db[i_element] else return;
-      f(x);
-      i_element += 1;
+      switch (db[i_element]) {
+        case (?x) {
+          f(x);
+          i_element += 1;
+        };
+        case (_) return;
+      };
     };
   };
 
