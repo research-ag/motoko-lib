@@ -23,6 +23,8 @@ module Static {
     var i_element : Nat;
   };
 
+  let INTERNAL_ERROR = "Internal error in Vector";
+
   /// Creates a new empty Vector for elements of type X.
   ///
   /// Example:
@@ -435,7 +437,7 @@ module Static {
   /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
     // inlining would save 10 cycles per entry
-    firstIndexWith<X>(vec, func(x) : Bool = equal(element, x));
+    firstIndexWith<X>(vec, func(x) = equal(element, x));
   };
 
   /// Finds the last index of `element` in `vec` using equality of elements defined
@@ -458,10 +460,8 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
-    for ((x, i) in itemsRev(vec)) {
-      if (equal(x, element)) return ?i;
-    };
-    null;
+    // inlining would save 10 cycles per entry
+    lastIndexWith<X>(vec, func (x) = equal(element, x));
   };
 
   /// Finds the index of the first element in `vec` for which `predicate` is true.
@@ -476,7 +476,7 @@ module Static {
   /// Vector.add(vec, 3);
   /// Vector.add(vec, 4);
   ///
-  /// Vector.indexOf<Nat>(vector, func(i){i % 2 == 0); // => ?1
+  /// Vector.firstIndexWith<Nat>(vector, func(i) { i % 2 == 0 }); // => ?1
   /// ```
   ///
   /// Runtime: `O(size)`
@@ -503,6 +503,50 @@ module Static {
       if (predicate(x)) return ?i;
       i_element += 1;
       i += 1;
+    };
+  };
+
+  /// Finds the index of the last element in `vec` for which `predicate` is true.
+  /// Returns `null` if no such element is found.
+  ///
+  /// Example:
+  /// ```
+  ///
+  /// let vector = Vector.new<Nat>();
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 3);
+  /// Vector.add(vec, 4);
+  ///
+  /// Vector.lastIndexWith<Nat>(vector, func(i) { i % 2 == 0 }); // => ?3
+  /// ```
+  ///
+  /// Runtime: `O(size)`
+  ///
+  /// *Runtime and space assumes that `predicate` runs in `O(1)` time and space.
+  public func lastIndexWith<X>(vec : Vector<X>, predicate : X -> Bool) : ?Nat {
+    var i = size(vec);
+    var i_block = vec.i_block;
+    var i_element = vec.i_element;
+    var db : [var ?X] = if (i_block < vec.data_blocks.size()) {
+      vec.data_blocks[i_block];
+    } else { [var] };
+
+    loop {
+      if (i_block == 1) {
+        return null;
+      };
+      if (i_element == 0) {
+        i_block -= 1;
+        db := vec.data_blocks[i_block];
+        i_element := db.size() - 1;
+      } else {
+        i_element -= 1;
+      };
+
+      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
+      i -= 1;
+      if (predicate(x)) return ?i;
     };
   };
 
@@ -611,6 +655,8 @@ module Static {
   /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: `O(1)`
+  ///
+  /// Warning: Allocates memory on the heap to store ?(X, Nat).
   public func items<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
     let blocks = vec.data_blocks.size();
     var i_block = 0;
@@ -661,22 +707,23 @@ module Static {
   public func valsRev<X>(vec : Vector<X>) : Iter.Iter<X> = object {
     var i_block = vec.i_block;
     var i_element = vec.i_element;
+    var db : [var ?X] = if (i_block < vec.data_blocks.size()) {
+      vec.data_blocks[i_block];
+    } else { [var] };
 
     public func next() : ?X {
       if (i_block == 1) {
         return null;
       };
-      let block = if (i_element == 0) {
+      if (i_element == 0) {
         i_block -= 1;
-        let b = vec.data_blocks[i_block];
-        i_element := b.size() - 1;
-        b;
+        db := vec.data_blocks[i_block];
+        i_element := db.size() - 1;
       } else {
         i_element -= 1;
-        vec.data_blocks[i_block];
       };
 
-      block[i_element];
+      db[i_element];
     };
   };
 
@@ -697,28 +744,30 @@ module Static {
   /// Vector, then this may lead to unexpected results.
   ///
   /// Runtime: `O(1)`
+  ///
+  /// Warning: Allocates memory on the heap to store ?(X, Nat).
   public func itemsRev<X>(vec : Vector<X>) : Iter.Iter<(X, Nat)> = object {
+    var i = size(vec);
     var i_block = vec.i_block;
     var i_element = vec.i_element;
-    var i = size(vec);
+    var db : [var ?X] = if (i_block < vec.data_blocks.size()) {
+      vec.data_blocks[i_block];
+    } else { [var] };
 
     public func next() : ?(X, Nat) {
       if (i_block == 1) {
         return null;
       };
-      let block = if (i_element == 0) {
+      if (i_element == 0) {
         i_block -= 1;
-        let b = vec.data_blocks[i_block];
-        i_element := b.size() - 1;
-        b;
+        db := vec.data_blocks[i_block];
+        i_element := db.size() - 1;
       } else {
         i_element -= 1;
-        vec.data_blocks[i_block];
       };
+
+      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
       i -= 1;
-
-      let ?x = block[i_element] else Prim.trap("Internal error in Vector");
-
       ?(x, i);
     };
   };
@@ -823,19 +872,19 @@ module Static {
     // version of next() without option type
     // inlined version of
     //   public func unsafe_next() : X = {
-    //     let ?x = next() else Prim.trap("internal error in Vector");
+    //     let ?x = next() else Prim.trap(INTERNAL_ERROR);
     //     x;
     //   };
     public func unsafe_next() : X {
       if (i_element == db_size) {
         i_block += 1;
-        if (i_block >= blocks) Prim.trap("internal error in Vector");
+        if (i_block >= blocks) Prim.trap(INTERNAL_ERROR);
         db := vec.data_blocks[i_block];
         db_size := db.size();
-        if (db_size == 0) Prim.trap("internal error in Vector");
+        if (db_size == 0) Prim.trap(INTERNAL_ERROR);
         i_element := 0;
       };
-      let ?x = db[i_element] else Prim.trap("internal error in Vector");
+      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
       i_element += 1;
       return x;
     };
@@ -846,13 +895,13 @@ module Static {
     public func unsafe_next_i(i : Nat) : X {
       if (i_element == db_size) {
         i_block += 1;
-        if (i_block >= blocks) Prim.trap("internal error in Vector");
+        if (i_block >= blocks) Prim.trap(INTERNAL_ERROR);
         db := vec.data_blocks[i_block];
         db_size := db.size();
-        if (db_size == 0) Prim.trap("internal error in Vector");
+        if (db_size == 0) Prim.trap(INTERNAL_ERROR);
         i_element := 0;
       };
-      let ?x = db[i_element] else Prim.trap("internal error in Vector");
+      let ?x = db[i_element] else Prim.trap(INTERNAL_ERROR);
       i_element += 1;
       return x;
     };
@@ -1015,7 +1064,7 @@ module Static {
   public func last<X>(vec : Vector<X>) : X {
     let e = vec.i_element;
     if (e > 0) {
-      let ?x = vec.data_blocks[vec.i_block][e - 1] else Prim.trap "Internal errror in Vector";
+      let ?x = vec.data_blocks[vec.i_block][e - 1] else Prim.trap(INTERNAL_ERROR);
       return x;
     };
     let ?x = vec.data_blocks[vec.i_block - 1][0] else Prim.trap "Vector index out of bounds in first";

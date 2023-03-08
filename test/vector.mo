@@ -10,6 +10,7 @@ import Buffer "mo:base/Buffer";
 import Option "mo:base/Option";
 import Array "mo:base/Array";
 import Nat32 "mo:base/Nat32";
+import Nat "mo:base/Nat";
 
 let { run; test; suite } = Suite;
 
@@ -34,7 +35,7 @@ run(
       ),
     ],
   ),
-); 
+);
 
 run(
   suite(
@@ -53,6 +54,11 @@ run(
     ],
   ),
 );
+
+assert Vector.indexOf(n + 1, vector, Nat.equal) == null;
+assert Vector.indexOf(n, vector, Nat.equal) == ?n;
+assert Vector.lastIndexOf(n + 1, vector, Nat.equal) == null;
+assert Vector.lastIndexOf(0, vector, Nat.equal) == ?0;
 
 run(
   suite(
@@ -75,13 +81,23 @@ run(
       ),
       test(
         "items1",
-        Iter.toArray(Iter.map<(Nat,Nat),Nat>(Vector.items(vector), func((a,b)){a})),
+        Iter.toArray(Iter.map<(Nat, Nat), Nat>(Vector.items(vector), func((a, b)) { a })),
         M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
       ),
       test(
         "items2",
-        Iter.toArray(Iter.map<(Nat,Nat),Nat>(Vector.items(vector), func((a,b)){b})),
+        Iter.toArray(Iter.map<(Nat, Nat), Nat>(Vector.items(vector), func((a, b)) { b })),
         M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
+      ),
+      test(
+        "itemsRev1",
+        Iter.toArray(Iter.map<(Nat, Nat), Nat>(Vector.itemsRev(vector), func((a, b)) { a })),
+        M.equals(T.array(T.intTestable, Iter.toArray(Iter.revRange(n, 0)))),
+      ),
+      test(
+        "itemsRev2",
+        Iter.toArray(Iter.map<(Nat, Nat), Nat>(Vector.itemsRev(vector), func((a, b)) { b })),
+        M.equals(T.array(T.intTestable, Iter.toArray(Iter.revRange(n, 0)))),
       ),
     ],
   ),
@@ -196,19 +212,19 @@ run(
       ),
       test(
         "last of len 1",
-        [Vector.last(Vector.init<Nat>(1,1))],
+        [Vector.last(Vector.init<Nat>(1, 1))],
         M.equals(T.array(T.natTestable, [1])),
       ),
     ],
-  )
+  ),
 );
 
 var sumN = 0;
-Vector.iterate<Nat>(vector, func(i){ sumN += i});
+Vector.iterate<Nat>(vector, func(i) { sumN += i });
 var sum1 = 0;
-Vector.iterate<Nat>(Vector.init<Nat>(1,1), func(i){ sum1 += i});
+Vector.iterate<Nat>(Vector.init<Nat>(1, 1), func(i) { sum1 += i });
 var sum0 = 0;
-Vector.iterate<Nat>(Vector.new<Nat>(), func(i){ sum0 += i});
+Vector.iterate<Nat>(Vector.new<Nat>(), func(i) { sum0 += i });
 
 run(
   suite(
@@ -217,7 +233,7 @@ run(
       test(
         "sumN",
         [sumN],
-        M.equals(T.array(T.natTestable, [n*(n+1)/2])),
+        M.equals(T.array(T.natTestable, [n * (n +1) / 2])),
       ),
       test(
         "sum1",
@@ -230,7 +246,7 @@ run(
         M.equals(T.array(T.natTestable, [0])),
       ),
     ],
-  )
+  ),
 );
 
 func locate_readable<X>(index : Nat) : (Nat, Nat) {
