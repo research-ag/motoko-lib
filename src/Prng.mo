@@ -9,23 +9,24 @@ import { range } "mo:base/Iter";
 module {
     public class Seiran128() {
 
-        private var state0: Nat64 = 0;
-        private var state1: Nat64 = 0;
+        // state
+        private var a: Nat64 = 0;
+        private var b: Nat64 = 0;
 
         // Initialize the PRNG with a particular seed
         public func init(seed: Nat64) {
-            state0 := seed *% 6364136223846793005 +% 1442695040888963407;
-            state1 := state0 *% 6364136223846793005 +% 1442695040888963407;
+            a := seed *% 6364136223846793005 +% 1442695040888963407;
+            b := a *% 6364136223846793005 +% 1442695040888963407;
         };
 
         // Return the PRNG result and advance the state
         public func next() : Nat64 {
-            let (s0, s1) = (state0, state1);
+            let (s0, s1) = (a, b);
 
             let result = (((s0 +% s1) *% 9) <<> 29) +% s0;
 
-            state0 := s0 ^ (s1 <<> 29);
-            state1 := s0 ^ (s1 << 9);
+            a := s0 ^ (s1 <<> 29);
+            b := s0 ^ (s1 << 9);
 
             return result;
         };
@@ -37,10 +38,10 @@ module {
 
             for (jp in jumppoly.vals()) {
                 var w = jp;
-                for (b in range(0, 63)) {
+                for (i in range(0, 63)) {
                     if (w & 1 == 1) {
-                        t0 ^= state0;
-                        t1 ^= state1;
+                        t0 ^= a;
+                        t1 ^= b;
                     };
 
                     w >>= 1;
@@ -48,8 +49,8 @@ module {
                 };
             };
 
-            state0 := t0;
-            state1 := t1;
+            a := t0;
+            b := t1;
         };
 
         // Advance the state 2^32 times
@@ -73,16 +74,17 @@ module {
       q: Nat64,
       r: Nat64,
     ) {
-        private var state0: Nat64 = 0;
-        private var state1: Nat64 = 0;
-        private var state2: Nat64 = 0;
-        private var state3: Nat64 = 0;
+        // state
+        private var a: Nat64 = 0;
+        private var b: Nat64 = 0;
+        private var c: Nat64 = 0;
+        private var d: Nat64 = 0;
 
         public func init3(seed1: Nat64, seed2: Nat64, seed3: Nat64) {
-            state0 := seed1;
-            state1 := seed2;
-            state2 := seed3;
-            state3 := 1;
+            a := seed1;
+            b := seed2;
+            c := seed3;
+            d := 1;
 
             // why 11 you ask?...
             for (i in range(0, 11)) {
@@ -101,11 +103,11 @@ module {
         };
 
         public func next() : Nat64 {
-            let tmp = state0 +% state1 +% state3;
-            state3 +%= 1;
-            state0 := state1 ^ (state1 >> q);
-            state1 := state2 +% (state2 << r);
-            state2 := (state2 <<> p) +% tmp;
+            let tmp = a +% b +% d;
+            d +%= 1;
+            a := b ^ (b >> q);
+            b := c +% (c << r);
+            c := (c <<> p) +% tmp;
             return tmp;
         };
     };
@@ -115,16 +117,16 @@ module {
       q: Nat32,
       r: Nat32,
     ) {
-        private var state0: Nat32 = 0;
-        private var state1: Nat32 = 0;
-        private var state2: Nat32 = 0;
-        private var state3: Nat32 = 0;
+        private var a: Nat32 = 0;
+        private var b: Nat32 = 0;
+        private var c: Nat32 = 0;
+        private var d: Nat32 = 0;
 
         public func init3(seed1: Nat32, seed2: Nat32, seed3: Nat32) {
-            state0 := seed1;
-            state1 := seed2;
-            state2 := seed3;
-            state3 := 1;
+            a := seed1;
+            b := seed2;
+            c := seed3;
+            d := 1;
 
             // why 11 you ask?...
             for (i in range(0, 11)) {
@@ -143,11 +145,11 @@ module {
         };
 
         public func next() : Nat32 {
-            let tmp = state0 +% state1 +% state3;
-            state3 +%= 1;
-            state0 := state1 ^ (state1 >> q);
-            state1 := state2 +% (state2 << r);
-            state2 := (state2 <<> p) +% tmp;
+            let tmp = a +% b +% d;
+            d +%= 1;
+            a := b ^ (b >> q);
+            b := c +% (c << r);
+            c := (c <<> p) +% tmp;
             return tmp;
         };
     };
