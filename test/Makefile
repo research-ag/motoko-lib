@@ -1,7 +1,7 @@
 MOC=$(shell vessel bin)/moc
 VESSEL_PKGS=$(shell vessel sources)
 
-all: vector sha2 enumeration queue
+all: vector sha2 enumeration queue prng
 
 vector:
 	$(MOC) $(VESSEL_PKGS) -wasi-system-api vector.mo && wasmtime vector.wasm
@@ -14,3 +14,6 @@ enumeration:
 
 queue:
 	$(MOC) $(VESSEL_PKGS) -wasi-system-api queue.mo && wasmtime queue.wasm
+
+prng:
+	$(MOC) $(VESSEL_PKGS) -wasi-system-api prng.mo && wasmtime prng.wasm
