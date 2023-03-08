@@ -21,12 +21,11 @@ module {
 
     // Return the PRNG result and advance the state
     public func next() : Nat64 {
-      let (s0, s1) = (a, b);
+      let result = (((a +% b) *% 9) <<> 29) +% a;
 
-      let result = (((s0 +% s1) *% 9) <<> 29) +% s0;
-
-      a := s0 ^ (s1 <<> 29);
-      b := s0 ^ (s1 << 9);
+      let a_ = a;
+      a := a ^ (b <<> 29);
+      b := a_ ^ (b << 9);
 
       result;
     };
@@ -87,10 +86,10 @@ module {
 
     public func next() : Nat64 {
       let tmp = a +% b +% d;
-      d +%= 1;
       a := b ^ (b >> q);
       b := c +% (c << r);
       c := (c <<> p) +% tmp;
+      d +%= 1;
       tmp;
     };
   };
@@ -118,10 +117,10 @@ module {
 
     public func next() : Nat32 {
       let tmp = a +% b +% d;
-      d +%= 1;
       a := b ^ (b >> q);
       b := c +% (c << r);
       c := (c <<> p) +% tmp;
+      d +%= 1;
       tmp;
     };
   };
