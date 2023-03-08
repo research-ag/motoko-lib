@@ -5,6 +5,7 @@ import Prng "../src/Prng";
 
 import Debug "mo:base/Debug";
 
+// --- Seiran tests ---
 let prng = Prng.Seiran128();
 prng.init(401);
 
@@ -30,6 +31,8 @@ assert(prng.next() == 0xD780EC14D59D2D33);
 prng.jump96();
 assert(prng.next() == 0x7DA59A41DC8721F2);
 
+// --- SFC tests ---
+
 let prng1 = Prng.SFC64a();
 prng1.init();
 
@@ -48,10 +51,10 @@ let prng2 = Prng.SFC64a();
 prng2.init3(1,2,3);
 
 //Debug.print("Testing SFC64 (split seed)");
-for (v in [0x1DDF8D516FF6CEE8:Nat64,
-           0x89FC16A8C6D86B58:Nat64,
-           0x2EE4BE4A743AF170:Nat64,
-           0xE853A27E54140AFF:Nat64
+for (v in [0x43F18723CBD74146:Nat64,
+           0x0274759CF623808D:Nat64,
+           0x709CC2D648942177:Nat64,
+           0x410445D3D048B085:Nat64,
      ]
        .vals()) {
     let n = prng2.next();
@@ -75,13 +78,21 @@ for (v in [0xB1BE92EA:Nat32,
 let prng4 = Prng.SFC32a();
 prng4.init3(1,2,3);
 
-//Debug.print("Testing SFC64 (split seed)");
-for (v in [0xD3A380E0:Nat32,
-           0xCDE2FEEA:Nat32,
-           0x9680253D:Nat32,
-           0x69BE6DEE:Nat32,
+//Debug.print("Testing SFC32 (split seed)");
+for (v in [0x736A3B41:Nat32,
+           0xB2E53014:Nat32,
+           0x3D56E4C7:Nat32,
+           0xEDA6A65F:Nat32,
      ]
        .vals()) {
     let n = prng4.next();
     assert(v == n);
 };
+
+//Debug.print("Testing SFC64 (numpy)");
+let c = Prng.SFC64(24,11,3);
+let s0 : Nat64 = 2223390581541855661;
+let s1 : Nat64 = 13597181201486318797;
+let s2 : Nat64 = 12893663211123683265;
+c.init3(s0,s1,s2);
+Array.tabulate<Nat64>(2,func(i){c.next()});

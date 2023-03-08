@@ -79,9 +79,9 @@ module {
         private var state3: Nat64 = 0;
 
         public func init3(seed1: Nat64, seed2: Nat64, seed3: Nat64) {
-            state0 := seed3;
+            state0 := seed1;
             state1 := seed2;
-            state2 := seed1;
+            state2 := seed3;
             state3 := 1;
 
             // why 11 you ask?...
@@ -121,9 +121,9 @@ module {
         private var state3: Nat32 = 0;
 
         public func init3(seed1: Nat32, seed2: Nat32, seed3: Nat32) {
-            state0 := seed3;
+            state0 := seed1;
             state1 := seed2;
-            state2 := seed1;
+            state2 := seed3;
             state3 := 1;
 
             // why 11 you ask?...
