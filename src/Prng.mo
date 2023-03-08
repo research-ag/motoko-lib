@@ -38,7 +38,7 @@ module {
 
             for (jp in jumppoly.vals()) {
                 var w = jp;
-                for (i in range(0, 63)) {
+                for (_ in range(0, 63)) {
                     if (w & 1 == 1) {
                         t0 ^= a;
                         t1 ^= b;
@@ -87,7 +87,7 @@ module {
             d := 1;
 
             // why 11 you ask?...
-            for (i in range(0, 11)) {
+            for (_ in range(0, 11)) {
                 ignore next();
             };
         };
@@ -129,7 +129,7 @@ module {
             d := 1;
 
             // why 11 you ask?...
-            for (i in range(0, 11)) {
+            for (_ in range(0, 11)) {
                 ignore next();
             };
         };
