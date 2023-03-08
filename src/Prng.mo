@@ -10,8 +10,8 @@ module {
   public class Seiran128() {
 
     // state
-    private var a : Nat64 = 0;
-    private var b : Nat64 = 0;
+    var a : Nat64 = 0;
+    var b : Nat64 = 0;
 
     // Initialize the PRNG with a particular seed
     public func init(seed : Nat64) {
@@ -28,11 +28,11 @@ module {
       a := s0 ^ (s1 <<> 29);
       b := s0 ^ (s1 << 9);
 
-      return result;
+      result;
     };
 
     // Given a bit polynomial, advance the state (see below functions)
-    private func jump(jumppoly : [Nat64]) {
+    func jump(jumppoly : [Nat64]) {
       var t0 : Nat64 = 0;
       var t1 : Nat64 = 0;
 
@@ -54,31 +54,21 @@ module {
     };
 
     // Advance the state 2^32 times
-    public func jump32() {
-      jump([0x40165CBAE9CA6DEB, 0x688E6BFC19485AB1]);
-    };
+    public func jump32() = jump([0x40165CBAE9CA6DEB, 0x688E6BFC19485AB1]);
 
     // Advance the state 2^64 times
-    public func jump64() {
-      jump([0xF4DF34E424CA5C56, 0x2FE2DE5C2E12F601]);
-    };
+    public func jump64() = jump([0xF4DF34E424CA5C56, 0x2FE2DE5C2E12F601]);
 
     // Advance the state 2^96 times
-    public func jump96() {
-      jump([0x185F4DF8B7634607, 0x95A98C7025F908B2]);
-    };
+    public func jump96() = jump([0x185F4DF8B7634607, 0x95A98C7025F908B2]);
   };
 
-  public class SFC64(
-    p : Nat64,
-    q : Nat64,
-    r : Nat64,
-  ) {
+  public class SFC64(p : Nat64, q : Nat64, r : Nat64) {
     // state
-    private var a : Nat64 = 0;
-    private var b : Nat64 = 0;
-    private var c : Nat64 = 0;
-    private var d : Nat64 = 0;
+    var a : Nat64 = 0;
+    var b : Nat64 = 0;
+    var c : Nat64 = 0;
+    var d : Nat64 = 0;
 
     public func init3(seed1 : Nat64, seed2 : Nat64, seed3 : Nat64) {
       a := seed1;
@@ -87,20 +77,13 @@ module {
       d := 1;
 
       // why 11 you ask?...
-      for (_ in range(0, 11)) {
-        ignore next();
-      };
+      for (_ in range(0, 11)) ignore next();
     };
 
     // Initialize the PRNG with a particular seed
-    public func init1(seed : Nat64) {
-      init3(seed, seed, seed);
-    };
+    public func init1(seed : Nat64) = init3(seed, seed, seed);
 
-    public func init() {
-      let s : Nat64 = 0xcafef00dbeef5eed;
-      init1(s);
-    };
+    public func init() = init1(0xcafef00dbeef5eed);
 
     public func next() : Nat64 {
       let tmp = a +% b +% d;
@@ -108,19 +91,15 @@ module {
       a := b ^ (b >> q);
       b := c +% (c << r);
       c := (c <<> p) +% tmp;
-      return tmp;
+      tmp;
     };
   };
 
-  public class SFC32(
-    p : Nat32,
-    q : Nat32,
-    r : Nat32,
-  ) {
-    private var a : Nat32 = 0;
-    private var b : Nat32 = 0;
-    private var c : Nat32 = 0;
-    private var d : Nat32 = 0;
+  public class SFC32(p : Nat32, q : Nat32, r : Nat32) {
+    var a : Nat32 = 0;
+    var b : Nat32 = 0;
+    var c : Nat32 = 0;
+    var d : Nat32 = 0;
 
     public func init3(seed1 : Nat32, seed2 : Nat32, seed3 : Nat32) {
       a := seed1;
@@ -129,20 +108,13 @@ module {
       d := 1;
 
       // why 11 you ask?...
-      for (_ in range(0, 11)) {
-        ignore next();
-      };
+      for (_ in range(0, 11)) ignore next();
     };
 
     // Initialize the PRNG with a particular seed
-    public func init1(seed : Nat32) {
-      init3(seed, seed, seed);
-    };
+    public func init1(seed : Nat32) = init3(seed, seed, seed);
 
-    public func init() {
-      let s : Nat32 = 0xbeef5eed;
-      init1(s);
-    };
+    public func init() = init1(0xbeef5eed);
 
     public func next() : Nat32 {
       let tmp = a +% b +% d;
@@ -150,7 +122,7 @@ module {
       a := b ^ (b >> q);
       b := c +% (c << r);
       c := (c <<> p) +% tmp;
-      return tmp;
+      tmp;
     };
   };
 
