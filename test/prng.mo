@@ -90,9 +90,17 @@ for (v in [0x736A3B41:Nat32,
 };
 
 //Debug.print("Testing SFC64 (numpy)");
+// The seed values were created with numpy like this:
+//   import numpy
+//   ss = numpy.random.SeedSequence(0)
+//   ss.generate_state(3, dtype='uint64')
+// produces output:
+//   array([15793235383387715774, 12390638538380655177,  2361836109651742017], dtype=uint64)
+// Then the next() values were created with numpy like this:
+//   bg = numpy.random.SFC64(ss)
+//   bg.random_raw(2)
+// produces output:
+//   array([10490465040999277362,  4331856608414834465], dtype=uint64)
 let c = Prng.SFC64(24,11,3);
-let s0 : Nat64 = 2223390581541855661;
-let s1 : Nat64 = 13597181201486318797;
-let s2 : Nat64 = 12893663211123683265;
-c.init3(s0,s1,s2);
-Array.tabulate<Nat64>(2,func(i){c.next()});
+c.init3(15793235383387715774, 12390638538380655177, 2361836109651742017);
+assert([c.next(), c.next()] == [10490465040999277362, 4331856608414834465]);
