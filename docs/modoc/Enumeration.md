@@ -2,7 +2,7 @@
 
 ## Type `Tree`
 ``` motoko
-type Tree = {#red : (Tree, Nat, Tree); #black : (Tree, Nat, Tree); #leaf}
+type Tree = ?({#R; #B}, Tree, Nat, Tree)
 ```
 
 Red-black tree of key `Nat`.

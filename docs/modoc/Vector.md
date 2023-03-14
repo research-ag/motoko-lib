@@ -212,10 +212,10 @@ Example:
 ```
 
 let vector = Vector.new<Nat>();
-vector.add(1);
-vector.add(2);
-vector.add(3);
-vector.add(4);
+Vector.add(vec, 1);
+Vector.add(vec, 2);
+Vector.add(vec, 3);
+Vector.add(vec, 4);
 
 Vector.indexOf<Nat>(3, vector, Nat.equal); // => ?2
 ```
@@ -229,18 +229,18 @@ Runtime: `O(size)`
 func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat
 ```
 
-Finds the last index of `element` in `vector` using equality of elements defined
+Finds the last index of `element` in `vec` using equality of elements defined
 by `equal`. Returns `null` if `element` is not found.
 
 Example:
 ```
 let vector = Vector.new<Nat>();
-vector.add(1);
-vector.add(2);
-vector.add(3);
-vector.add(4);
-vector.add(2);
-vector.add(2);
+Vector.add(vec, 1);
+Vector.add(vec, 2);
+Vector.add(vec, 3);
+Vector.add(vec, 4);
+Vector.add(vec, 2);
+Vector.add(vec, 2);
 
 Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
 ```
@@ -248,6 +248,123 @@ Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
 Runtime: `O(size)`
 
 *Runtime and space assumes that `equal` runs in `O(1)` time and space.
+
+## Function `firstIndexWith`
+``` motoko
+func firstIndexWith<X>(vec : Vector<X>, predicate : X -> Bool) : ?Nat
+```
+
+Finds the index of the first element in `vec` for which `predicate` is true.
+Returns `null` if no such element is found.
+
+Example:
+```
+
+let vector = Vector.new<Nat>();
+Vector.add(vec, 1);
+Vector.add(vec, 2);
+Vector.add(vec, 3);
+Vector.add(vec, 4);
+
+Vector.firstIndexWith<Nat>(vector, func(i) { i % 2 == 0 }); // => ?1
+```
+
+Runtime: `O(size)`
+
+*Runtime and space assumes that `predicate` runs in `O(1)` time and space.
+
+## Function `lastIndexWith`
+``` motoko
+func lastIndexWith<X>(vec : Vector<X>, predicate : X -> Bool) : ?Nat
+```
+
+Finds the index of the last element in `vec` for which `predicate` is true.
+Returns `null` if no such element is found.
+
+Example:
+```
+
+let vector = Vector.new<Nat>();
+Vector.add(vec, 1);
+Vector.add(vec, 2);
+Vector.add(vec, 3);
+Vector.add(vec, 4);
+
+Vector.lastIndexWith<Nat>(vector, func(i) { i % 2 == 0 }); // => ?3
+```
+
+Runtime: `O(size)`
+
+*Runtime and space assumes that `predicate` runs in `O(1)` time and space.
+
+## Function `forAll`
+``` motoko
+func forAll<X>(vec : Vector<X>, predicate : X -> Bool) : Bool
+```
+
+Returns true iff every element in `vec` satisfies `predicate`.
+
+Example:
+```motoko include=initialize
+
+Vector.add(vec, 2);
+Vector.add(vec, 3);
+Vector.add(vec, 4);
+
+Vector.forAll<Nat>(vec, func x { x > 1 }); // => true
+```
+
+Runtime: `O(size)`
+
+Space: `O(1)`
+
+*Runtime and space assumes that `predicate` runs in O(1) time and space.
+
+## Function `forSome`
+``` motoko
+func forSome<X>(vec : Vector<X>, predicate : X -> Bool) : Bool
+```
+
+Returns true iff some element in `vec` satisfies `predicate`.
+
+Example:
+```motoko include=initialize
+
+Vector.add(vec, 2);
+Vector.add(vec, 3);
+Vector.add(vec, 4);
+
+Vector.forSome<Nat>(vec, func x { x > 3 }); // => true
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `predicate` runs in O(1) time and space.
+
+## Function `forNone`
+``` motoko
+func forNone<X>(vec : Vector<X>, predicate : X -> Bool) : Bool
+```
+
+Returns true iff no element in `vec` satisfies `predicate`.
+
+Example:
+```motoko include=initialize
+
+Vector.add(vec, 2);
+Vector.add(vec, 3);
+Vector.add(vec, 4);
+
+Vector.forNone<Nat>(vec, func x { x == 0 }); // => true
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `predicate` runs in O(1) time and space.
 
 ## Function `vals`
 ``` motoko
@@ -300,6 +417,8 @@ Vector, then this may lead to unexpected results.
 
 Runtime: `O(1)`
 
+Warning: Allocates memory on the heap to store ?(X, Nat).
+
 ## Function `valsRev`
 ``` motoko
 func valsRev<X>(vec : Vector<X>) : Iter.Iter<X>
@@ -350,6 +469,8 @@ and instead the consumption of the iterator is interleaved with other operations
 Vector, then this may lead to unexpected results.
 
 Runtime: `O(1)`
+
+Warning: Allocates memory on the heap to store ?(X, Nat).
 
 ## Function `keys`
 ``` motoko
@@ -431,7 +552,7 @@ Vector.toArray<Nat>(vec); // => [1, 2, 3]
 
 ```
 
-Runtime: O(size)
+Runtime: `O(size)`
 
 ## Function `fromArray`
 ``` motoko
@@ -499,14 +620,14 @@ Returns the first element of `vec`. Traps if `vec` is empty.
 Example:
 ```
 
-let vec = Vector.init<Nat>(10,1);
+let vec = Vector.init<Nat>(10, 1);
 
 Vector.first(vec); // => 1
 ```
 
-Runtime: O(1)
+Runtime: `O(1)`
 
-Space: O(1)
+Space: `O(1)`
 
 ## Function `last`
 ``` motoko
@@ -518,14 +639,14 @@ Returns the last element of `vec`. Traps if `vec` is empty.
 Example:
 ```
 
-let vec = Vector.fromArray<Nat>([1,2,3]);
+let vec = Vector.fromArray<Nat>([1, 2, 3]);
 
 Vector.last(vec); // => 3
 ```
 
-Runtime: O(1)
+Runtime: `O(1)`
 
-Space: O(1)
+Space: `O(1)`
 
 ## Function `iterate`
 ``` motoko
@@ -539,10 +660,35 @@ Example:
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 
-let vec = Vector.fromArray<Nat>([1,2,3]);
+let vec = Vector.fromArray<Nat>([1, 2, 3]);
 
 Vector.iterate<Nat>(vec, func (x) {
-  Debug.print(Nat.toText(x)); // prints each element in buffer
+  Debug.print(Nat.toText(x)); // prints each element in vector
+});
+```
+
+Runtime: `O(size)`
+
+Space: `O(size)`
+
+*Runtime and space assumes that `f` runs in O(1) time and space.
+
+## Function `iterateRev`
+``` motoko
+func iterateRev<X>(vec : Vector<X>, f : X -> ())
+```
+
+Applies `f` to each element in `vec` in reverse order.
+
+Example:
+```
+import Nat "mo:base/Nat";
+import Debug "mo:base/Debug";
+
+let vec = Vector.fromArray<Nat>([1, 2, 3]);
+
+Vector.iterate<Nat>(vec, func (x) {
+  Debug.print(Nat.toText(x)); // prints each element in vector in reverse order
 });
 ```
 
@@ -559,3 +705,13 @@ let Class
 
 Submodule with Vector as a class
 This allows to use VectorClass as a drop-in replacement of Buffer
+
+We provide all the functions of Buffer except for:
+- sort
+- insertBuffer
+- insert
+- append
+- reserve
+- capacity
+- filterEntries
+- remove
