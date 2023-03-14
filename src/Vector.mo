@@ -569,9 +569,9 @@ module Static {
   /// Vector.forAll<Nat>(vec, func x { x > 1 }); // => true
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: `O(size)`
   ///
-  /// Space: O(1)
+  /// Space: `O(1)`
   ///
   /// *Runtime and space assumes that `predicate` runs in O(1) time and space.
   public func forAll<X>(vec : Vector<X>, predicate : X -> Bool) : Bool {
@@ -855,7 +855,7 @@ module Static {
   ///
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: `O(size)`
   public func toArray<X>(vec : Vector<X>) : [X] = Array.tabulate<X>(size(vec), vals_(vec).unsafe_next_i);
 
   private func vals_<X>(vec : Vector<X>) : {
@@ -1061,14 +1061,14 @@ module Static {
   /// Example:
   /// ```
   ///
-  /// let vec = Vector.init<Nat>(10,1);
+  /// let vec = Vector.init<Nat>(10, 1);
   ///
   /// Vector.first(vec); // => 1
   /// ```
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   ///
-  /// Space: O(1)
+  /// Space: `O(1)`
   public func first<X>(vec : Vector<X>) : X {
     let ?x = vec.data_blocks[1][0] else Prim.trap "Vector index out of bounds in first";
     x;
@@ -1079,14 +1079,14 @@ module Static {
   /// Example:
   /// ```
   ///
-  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  /// let vec = Vector.fromArray<Nat>([1, 2, 3]);
   ///
   /// Vector.last(vec); // => 3
   /// ```
   ///
-  /// Runtime: O(1)
+  /// Runtime: `O(1)`
   ///
-  /// Space: O(1)
+  /// Space: `O(1)`
   public func last<X>(vec : Vector<X>) : X {
     let e = vec.i_element;
     if (e > 0) {
@@ -1111,9 +1111,9 @@ module Static {
   /// });
   /// ```
   ///
-  /// Runtime: O(size)
+  /// Runtime: `O(size)`
   ///
-  /// Space: O(size)
+  /// Space: `O(size)`
   ///
   /// *Runtime and space assumes that `f` runs in O(1) time and space.
   public func iterate<X>(vec : Vector<X>, f : X -> ()) {
@@ -1203,6 +1203,15 @@ module Static {
   /// - filterEntries
   /// - remove
   public module Class {
+    /// Constructs an empty `Vector<X>`.
+    ///
+    /// Example:
+    /// ```
+    /// let vector = Vector.Vector<Nat>();
+    /// ```
+    /// Runtime: `O(1)`
+    ///
+    /// Space: O(1)
     public class Vector<X>() {
       var v : Static.Vector<X> = Static.new();
 
@@ -1214,9 +1223,9 @@ module Static {
       /// vector.size() // => 0
       /// ```
       ///
-      /// Runtime: O(1)
+      /// Runtime: `O(1)`
       ///
-      /// Space: O(1)
+      /// Space: `O(1)`
       public func size() : Nat = Static.size(v);
 
       /// Adds a single element to the end of the vector, adding datablocks if capacity is exceeded.
@@ -1476,42 +1485,248 @@ module Static {
       public func unshare(v_ : Static.Vector<X>) { v := v_ };
     };
 
+    /// Returns the first element of `vec`. Traps if `vec` is empty.
+    ///
+    /// Example:
+    /// ```
+    /// let vector = Vector.Vector<Nat>();
+    /// vector.add(1);
+    ///
+    /// Vector.first(vec); // => 1
+    /// ```
+    ///
+    /// Runtime: `O(1)`
+    ///
+    /// Space: `O(1)`
     public func first<X>(vec : Vector<X>) : X = Static.first(vec.share());
+
+    /// Returns the last element of `vec`. Traps if `vec` is empty.
+    ///
+    /// Example:
+    /// ```
+    /// let vector = Vector.Vector<Nat>();
+    /// vector.add(1);
+    ///
+    /// Vector.last(vec); // => 1
+    /// ```
+    ///
+    /// Runtime: `O(1)`
+    ///
+    /// Space: `O(1)`
     public func last<X>(vec : Vector<X>) : X = Static.last(vec.share());
+
+    /// Applies `f` to each element in `vec`.
+    ///
+    /// Example:
+    /// ```
+    /// let vec = Vector.fromArray<Nat>([1, 2, 3]);
+    ///
+    /// Vector.iterate<Nat>(vec, func (x) {
+    ///   Debug.print(Nat.toText(x)); // prints each element in vector
+    /// });
+    /// ```
+    ///
+    /// Runtime: `O(size)`
+    ///
+    /// Space: `O(size)`
+    ///
+    /// *Runtime and space assumes that `f` runs in `O(1)` time and space.
     public func iterate<X>(vec : Vector<X>, f : X -> ()) = Static.iterate(vec.share(), f);
+
+    /// Applies `f` to each element in `vec` in reverse order.
+    ///
+    /// Example:
+    /// ```
+    /// let vec = Vector.fromArray<Nat>([1, 2, 3]);
+    ///
+    /// Vector.iterate<Nat>(vec, func (x) {
+    ///   Debug.print(Nat.toText(x)); // prints each element in vector in reverse order
+    /// });
+    /// ```
+    ///
+    /// Runtime: `O(size)`
+    ///
+    /// Space: `O(size)`
+    ///
+    /// *Runtime and space assumes that `f` runs in `O(1)` time and space.
     public func iterateRev<X>(vec : Vector<X>, f : X -> ()) = Static.iterateRev(vec.share(), f);
+
+    /// Creates an immutable array containing elements from a Vector.
+    ///
+    /// Example:
+    /// ```
+    /// let vector = Vector.Vector<Nat>();
+    ///
+    /// vector.add(10);
+    /// vector.add(11);
+    /// vector.add(12);
+    ///
+    /// Vector.toArray<Nat>(vec); // => [1, 2, 3]
+    /// ```
+    ///
+    /// Runtime: `O(size)`
     public func toArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
+
+    /// Creates a mutable array containing elements from a Vector.
+    ///
+    /// Example:
+    /// ```
+    /// let vector = Vector.Vector<Nat>();
+    ///
+    /// vector.add(10);
+    /// vector.add(11);
+    /// vector.add(12);
+    ///
+    /// Vector.toVarArray<Nat>(vec); // => [1, 2, 3]
+    /// ```
+    ///
+    /// Runtime: `O(size)`
     public func toVarArray<X>(vec : Vector<X>) : [var X] = Static.toVarArray(vec.share());
+
+    /// Finds the first index of `element` in `vector` using equality of elements defined
+    /// by `equal`. Returns `null` if `element` is not found.
+    ///
+    /// Example:
+    /// ```
+    /// let vector = Vector.Vector<Nat>();
+    ///
+    /// vector.add(1);
+    /// vector.add(2);
+    /// vector.add(3);
+    /// vector.add(4);
+    ///
+    /// Vector.indexOf<Nat>(3, vector, Nat.equal); // => ?2
+    /// ```
+    ///
+    /// Runtime: `O(size)`
+    ///
+    /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
     public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.indexOf(element, vec.share(), equal);
+
+    /// Finds the last index of `element` in `vec` using equality of elements defined
+    /// by `equal`. Returns `null` if `element` is not found.
+    ///
+    /// Example:
+    /// ```
+    /// let vector = Vector.Vector<Nat>();
+    ///
+    /// vector.add(1);
+    /// vector.add(2);
+    /// vector.add(3);
+    /// vector.add(4);
+    /// vector.add(2);
+    /// vector.add(2);
+    ///
+    /// Vector.lastIndexOf<Nat>(2, vector, Nat.equal); // => ?5
+    /// ```
+    ///
+    /// Runtime: `O(size)`
+    ///
+    /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
     public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.lastIndexOf(element, vec.share(), equal);
+
+    /// Create a Vector with `size` copies of the initial value.
+    ///
+    /// ```
+    /// let vec = Vector.init<Nat>(4, 2); // [2, 2, 2, 2]
+    /// ```
+    ///
+    /// Runtime: `O(size)`
     public func init<X>(size : Nat, initValue : X) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.init(size, initValue));
       v;
     };
+
+    /// Creates a Vector containing elements from an Array.
+    ///
+    /// Example:
+    /// ```
+    /// import Nat "mo:base/Nat";
+    ///
+    /// let array = [2, 3];
+    ///
+    /// let vec = Vector.fromArray<Nat>(array); // => [2, 3]
+    /// ```
+    ///
+    /// Runtime: `O(size)`
     public func fromArray<X>(array : [X]) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.fromArray(array));
       v;
     };
+
+    /// Creates a Vector containing elements from a mutable Array.
+    ///
+    /// Example:
+    /// ```
+    /// import Nat "mo:base/Nat";
+    ///
+    /// let array = [var 2, 3];
+    ///
+    /// let vec = Vector.fromVarArray<Nat>(array); // => [2, 3]
+    /// ```
+    ///
+    /// Runtime: `O(size)`
     public func fromVarArray<X>(array : [var X]) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.fromVarArray(array));
       v;
     };
+
+    /// Returns a copy of a Vector, with the same size.
+    ///
+    /// Example:
+    /// ```
+    /// let vec = Vector.Vector<Nat>();
+    /// vec.add(1);
+    ///
+    /// let clone = Vector.clone(vec);
+    /// Vector.toArray(clone); // => [1]
+    /// ```
+    ///
+    /// Runtime: `O(size)`
     public func clone<X>(vec : Vector<X>) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.clone(vec.share()));
       v;
     };
+
+    /// Creates a Vector containing elements from `iter`.
+    ///
+    /// Example:
+    /// ```
+    /// import Nat "mo:base/Nat";
+    ///
+    /// let array = [1, 1, 1];
+    /// let iter = array.vals();
+    ///
+    /// let vec = Vector.fromIter<Nat>(iter); // => [1, 1, 1]
+    /// ```
+    ///
+    /// Runtime: `O(size)`
     public func fromIter<X>(iter : Iter.Iter<X>) : Vector<X> {
       let v = Vector<X>();
       v.unshare(Static.fromIter(iter));
       v;
     };
+
+    /// Adds elements to a Vector from `iter`.
+    ///
+    /// Example:
+    /// ```
+    /// import Nat "mo:base/Nat";
+    ///
+    /// let array = [1, 1, 1];
+    /// let iter = array.vals();
+    /// let vec = Vector.init<Nat>(1, 2);
+    ///
+    /// let vec = Vector.addFromIter<Nat>(vec, iter); // => [2, 1, 1, 1]
+    /// ```
+    ///
+    /// Runtime: `O(size)`, where n is the size of iter.
     public func addFromIter<X>(vec : Vector<X>, iter : Iter.Iter<X>) {
       Static.addFromIter(vec.share(), iter);
     };
   };
-
 };
