@@ -5,11 +5,7 @@ import Prim "mo:⛔";
 
 module {
   /// Red-black tree of key `Nat`.
-  public type Tree = {
-    #red : (Tree, Nat, Tree);
-    #black : (Tree, Nat, Tree);
-    #leaf;
-  };
+  public type Tree = ?({ #R; #B }, Tree, Nat, Tree);
 
   /// Bidirectional enumeration of `Blob`s in order they are added.
   /// For map from `Blob` to index `Nat` it's implemented as red-black tree, for map from index `Nat` to `Blob` the implementation is an array.
@@ -20,7 +16,7 @@ module {
     private var array = ([var ""] : [var Blob]);
     private var size_ = 0;
 
-    private var tree = (#leaf : Tree);
+    private var tree = (null : Tree);
 
     /// Add `key` to enumeration. Returns `size` if the key in new to the enumeration and index of key in enumeration otherwise.
     /// ```
@@ -35,23 +31,23 @@ module {
 
       func lbalance(left : Tree, y : Nat, right : Tree) : Tree {
         switch (left, right) {
-          case (#red(#red(l1, y1, r1), y2, r2), r) #red(#black(l1, y1, r1), y2, #black(r2, y, r));
-          case (#red(l1, y1, #red(l2, y2, r2)), r) #red(#black(l1, y1, l2), y2, #black(r2, y, r));
-          case _ #black(left, y, right);
+          case (?(#R, ?(#R, l1, y1, r1), y2, r2), r) ?(#R, ?(#B, l1, y1, r1), y2, ?(#B, r2, y, r));
+          case (?(#R, l1, y1, ?(#R, l2, y2, r2)), r) ?(#R, ?(#B, l1, y1, l2), y2, ?(#B, r2, y, r));
+          case _ ?(#B, left, y, right);
         };
       };
 
       func rbalance(left : Tree, y : Nat, right : Tree) : Tree {
         switch (left, right) {
-          case (l, #red(l1, y1, #red(l2, y2, r2))) #red(#black(l, y, l1), y1, #black(l2, y2, r2));
-          case (l, #red(#red(l1, y1, r1), y2, r2)) #red(#black(l, y, l1), y1, #black(r1, y2, r2));
-          case _ #black(left, y, right);
+          case (l, ?(#R, l1, y1, ?(#R, l2, y2, r2)))  ?(#R, ?(#B, l, y, l1), y1, ?(#B, l2, y2, r2));
+          case (l, ?(#R, ?(#R, l1, y1, r1), y2, r2))  ?(#R, ?(#B, l, y, l1), y1, ?(#B, r1, y2, r2));
+          case _ ?(#B, left, y, right);
         };
       };
 
       func insert(tree : Tree) : Tree {
         switch tree {
-          case (#black(left, y, right)) {
+          case (?(#B, left, y, right)) {
             switch (Blob.compare(key, array[y])) {
               case (#less) lbalance(insert(left), y, right);
               case (#greater) rbalance(left, y, insert(right));
@@ -61,25 +57,25 @@ module {
               };
             };
           };
-          case (#red(left, y, right)) {
+          case (?(#R, left, y, right)) {
             switch (Blob.compare(key, array[y])) {
-              case (#less) #red(insert(left), y, right);
-              case (#greater) #red(left, y, insert(right));
+              case (#less) ?(#R, insert(left), y, right);
+              case (#greater) ?(#R, left, y, insert(right));
               case (#equal) {
                 index := y;
                 tree;
               };
             };
           };
-          case (#leaf) {
+          case (null) {
             index := size_;
-            #red(#leaf, size_, #leaf);
+            ?(#R, null, size_, null);
           };
         };
       };
 
       tree := switch (insert(tree)) {
-        case (#red(left, y, right)) #black(left, y, right);
+        case (?(#R, left, y, right)) ?(#B, left, y, right);
         case other other;
       };
 
@@ -93,7 +89,7 @@ module {
         assert (m != 0); // traps if n >= 3 * 2 ** 30
         Nat32.toNat(m);
       };
-      
+
       if (index == size_) {
         if (size_ == array.size()) {
           array := Array.tabulateVar<Blob>(next_size(size_), func(i) = if (i < size_) { array[i] } else { "" });
@@ -118,21 +114,14 @@ module {
     public func lookup(key : Blob) : ?Nat {
       func get_in_tree(x : Blob, t : Tree) : ?Nat {
         switch t {
-          case (#red(l, y, r)) {
+          case (?(_, l, y, r)) {
             switch (Blob.compare(x, array[y])) {
               case (#less) get_in_tree(x, l);
               case (#equal) ?y;
               case (#greater) get_in_tree(x, r);
             };
           };
-          case (#black(l, y, r)) {
-            switch (Blob.compare(x, array[y])) {
-              case (#less) get_in_tree(x, l);
-              case (#equal) ?y;
-              case (#greater) get_in_tree(x, r);
-            };
-          };
-          case (#leaf) null;
+          case (null) null;
         };
       };
 
