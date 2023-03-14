@@ -58,7 +58,7 @@ module {
     ///
     /// Runtime: `O(1)`.
     public func index_of(id : Id) : ?Nat {
-      if (id >= pushes or pushes - id > size_) null else ?(size_ + id - pushes);
+      if (id >= pushes or pushes > size_ + id) null else ?(size_ + id - pushes);
     };
 
     /// Inserts element to the back of the queue.
