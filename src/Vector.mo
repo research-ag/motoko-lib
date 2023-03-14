@@ -371,7 +371,7 @@ module Static {
         vec.data_blocks[Nat(((i << lz2) >> 16) ^ (0x10000 >> lz2))][Nat(i & (0xFFFF >> lz2))];
       } else {
         vec.data_blocks[Nat(((i << lz2) >> 15) ^ (0x18000 >> lz2))][Nat(i & (0x7FFF >> lz2))];
-      },
+      }
     ) {
       case (?result) return result;
       case (_) Prim.trap "Vector index out of bounds in get";
@@ -1104,10 +1104,10 @@ module Static {
   /// import Nat "mo:base/Nat";
   /// import Debug "mo:base/Debug";
   ///
-  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  /// let vec = Vector.fromArray<Nat>([1, 2, 3]);
   ///
   /// Vector.iterate<Nat>(vec, func (x) {
-  ///   Debug.print(Nat.toText(x)); // prints each element in buffer
+  ///   Debug.print(Nat.toText(x)); // prints each element in vector
   /// });
   /// ```
   ///
@@ -1142,42 +1142,346 @@ module Static {
     };
   };
 
+  /// Applies `f` to each element in `vec` in reverse order.
+  ///
+  /// Example:
+  /// ```
+  /// import Nat "mo:base/Nat";
+  /// import Debug "mo:base/Debug";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1, 2, 3]);
+  ///
+  /// Vector.iterate<Nat>(vec, func (x) {
+  ///   Debug.print(Nat.toText(x)); // prints each element in vector in reverse order
+  /// });
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(size)
+  ///
+  /// *Runtime and space assumes that `f` runs in O(1) time and space.
+  public func iterateRev<X>(vec : Vector<X>, f : X -> ()) {
+    var i = size(vec);
+    var i_block = vec.i_block;
+    var i_element = vec.i_element;
+    var db : [var ?X] = if (i_block < vec.data_blocks.size()) {
+      vec.data_blocks[i_block];
+    } else { [var] };
+
+    loop {
+      if (i_block == 1) {
+        return;
+      };
+      if (i_element == 0) {
+        i_block -= 1;
+        db := vec.data_blocks[i_block];
+        i_element := db.size() - 1;
+      } else {
+        i_element -= 1;
+      };
+      switch (db[i_element]) {
+        case (?x) {
+          i -= 1;
+          f(x);
+        };
+        case (_) Prim.trap(INTERNAL_ERROR);
+      };
+    };
+  };
+
   /// Submodule with Vector as a class
   /// This allows to use VectorClass as a drop-in replacement of Buffer
+  ///
+  /// We provide all the functions of Buffer except for:
+  /// - sort
+  /// - insertBuffer
+  /// - insert
+  /// - append
+  /// - reserve
+  /// - capacity
+  /// - filterEntries
+  /// - remove
   public module Class {
     public class Vector<X>() {
       var v : Static.Vector<X> = Static.new();
+
+      /// Returns the current number of elements in the vector.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      /// vector.size() // => 0
+      /// ```
+      ///
+      /// Runtime: O(1)
+      ///
+      /// Space: O(1)
       public func size() : Nat = Static.size(v);
+
+      /// Adds a single element to the end of the vector, adding datablocks if capacity is exceeded.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(0); // add 0 to vector
+      /// vector.add(1);
+      /// vector.add(2);
+      /// vector.add(3);
+      /// Vector.toArray(vector) // => [0, 1, 2, 3]
+      /// ```
+      ///
+      /// Amortized Runtime: `O(1)`, Worst Case Runtime: `O(sqrt(n))`
+      ///
+      /// Amortized Space: `O(1)`, Worst Case Space: `O(sqrt(n))`
       public func add(x : X) = Static.add(v, x);
-      public func addMany(n : Nat, x : X) = Static.addMany(v, n, x);
+      /// Adds a single element to the end of the vector multiple number of times.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(0); // add 0 to vector
+      /// vector.add(1);
+      /// vector.add(2);
+      /// vector.addMany(2, 3);
+      /// Vector.toArray(vector) // => [0, 1, 2, 3, 3]
+      /// ```
+      ///
+      /// Amortized Runtime: `O(count)`, Worst Case Runtime: `O(max(sqrt(n), count))`
+      ///
+      /// Amortized Space: `O(count)`, Worst Case Space: `O(max(sqrt(n), count))`
+      public func addMany(count : Nat, x : X) = Static.addMany(v, count, x);
+
+      /// Returns the element at index `index`. Indexing is zero-based.
+      /// Traps if `index >= size`, error message may not be descriptive.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.get(0); // => 10
+      /// ```
+      ///
+      /// Runtime: `O(1)`
+      ///
+      /// Space: `O(1)`
       public func get(i : Nat) : X = Static.get(v, i);
+
+      /// Returns the element at index `index` as an option.
+      /// Returns `null` when `index >= size`. Indexing is zero-based.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// let x = vector.getOpt(0); // => ?10
+      /// let y = vector.getOpt(2); // => null
+      /// ```
+      ///
+      /// Runtime: `O(1)`
+      ///
+      /// Space: `O(1)`
       public func getOpt(i : Nat) : ?X = Static.getOpt(v, i);
+
+      /// Overwrites the current element at `index` with `element`. Traps if
+      /// `index` >= size. Indexing is zero-based.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.put(0, 20); // overwrites 10 at index 0 with 20
+      /// Vector.toArray(buffer) // => [20]
+      /// ```
+      ///
+      /// Runtime: `O(1)`
+      ///
+      /// Space: `O(1)`
       public func put(i : Nat, x : X) = Static.put(v, i, x);
+
+      /// Removes and returns the last item in the buffer or `null` if
+      /// the buffer is empty.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.removeLast(); // => ?11
+      /// ```
+      ///
+      /// Amortized Runtime: `O(1)`, Worst Case Runtime: `O(n)`
+      ///
+      /// Amortized Space: `O(1)`, Worst Case Space: `O(n)`
       public func removeLast() : ?X = Static.removeLast(v);
+
+      /// Resets the buffer. Capacity is set to 0.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.add(12);
+      /// vector.clear(); // vector is now empty
+      /// Vector.toArray(vector) // => []
+      /// ```
+      ///
+      /// Runtime: `O(1)`
+      ///
+      /// Space: `O(1)`
       public func clear() = Static.clear(v);
+
+      /// Returns an Iterator (`Iter`) over the elements of this vector.
+      /// Iterator provides a single method `next()`, which returns
+      /// elements in order, or `null` when out of elements to iterate over.
+      ///
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.add(12);
+      ///
+      /// var sum = 0;
+      /// for (element in vector.vals()) {
+      ///   sum += element;
+      /// };
+      /// sum // => 33
+      /// ```
+      ///
+      /// Runtime: `O(1)`
+      ///
+      /// Space: `O(1)`
       public func vals() : { next : () -> ?X } = Static.vals(v);
+
+      /// Returns an Iterator (`Iter`) over the keys (indices) of a Vector.
+      /// Iterator provides a single method `next()`, which returns
+      /// elements in order, or `null` when out of elements to iterate over.
+      ///
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.add(12);
+      /// Iter.toArray(vec.keys()); // [0, 1, 2]
+      /// ```
+      ///
+      /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+      /// and instead the consumption of the iterator is interleaved with other operations on the
+      /// Vector, then this may lead to unexpected results.
+      ///
+      /// Runtime: `O(1)`
       public func keys() : { next : () -> ?Nat } = Static.keys(v);
+
+      /// Returns an Iterator (`Iter`) over the items, i.e. pairs of value and index of a Vector.
+      /// Iterator provides a single method `next()`, which returns
+      /// elements in order, or `null` when out of elements to iterate over.
+      ///
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.add(12);
+      /// Iter.toArray(vector.items()); // [(10, 0), (11, 1), (12, 2)]
+      /// ```
+      ///
+      /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+      /// and instead the consumption of the iterator is interleaved with other operations on the
+      /// Vector, then this may lead to unexpected results.
+      ///
+      /// Runtime: `O(1)`
+      ///
+      /// Warning: Allocates memory on the heap to store ?(X, Nat).
       public func items() : { next : () -> ?(X, Nat) } = Static.items(v);
+
+      /// Returns an Iterator (`Iter`) over the elements of a Vector in reverse order.
+      /// Iterator provides a single method `next()`, which returns
+      /// elements in reverse order, or `null` when out of elements to iterate over.
+      ///
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.add(12);
+      ///
+      /// var sum = 0;
+      /// for (element in vector.vals()) {
+      ///   sum += element;
+      /// };
+      /// sum // => 33
+      /// ```
+      ///
+      /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+      /// and instead the consumption of the iterator is interleaved with other operations on the
+      /// Vector, then this may lead to unexpected results.
+      ///
+      /// Runtime: `O(1)`
       public func valsRev() : { next : () -> ?X } = Static.valsRev(v);
+
+      /// Returns an Iterator (`Iter`) over the items in reverse order, i.e. pairs of value and index of a Vector.
+      /// Iterator provides a single method `next()`, which returns
+      /// elements in reverse order, or `null` when out of elements to iterate over.
+      ///
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      ///
+      /// vector.add(10);
+      /// vector.add(11);
+      /// vector.add(12);
+      /// Iter.toArray(vector.items()); // [(12, 0), (11, 1), (10, 2)]
+      /// ```
+      ///
+      /// Note: This does not create a snapshot. If the returned iterator is not consumed at once,
+      /// and instead the consumption of the iterator is interleaved with other operations on the
+      /// Vector, then this may lead to unexpected results.
+      ///
+      /// Runtime: `O(1)`
+      ///
+      /// Warning: Allocates memory on the heap to store ?(X, Nat).
       public func itemsRev() : { next : () -> ?(X, Nat) } = Static.itemsRev(v);
+
+      /// Returns stable version of the vector
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      /// vector.unshare(vector.share()); // Unchanged
+      /// ```
+      ///
+      /// Runtime: `O(1)`.
       public func share() : Static.Vector<X> = v;
+
+      /// Creates vector from a stable version.
+      ///
+      /// Example:
+      /// ```
+      /// let vector = Vector.Vector<Nat>();
+      /// vector.unshare(vector.share()); // Unchanged
+      /// ```
+      ///
+      /// Runtime: `O(1)`.
       public func unshare(v_ : Static.Vector<X>) { v := v_ };
-      // we don't provide:
-      //   sort
-      //   insertBuffer
-      //   insert
-      //   append
-      //   reserve
-      //   capacity
-      //   filterEntries
-      //   remove
     };
 
     public func first<X>(vec : Vector<X>) : X = Static.first(vec.share());
-    public func last<X>(vec : Vector<X>) : X = Static.first(vec.share());
+    public func last<X>(vec : Vector<X>) : X = Static.last(vec.share());
     public func iterate<X>(vec : Vector<X>, f : X -> ()) = Static.iterate(vec.share(), f);
+    public func iterateRev<X>(vec : Vector<X>, f : X -> ()) = Static.iterateRev(vec.share(), f);
     public func toArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
-    public func toVarArray<X>(vec : Vector<X>) : [X] = Static.toArray(vec.share());
+    public func toVarArray<X>(vec : Vector<X>) : [var X] = Static.toVarArray(vec.share());
     public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.indexOf(element, vec.share(), equal);
     public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat = Static.lastIndexOf(element, vec.share(), equal);
     public func init<X>(size : Nat, initValue : X) : Vector<X> {
