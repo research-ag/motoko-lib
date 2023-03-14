@@ -128,7 +128,10 @@ module {
       let ?x = head else return null;
 
       head := x.next;
-      x.next := null;
+      switch (head) {
+        case (null) tail := null;
+        case (_) {};
+      };
 
       size_ -= 1;
 

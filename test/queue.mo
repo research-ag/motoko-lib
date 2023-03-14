@@ -1,6 +1,6 @@
 import Queue "../src/Queue";
 
-let q = Queue.Queue<Nat>();
+var q = Queue.Queue<Nat>();
 let n = 100;
 
 assert (q.peek() == null);
@@ -32,5 +32,15 @@ while (i < n) {
 i := n;
 while (i < n + n) {
   assert (q.get(i) == ?i);
+  i += 1;
+};
+
+q := Queue.Queue<Nat>();
+i := 0;
+while (i < 5) {
+  ignore q.push(1);
+  assert q.size() == 1;
+  ignore q.pop();
+  assert q.size() == 0;
   i += 1;
 };
