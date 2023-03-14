@@ -37,7 +37,7 @@ while (i < n + n) {
 
 // test queue refill
 let q1 = Queue.Queue<Nat>();
-i := 0
+i := 0;
 while (i < 2) {
   ignore q1.push(1);
   assert q1.size() == 1;
