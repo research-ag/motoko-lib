@@ -1162,7 +1162,6 @@ module Static {
   ///
   /// *Runtime and space assumes that `f` runs in O(1) time and space.
   public func iterateRev<X>(vec : Vector<X>, f : X -> ()) {
-    var i = size(vec);
     var i_block = vec.i_block;
     var i_element = vec.i_element;
     var db : [var ?X] = if (i_block < vec.data_blocks.size()) {
@@ -1181,10 +1180,7 @@ module Static {
         i_element -= 1;
       };
       switch (db[i_element]) {
-        case (?x) {
-          i -= 1;
-          f(x);
-        };
+        case (?x) f(x);
         case (_) Prim.trap(INTERNAL_ERROR);
       };
     };
