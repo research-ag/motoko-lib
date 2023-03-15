@@ -558,6 +558,7 @@ module Static {
   };
 
   /// Returns true iff every element in `vec` satisfies `predicate`.
+  /// In particular, if `vec` is empty the function returns `true`.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -579,6 +580,7 @@ module Static {
   };
 
   /// Returns true iff some element in `vec` satisfies `predicate`.
+  /// In particular, if `vec` is empty the function returns `false`.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -603,6 +605,8 @@ module Static {
   };
 
   /// Returns true iff no element in `vec` satisfies `predicate`.
+  /// This is logically equivalent to that all elements in `vec` satisfy `not predicate`.
+  /// In particular, if `vec` is empty the function returns `true`.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -737,7 +741,7 @@ module Static {
       db[i_element];
     };
   };
-
+   
   /// Returns an Iterator (`Iter`) over the items in reverse order, i.e. pairs of value and index of a Vector.
   /// Iterator provides a single method `next()`, which returns
   /// elements in reverse order, or `null` when out of elements to iterate over.
