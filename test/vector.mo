@@ -34,7 +34,7 @@ run(
         M.equals(T.array(T.natTestable, Vector.toArray(vector))),
       ),
     ],
-  ),
+  )
 );
 
 run(
@@ -52,13 +52,23 @@ run(
         M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
       ),
     ],
-  ),
+  )
 );
 
 assert Vector.indexOf(n + 1, vector, Nat.equal) == null;
+assert Vector.firstIndexWith(vector, func(a : Nat) : Bool = a == n + 1) == null;
 assert Vector.indexOf(n, vector, Nat.equal) == ?n;
+assert Vector.firstIndexWith(vector, func(a : Nat) : Bool = a == n) == ?n;
+
 assert Vector.lastIndexOf(n + 1, vector, Nat.equal) == null;
+assert Vector.lastIndexWith(vector, func(a : Nat) : Bool = a == n + 1) == null;
+
 assert Vector.lastIndexOf(0, vector, Nat.equal) == ?0;
+assert Vector.lastIndexWith(vector, func(a : Nat) : Bool = a == 0) == ?0;
+
+assert Vector.forAll(vector, func(x : Nat) : Bool = 0 <= x and x <= n);
+assert Vector.forNone(vector, func(x : Nat) : Bool = x == n + 1);
+assert Vector.forSome(vector, func(x : Nat) : Bool = x == n / 2);
 
 run(
   suite(
@@ -100,11 +110,14 @@ run(
         M.equals(T.array(T.intTestable, Iter.toArray(Iter.revRange(n, 0)))),
       ),
     ],
-  ),
+  )
 );
 
 let for_add_many = Vector.init<Nat>(n, 0);
 Vector.addMany(for_add_many, n, 0);
+
+let for_add_iter = Vector.init<Nat>(n, 0);
+Vector.addFromIter(for_add_iter, Array.init<Nat>(n, 0).vals());
 
 run(
   suite(
@@ -130,8 +143,13 @@ run(
         Iter.toArray(Vector.vals(for_add_many)),
         M.equals(T.array(T.natTestable, Array.tabulate<Nat>(2 * n, func(_) = 0))),
       ),
+      test(
+        "addFromIter",
+        Vector.toArray(for_add_iter),
+        M.equals(T.array(T.natTestable, Array.tabulate<Nat>(2 * n, func(_) = 0))),
+      ),
     ],
-  ),
+  )
 );
 
 for (i in Iter.range(0, n)) {
@@ -153,7 +171,7 @@ run(
         M.equals(T.array(T.intTestable, Iter.toArray(Iter.revRange(n, 0)))),
       ),
     ],
-  ),
+  )
 );
 
 let removed = Buffer.Buffer<Nat>(0);
@@ -176,7 +194,7 @@ run(
         M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
       ),
     ],
-  ),
+  )
 );
 
 for (i in Iter.range(0, n)) {
@@ -193,7 +211,7 @@ run(
         M.equals(T.array(T.natTestable, Iter.toArray(Iter.range(0, n)))),
       ),
     ],
-  ),
+  )
 );
 
 run(
@@ -216,11 +234,13 @@ run(
         M.equals(T.array(T.natTestable, [1])),
       ),
     ],
-  ),
+  )
 );
 
 var sumN = 0;
 Vector.iterate<Nat>(vector, func(i) { sumN += i });
+var sumRev = 0;
+Vector.iterateRev<Nat>(vector, func(i) { sumRev += i });
 var sum1 = 0;
 Vector.iterate<Nat>(Vector.init<Nat>(1, 1), func(i) { sum1 += i });
 var sum0 = 0;
@@ -233,7 +253,12 @@ run(
       test(
         "sumN",
         [sumN],
-        M.equals(T.array(T.natTestable, [n * (n +1) / 2])),
+        M.equals(T.array(T.natTestable, [n * (n + 1) / 2])),
+      ),
+      test(
+        "sumRev",
+        [sumRev],
+        M.equals(T.array(T.natTestable, [n * (n + 1) / 2])),
       ),
       test(
         "sum1",
@@ -246,7 +271,7 @@ run(
         M.equals(T.array(T.natTestable, [0])),
       ),
     ],
-  ),
+  )
 );
 
 func locate_readable<X>(index : Nat) : (Nat, Nat) {
