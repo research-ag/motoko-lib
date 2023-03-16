@@ -558,6 +558,7 @@ module Static {
   };
 
   /// Returns true iff every element in `vec` satisfies `predicate`.
+  /// In particular, if `vec` is empty the function returns `true`.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -579,6 +580,7 @@ module Static {
   };
 
   /// Returns true iff some element in `vec` satisfies `predicate`.
+  /// In particular, if `vec` is empty the function returns `false`.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -603,6 +605,8 @@ module Static {
   };
 
   /// Returns true iff no element in `vec` satisfies `predicate`.
+  /// This is logically equivalent to that all elements in `vec` satisfy `not predicate`.
+  /// In particular, if `vec` is empty the function returns `true`.
   ///
   /// Example:
   /// ```motoko include=initialize
@@ -737,7 +741,7 @@ module Static {
       db[i_element];
     };
   };
-
+   
   /// Returns an Iterator (`Iter`) over the items in reverse order, i.e. pairs of value and index of a Vector.
   /// Iterator provides a single method `next()`, which returns
   /// elements in reverse order, or `null` when out of elements to iterate over.
@@ -1162,7 +1166,6 @@ module Static {
   ///
   /// *Runtime and space assumes that `f` runs in O(1) time and space.
   public func iterateRev<X>(vec : Vector<X>, f : X -> ()) {
-    var i = size(vec);
     var i_block = vec.i_block;
     var i_element = vec.i_element;
     var db : [var ?X] = if (i_block < vec.data_blocks.size()) {
@@ -1181,10 +1184,7 @@ module Static {
         i_element -= 1;
       };
       switch (db[i_element]) {
-        case (?x) {
-          i -= 1;
-          f(x);
-        };
+        case (?x) f(x);
         case (_) Prim.trap(INTERNAL_ERROR);
       };
     };
