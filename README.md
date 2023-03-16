@@ -79,3 +79,18 @@ Or, run individual tests by `make vector`, `make sha2`, etc.
 ## Benchmarks
 
 See: https://github.com/research-ag/canister-profiling
+
+## Docs
+
+In project folder:
+```
+cd docs
+make
+cd ..
+mkdocs serve
+```
+
+To deploy to `github.io`
+```
+mkdocs gh-deploy
+```

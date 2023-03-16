@@ -17,6 +17,8 @@ nav:
     - Sha512: modoc/Sha512.md
     - Queue: modoc/Queue.md
     - Prng: modoc/Prng.md
+  - Setup: setup.md
+  - Benchmarks: benches.md
   - Contribute: contribute.md
   - About: about.md
 theme:
