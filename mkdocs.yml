@@ -10,13 +10,14 @@ nav:
     - Enumeration: modules/enumeration.md
     - Sha256/512: modules/sha2.md
     - Queue: modules/queue.md
+    - PRNG: modules/prng.md
   - APIs:
     - Vector: modoc/Vector.md
     - Enumeration: modoc/Enumeration.md
     - Sha256: modoc/Sha256.md
     - Sha512: modoc/Sha512.md
     - Queue: modoc/Queue.md
-    - Prng: modoc/Prng.md
+    - PRNG: modoc/Prng.md
   - Setup: setup.md
   - Benchmarks: benches.md
   - Contribute: contribute.md

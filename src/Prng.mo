@@ -1,4 +1,5 @@
 /// Implementation of the 128-bit Seiran PRNG
+///
 /// See: https://github.com/andanteyk/prng-seiran
 ///
 /// WARNING: This is not a cryptographically secure pseudorandom
@@ -13,13 +14,13 @@ module {
     var a : Nat64 = 0;
     var b : Nat64 = 0;
 
-    // Initialize the PRNG with a particular seed
+    /// Initialize the PRNG with a particular seed
     public func init(seed : Nat64) {
       a := seed *% 6364136223846793005 +% 1442695040888963407;
       b := a *% 6364136223846793005 +% 1442695040888963407;
     };
 
-    // Return the PRNG result and advance the state
+    /// Return the PRNG result and advance the state
     public func next() : Nat64 {
       let result = (((a +% b) *% 9) <<> 29) +% a;
 
@@ -30,7 +31,7 @@ module {
       result;
     };
 
-    // Given a bit polynomial, advance the state (see below functions)
+    /// Given a bit polynomial, advance the state (see below functions)
     func jump(jumppoly : [Nat64]) {
       var t0 : Nat64 = 0;
       var t1 : Nat64 = 0;
@@ -52,13 +53,13 @@ module {
       b := t1;
     };
 
-    // Advance the state 2^32 times
+    /// Advance the state 2^32 times
     public func jump32() = jump([0x40165CBAE9CA6DEB, 0x688E6BFC19485AB1]);
 
-    // Advance the state 2^64 times
+    /// Advance the state 2^64 times
     public func jump64() = jump([0xF4DF34E424CA5C56, 0x2FE2DE5C2E12F601]);
 
-    // Advance the state 2^96 times
+    /// Advance the state 2^96 times
     public func jump96() = jump([0x185F4DF8B7634607, 0x95A98C7025F908B2]);
   };
 
@@ -79,11 +80,12 @@ module {
       for (_ in range(0, 11)) ignore next();
     };
 
-    // Initialize the PRNG with a particular seed
+    /// Initialize the PRNG with a particular seed
     public func init1(seed : Nat64) = init3(seed, seed, seed);
 
     public func init() = init1(0xcafef00dbeef5eed);
 
+    /// Return the PRNG result and advance the state
     public func next() : Nat64 {
       let tmp = a +% b +% d;
       a := b ^ (b >> q);
@@ -100,6 +102,7 @@ module {
     var c : Nat32 = 0;
     var d : Nat32 = 0;
 
+    /// Initialize the PRNG with 3 seeds
     public func init3(seed1 : Nat32, seed2 : Nat32, seed3 : Nat32) {
       a := seed1;
       b := seed2;
@@ -110,11 +113,13 @@ module {
       for (_ in range(0, 11)) ignore next();
     };
 
-    // Initialize the PRNG with a particular seed
+    /// Initialize the PRNG with a particular seed
     public func init1(seed : Nat32) = init3(seed, seed, seed);
 
+    /// Initialize the PRNG
     public func init() = init1(0xbeef5eed);
 
+    /// Return the PRNG result and advance the state
     public func next() : Nat32 {
       let tmp = a +% b +% d;
       a := b ^ (b >> q);
@@ -125,17 +130,19 @@ module {
     };
   };
 
-  // --- Use these ---
-  // SFC64a is same as numpy:
-  // https://github.com/numpy/numpy/blob/b6d372c25fab5033b828dd9de551eb0b7fa55800/numpy/random/src/sfc64/sfc64.h#L28
+  /// SFC64a is same as numpy:
+  /// https:///github.com/numpy/numpy/blob/b6d372c25fab5033b828dd9de551eb0b7fa55800/numpy/random/src/sfc64/sfc64.h#L28
   public func SFC64a() : SFC64 { SFC64(24, 11, 3) };
 
+  /// Use this  
   public func SFC32a() : SFC32 { SFC32(21, 9, 3) };
+  
+  /// Use this.
   public func SFC32b() : SFC32 { SFC32(15, 8, 3) };
 
-  // --- Not recommended ---
+  /// Not recommended. Use `a` version.
   public func SFC64b() : SFC64 { SFC64(25, 12, 3) };
 
+  /// Not recommended. Use `a` version.
   public func SFC32c() : SFC32 { SFC32(25, 8, 3) };
-
 };
