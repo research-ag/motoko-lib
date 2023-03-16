@@ -6,14 +6,17 @@ copyright: Copyright &copy; 2023 MR Research AG
 nav:
   - Home: index.md
   - Modules:
-    - Sha256/512: modules/sha2.md
     - Vector: modules/vector.md
     - Enumeration: modules/enumeration.md
+    - Sha256/512: modules/sha2.md
+    - Queue: modules/queue.md
   - APIs:
-    - Sha256: modoc/Sha256.md
-    - Sha512: modoc/Sha512.md
     - Vector: modoc/Vector.md
     - Enumeration: modoc/Enumeration.md
+    - Sha256: modoc/Sha256.md
+    - Sha512: modoc/Sha512.md
+    - Queue: modoc/Queue.md
+    - Prng: modoc/Prng.md
   - Contribute: contribute.md
   - About: about.md
 theme:
