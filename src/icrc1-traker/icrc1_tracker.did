@@ -1,0 +1,8 @@
+service : (opt principal) -> {
+    // init
+    init: () -> (); 
+    // query
+    creditAvailable: (principal) -> (int) query;
+    // update
+    notify: (principal) -> ();
+}
