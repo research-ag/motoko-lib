@@ -25,7 +25,7 @@ module {
     #IcrcGenericError;
   };
 
-  public class Icrc1Tracker(
+  public class TokenHandler(
     icrc1Ledger: Icrc1Interface.Icrc1LedgerInterface, 
     ownPrincipal: Principal,
   ) {
