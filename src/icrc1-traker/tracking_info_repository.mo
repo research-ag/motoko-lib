@@ -7,45 +7,52 @@ import Debug "mo:base/Debug";
 module TrackingInfoRepository {
 
   type TrackingInfo = {
-    var tracked : Nat;
-    var credit : Int;
+    var deposit_balance : Nat; // the balance that is in the subaccount associated with the user
+    var credit_balance : Int; // the balance that has been moved by S from S:P to S:0 (e.g. consolidated)
     var consolidationLock : Bool;
   };
-  public type StableTrackingInfo = { tracked : Nat; credit : Int };
+  public type StableTrackingInfo = { deposit_balance : Nat; credit_balance : Int };
 
-  // terminology: spendable balance = deposit balance + credit balance
   public class TrackingInfoRepository() {
 
     var tree : RBTree.RBTree<Principal, TrackingInfo> = RBTree.RBTree<Principal, TrackingInfo>(Principal.compare);
 
-    public func creditBalanceOf(p : Principal) : Int {
+    public func usableBalanceOf(p : Principal) : Int {
       let ?item = tree.get(p) else return 0;
-      item.credit;
+      item.deposit_balance + item.credit_balance;
     };
 
-    public func spendableBalanceOf(p : Principal) : Int {
-      let ?item = tree.get(p) else return 0;
-      item.tracked + item.credit;
+    public func info(p : Principal) : StableTrackingInfo {
+      let ?item = tree.get(p) else return { deposit_balance = 0; credit_balance = 0; usable_balance = 0 };
+      { deposit_balance = item.deposit_balance; credit_balance = item.credit_balance };
     };
 
     private func cleanIfZero(info : TrackingInfo, p : Principal) {
-      if (info.tracked == 0 and info.credit == 0 and not info.consolidationLock) {
+      if (info.deposit_balance == 0 and info.credit_balance == 0 and not info.consolidationLock) {
         tree.delete(p);
       };
     };
 
-    public func checkNewDeposits(p : Principal, tracked : Nat) : Int {
+    public func updateDepositBalance(p : Principal, deposit_balance : Nat) : () {
       let info = getOrCreate(p);
-      info.tracked := tracked;
+      info.deposit_balance := deposit_balance;
       cleanIfZero(info, p);
-      info.tracked + info.credit;
     };
 
-    public func addCredit(p : Principal, delta : Int) : Int {
+    public func debit(p: Principal, amount: Nat): Bool {
       let info = getOrCreate(p);
-      info.credit += delta;
+      if (info.deposit_balance + info.credit_balance < amount) {
+        cleanIfZero(info, p);
+        return false;
+      };
+      info.credit_balance -= amount;
       cleanIfZero(info, p);
-      info.tracked + info.credit;
+      return true;
+    };
+    public func credit(p : Principal, amount : Nat) : () {
+      let info = getOrCreate(p);
+      info.credit_balance += amount;
+      cleanIfZero(info, p);
     };
 
     public func obtainLock(p : Principal) : Bool {
@@ -67,23 +74,27 @@ module TrackingInfoRepository {
       Iter.map<(Principal, TrackingInfo), (Principal, StableTrackingInfo)>(
         Iter.filter<(Principal, TrackingInfo)>(
           tree.entries(),
-          func((p, ti)) = ti.credit != 0 or ti.tracked != 0,
+          func((p, ti)) = ti.credit_balance != 0 or ti.deposit_balance != 0,
         ),
-        func((p, ti)) = (p, { tracked = ti.tracked; credit = ti.credit }),
+        func((p, ti)) = (p, { deposit_balance = ti.deposit_balance; credit_balance = ti.credit_balance }),
       ),
     );
 
     public func unshare(values : [(Principal, StableTrackingInfo)]) {
       tree := RBTree.RBTree<Principal, TrackingInfo>(Principal.compare);
       for ((p, value) in values.vals()) {
-        tree.put(p, { var tracked = value.tracked; var credit = value.credit; var consolidationLock = false });
+        tree.put(p, { 
+          var deposit_balance = value.deposit_balance; 
+          var credit_balance = value.credit_balance; 
+          var consolidationLock = false
+        });
       };
     };
 
     private func getOrCreate(p : Principal) : TrackingInfo = switch (tree.get(p)) {
       case (?ti) ti;
       case (null) {
-        let ti = { var tracked = 0; var credit : Int = 0; var consolidationLock = false; };
+        let ti = { var deposit_balance = 0; var credit_balance : Int = 0; var usable_balance : Int = 0; var consolidationLock = false; };
         tree.put(p, ti);
         ti;
       };
