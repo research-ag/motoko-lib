@@ -1,9 +1,10 @@
 /// Resizable one-dimensional array with `O(sqrt(n))` memory waste.
 import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:base/Nat32";
-import { min = min } "mo:base/Nat";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
+import { min = natMin } "mo:base/Nat";
+import Order "mo:base/Order";
 
 module Static {
   /// Class `Vector<X>` provides a mutable list of elements of type `X`.
@@ -106,7 +107,7 @@ module Static {
           vec.data_blocks[vec.i_block] := Array.init<?X>(db_size, null);
         };
         let from = vec.i_element;
-        let to = min(vec.i_element + cnt, db_size);
+        let to = natMin(vec.i_element + cnt, db_size);
 
         let block = vec.data_blocks[vec.i_block];
         var i = from;
@@ -1189,6 +1190,355 @@ module Static {
       };
     };
   };
+
+  /// Returns true if Vector contains element with respect to equality
+  /// defined by `equal`.
+  ///
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// Vector.add(vec, 2);
+  /// Vector.add(vec, 0);
+  /// Vector.add(vec, 3);
+  ///
+  /// Vector.contains<Nat>(vec, 2, Nat.equal); // => true
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `equal` runs in O(1) time and space.
+  public func contains<X>(vec : Vector<X>, element : X, equal : (X, X) -> Bool) : Bool {
+    for ((x, _) in items(vec)) {
+      if (equal(x, element)) return true;
+    };
+    return false;
+  };
+
+  /// Finds the greatest element in `vector` defined by `compare`.
+  /// Returns `null` if `vector` is empty.
+  ///
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  ///
+  /// Vector.max<Nat>(vec, Nat.compare); // => ?2
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `compare` runs in O(1) time and space.
+  public func max<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X {
+    if (size<X>(vec) == 0) {
+      return null
+    };
+
+    var maxSoFar = get<X>(vec, 0);
+    for ((x, _) in items(vec)) {
+      switch (compare(x, maxSoFar)) {
+        case (#greater) {
+          maxSoFar := x
+        };
+        case _ {}
+      }
+    };
+
+    ?maxSoFar
+  };
+
+  /// Finds the least element in `vector` defined by `compare`.
+  /// Returns `null` if `vector` is empty.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// Vector.add(vec, 1);
+  /// Vector.add(vec, 2);
+  ///
+  /// Vector.min<Nat>(vec, Nat.compare); // => ?1
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `compare` runs in O(1) time and space.
+  public func min<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X {
+    if (size<X>(vec) == 0) {
+      return null
+    };
+
+    var minSoFar = get<X>(vec, 0);
+    for ((x, _) in items(vec)) {
+      switch (compare(x, minSoFar)) {
+        case (#less) {
+          minSoFar := x
+        };
+        case _ {}
+      }
+    };
+
+    ?minSoFar
+  };
+
+  /// Defines equality for two vectors, using `equal` to recursively compare elements in the
+  /// vectors. Returns true iff the two vectors are of the same size, and `equal`
+  /// evaluates to true for every pair of elements in the two vectors of the same
+  /// index.
+  ///
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec1 = Vector.fromArray<Nat>([1,2]);
+  /// let vec2 = Vector.new<Nat>();
+  /// vec2.add(1);
+  /// vec2.add(2);
+  ///
+  /// Vector.equal<Nat>(vec1, vec2, Nat.equal); // => true
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `equal` runs in O(1) time and space.
+  public func equal<X>(vec1 : Vector<X>, vec2 : Vector<X>, equal : (X, X) -> Bool) : Bool {
+    let size1 = size<X>(vec1);
+
+    if (size1 != size<X>(vec2)) {
+      return false
+    };
+
+    var i = 0;
+    while (i < size1) {
+      if (not equal(get<X>(vec1, i), get<X>(vec2, i))) {
+        return false
+      };
+      i += 1
+    };
+
+    true
+  };
+
+  /// Defines comparison for two vectors, using `compare` to recursively compare elements in the
+  /// vectors. Comparison is defined lexicographically.
+  ///
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec1 = Vector.fromArray<Nat>([1,2]);
+  /// let vec2 = Vector.new<Nat>();
+  /// vec2.add(1);
+  /// vec2.add(2);
+  ///
+  /// Vector.compare<Nat>(vec1, vec2, Nat.compare); // => #less
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `compare` runs in O(1) time and space.
+  public func compare<X>(vec1 : Vector<X>, vec2 : Vector<X>, compare_fn : (X, X) -> Order.Order) : Order.Order {
+    let size1 = size<X>(vec1);
+    let size2 = size<X>(vec2);
+    let minSize = if (size1 < size2) { size1 } else { size2 };
+
+    var i = 0;
+    while (i < minSize) {
+      switch (compare_fn(get<X>(vec1, i), get<X>(vec2, i))) {
+        case (#less) {
+          return #less
+        };
+        case (#greater) {
+          return #greater
+        };
+        case _ {}
+      };
+      i += 1
+    };
+
+    if (size1 < size2) {
+      #less
+    } else if (size1 == size2) {
+      #equal
+    } else {
+      #greater
+    }
+  };
+
+  /// Creates a textual representation of `vector`, using `toText` to recursively
+  /// convert the elements into Text.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3,4]);
+  ///
+  /// Vector.toText<Nat>(vec, Nat.toText); // => "[1, 2, 3, 4]"
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(size)
+  ///
+  /// *Runtime and space assumes that `toText` runs in O(1) time and space.
+  public func toText<X>(vec : Vector<X>, toText_fn : X -> Text) : Text {
+    let vsize : Int = size<X>(vec);
+    var i = 0;
+    var text = "";
+    while (i < vsize - 1) {
+      text := text # toText_fn(get<X>(vec, i)) # ", "; // Text implemented as rope
+      i += 1
+    };
+    if (vsize > 0) {
+      // avoid the trailing comma
+      text := text # toText_fn(get<X>(vec, i))
+    };
+
+    "[" # text # "]"
+  };
+
+  /// Collapses the elements in `vector` into a single value by starting with `base`
+  /// and progessively combining elements into `base` with `combine`. Iteration runs
+  /// left to right.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  ///
+  /// Vector.foldLeft<Text, Nat>(vec, "", func (acc, x) { acc # Nat.toText(x)}); // => "123"
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `combine` runs in O(1) time and space.
+  public func foldLeft<A, X>(vec : Vector<X>, base : A, combine : (A, X) -> A) : A {
+    var accumulation = base;
+
+    for ((x, _) in items(vec)) {
+      accumulation := combine(accumulation, x)
+    };
+
+    accumulation
+  };
+
+  /// Collapses the elements in `vector` into a single value by starting with `base`
+  /// and progessively combining elements into `base` with `combine`. Iteration runs
+  /// right to left.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  ///
+  /// Vector.foldRight<Nat, Text>(vec, "", func (x, acc) { Nat.toText(x) # acc }); // => "123"
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `combine` runs in O(1) time and space.
+  public func foldRight<X, A>(vec : Vector<X>, base : A, combine : (X, A) -> A) : A {
+    let vsize = size<X>(vec);
+    if (vsize == 0) {
+      return base
+    };
+    var accumulation = base;
+
+    var i = vsize;
+    while (i >= 1) {
+      i -= 1; // to avoid Nat underflow, subtract first and stop iteration at 1
+      accumulation := combine(get<X>(vec, i), accumulation)
+    };
+
+    accumulation
+  };
+
+  /// Returns a new vector with capacity and size 1, containing `element`.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec = Vector.make<Nat>(1);
+  /// Vector.toText<Nat>(vec, Nat.toText); // => "[1]"
+  /// ```
+  ///
+  /// Runtime: O(1)
+  ///
+  /// Space: O(1)
+  public func make<X>(element : X) : Vector<X> {
+    init<X>(1, element)
+  };
+
+  /// Reverses the order of elements in `vector`.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  ///
+  /// Vector.reverse<Nat>(vec);
+  /// Vector.toText<Nat>(vec, Nat.toText); // => "[3, 2, 1]"
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  public func reverse<X>(vec : Vector<X>) {
+    let vsize = size<X>(vec);
+    if (vsize == 0) {
+      return
+    };
+
+    var i = 0;
+    var j = vsize - 1 : Nat;
+    var temp = get<X>(vec, 0);
+    while (i < vsize / 2) {
+      temp := get<X>(vec, j);
+      put<X>(vec, j, get<X>(vec, i));
+      put<X>(vec, i, temp);
+      i += 1;
+      j -= 1
+    }
+  };
+
+  /// Returns true if and only if the vector is empty.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  ///
+  /// let vec = Vector.fromArray<Nat>([2,0,3]);
+  /// Vector.isEmpty<Nat>(vec); // => false
+  /// ```
+  ///
+  /// Runtime: O(1)
+  ///
+  /// Space: O(1)
+  public func isEmpty<X>(vec : Vector<X>) : Bool = size<X>(vec) == 0;
 
   /// Submodule with Vector as a class
   /// This allows to use VectorClass as a drop-in replacement of Buffer
