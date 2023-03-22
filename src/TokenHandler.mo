@@ -13,65 +13,173 @@ import Array "mo:base/Array";
 import Icrc1Interface "ICRC1Interface";
 
 module TokenHandler {
-  public type StableTrackingInfo = {
+  public type TrackingInfo = {
     deposit_balance : Nat;
     credit_balance : Int;
   };
-  public type Icrc1LedgerInterface = Icrc1Interface.Icrc1LedgerInterface;
 
-  type TrackingInfo = {
+  type TrackingInfoLock = {
     var deposit_balance : Nat; // the balance that is in the subaccount associated with the user
     var credit_balance : Int; // the balance that has been moved by S from S:P to S:0 (e.g. consolidated)
-    var consolidationLock : Bool; // lock flag. For internal usage only
+    var lock : Bool; // lock flag. For internal usage only
   };
 
   public class TokenHandler(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
   ) {
+    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : Icrc1Interface.Icrc1LedgerInterface;
+
+    // a backlog of principals, with failed account consolidation
+    var consolidationBacklog : AssocList.AssocList<Principal, ()> = null;
+
+    // The map from principal to tracking info:
+    var tree : RBTree.RBTree<Principal, TrackingInfoLock> = RBTree.RBTree<Principal, TrackingInfoLock>(Principal.compare);
+
+    func change(principal : Principal, f : (TrackingInfoLock) -> Bool) : Bool {
+      let ?info = tree.get(principal) else return false;
+      let changed = f(info);
+      if (changed) {
+        if (info.deposit_balance == 0 and info.credit_balance == 0 and not info.lock) {
+          tree.delete(principal);
+        };
+      };
+      return changed;
+    };
+
+    func set(principal : Principal, f : (TrackingInfoLock) -> Bool) : Bool {
+      let info = switch (tree.get(principal)) {
+        case (?info) info;
+        case (null) {
+          let info = {
+            var deposit_balance = 0;
+            var credit_balance : Int = 0;
+            var lock = false;
+          };
+          tree.put(principal, info);
+          info;
+        };
+      };
+      let ret = f(info);
+      if (info.deposit_balance == 0 and info.credit_balance == 0 and not info.lock) {
+        tree.delete(principal);
+      };
+      ret;
+    };
 
     /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
     /// to the last balance seen. If it has increased then it will adjust the deposit_balance (and hence the usable_balance).
     /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
     /// Note: concurrent notify() for the same P have to be handled with locks.
-    public func notify(p : Principal) : async* () {
-      await* consolidateAccount(p);
+    public func notify(principal : Principal) : async* () {
+      func obtainLock(principal : Principal) : Bool {
+        set(
+          principal,
+          func(info) {
+            if (info.lock) return false;
+            info.lock := true;
+            true;
+          },
+        );
+      };
+
+      func releaseLock(principal : Principal) {
+        let changed = change(
+          principal,
+          func(info) {
+            if (not info.lock) return false;
+            info.lock := false;
+            true;
+          },
+        );
+        // while testing we should trap here
+        if (not changed) Debug.trap("releasing lock that isn't locked");
+      };
+
+      func updateDeposit(principal : Principal, deposit_balance : Nat) : () {
+        ignore set(principal, func(info) { info.deposit_balance := deposit_balance; true });
+      };
+
+      func consolidateAccount(principal : Principal) : async* () {
+        var latestBalance = 0;
+        try {
+          latestBalance := await icrc1Ledger.icrc1_balance_of({
+            owner = ownPrincipal;
+            subaccount = ?toSubaccount(principal);
+          });
+        } catch (err) {
+          throw err;
+        };
+        updateDeposit(principal, latestBalance);
+        if (latestBalance != 0) {
+          let transferResult = try {
+            await icrc1Ledger.icrc1_transfer({
+              from_subaccount = ?toSubaccount(principal);
+              to = { owner = ownPrincipal; subaccount = null };
+              amount = latestBalance;
+              fee = null;
+              memo = null;
+              created_at_time = null;
+            });
+          } catch (err) {
+            #Err(#CallIcrc1LedgerError);
+          };
+          switch (transferResult) {
+            case (#Ok _) {
+              credit(principal, latestBalance);
+              updateDeposit(principal, 0);
+            };
+            case (#Err _) {
+              updateDeposit(principal, latestBalance);
+              consolidationBacklog := AssocList.replace<Principal, ()>(consolidationBacklog, principal, Principal.equal, ?()).0;
+            };
+          };
+        };
+      };
+
+      if (not obtainLock(principal)) return;
+      try {
+        await* consolidateAccount(principal);
+      } catch err {
+        releaseLock(principal);
+        throw err;
+      };
+      releaseLock(principal);
     };
 
     /// deduct amount from P’s usable balance. Return false if the balance is insufficient.
-    public func debit(p : Principal, amount : Nat) : Bool {
-      let ?info = tree.get(p) else return false;
-      if (info.deposit_balance + info.credit_balance < amount) {
-        return false;
-      };
-      info.credit_balance -= amount;
-      cleanTrackingInfoIfZero(info, p);
-      return true;
+    public func debit(principal : Principal, amount : Nat) : Bool {
+      change(
+        principal,
+        func(info) {
+          if (info.deposit_balance + info.credit_balance < amount) return false;
+          info.credit_balance -= amount;
+          return true;
+        },
+      );
     };
 
     ///  add amount to P’s usable balance (the credit is created out of thin air)
-    public func credit(p : Principal, amount : Nat) : () {
-      let info = getOrCreateTrackingInfo(p);
-      info.credit_balance += amount;
-      cleanTrackingInfoIfZero(info, p);
+    public func credit(principal : Principal, amount : Nat) : () {
+      ignore set(
+        principal,
+        func(info) {
+          info.credit_balance += amount;
+          true;
+        },
+      );
     };
 
     /// query the usable balance
-    public func balance(p : Principal) : Nat {
-      let ?item = tree.get(p) else return 0;
-      let balance = item.deposit_balance + item.credit_balance;
-      if (balance >= 0) {
-        return Int.abs(balance);
-      } else {
-        Debug.trap("item.deposit_balance + item.credit_balance < 0");
-      };
+    public func balance(principal : Principal) : Nat {
+      info(principal).usable_balance;
     };
 
     /// query all tracked balances for debug purposes
-    public func info(p : Principal) : StableTrackingInfo and {
+    public func info(principal : Principal) : TrackingInfo and {
       usable_balance : Nat;
     } {
-      let ?item = tree.get(p) else return {
+      let ?item = tree.get(principal) else return {
         deposit_balance = 0;
         credit_balance = 0;
         usable_balance = 0;
@@ -89,152 +197,62 @@ module TokenHandler {
     /// process first account, which was failed to consolidate last time
     public func processConsolidationBacklog() : async () = async switch (consolidationBacklog) {
       case (null) return;
-      case (?((p, _), list)) {
+      case (?((principal, _), list)) {
         consolidationBacklog := list;
-        await* consolidateAccount(p);
+        await* notify(principal);
       };
     };
 
     /// serialize tracking data
-    public func share() : [(Principal, StableTrackingInfo)] = Iter.toArray(
-      Iter.map<(Principal, TrackingInfo), (Principal, StableTrackingInfo)>(
-        Iter.filter<(Principal, TrackingInfo)>(
+    public func share() : [(Principal, TrackingInfo)] = Iter.toArray(
+      Iter.map<(Principal, TrackingInfoLock), (Principal, TrackingInfo)>(
+        Iter.filter<(Principal, TrackingInfoLock)>(
           tree.entries(),
-          func((p, ti)) = ti.credit_balance != 0 or ti.deposit_balance != 0,
+          func((principal, info)) = info.credit_balance != 0 or info.deposit_balance != 0,
         ),
-        func((p, ti)) = (p, { deposit_balance = ti.deposit_balance; credit_balance = ti.credit_balance }),
+        func((principal, info)) = (principal, { deposit_balance = info.deposit_balance; credit_balance = info.credit_balance }),
       )
     );
 
     /// deserialize tracking data
-    public func unshare(values : [(Principal, StableTrackingInfo)]) {
-      tree := RBTree.RBTree<Principal, TrackingInfo>(Principal.compare);
-      for ((p, value) in values.vals()) {
+    public func unshare(values : [(Principal, TrackingInfo)]) {
+      tree := RBTree.RBTree<Principal, TrackingInfoLock>(Principal.compare);
+      for ((principal, value) in values.vals()) {
         tree.put(
-          p,
+          principal,
           {
             var deposit_balance = value.deposit_balance;
             var credit_balance = value.credit_balance;
-            var consolidationLock = false;
+            var lock = false;
           },
         );
       };
     };
 
-    public func principalToSubaccount(p : Principal) : Icrc1Interface.Subaccount {
-      // principal blob size can vary, but 29 bytes as most. We preserve it's size in result blob
-      // and it's data itself so it can be deserialized back to principal
-      let principalBytes = Blob.toArray(Principal.toBlob(p));
+    public func toSubaccount(principal : Principal) : Icrc1Interface.Subaccount {
+      // principal blob size can vary, but 29 bytes as most. We preserve it'subaccount size in result blob
+      // and it'subaccount data itself so it can be deserialized back to principal
+      let principalBytes = Blob.toArray(Principal.toBlob(principal));
       let principalSize = principalBytes.size();
       assert principalSize <= 29;
       let subaccountData : [Nat8] = Array.tabulate(
         32,
         func(n : Nat) : Nat8 = if (n == 0) {
           Nat8.fromNat(principalSize);
-        } else if (n > principalSize) {
-          0;
-        } else {
+        } else if (n <= principalSize) {
           principalBytes[n - 1];
+        } else {
+          0;
         },
       );
       Blob.fromArray(subaccountData);
     };
 
-    private func subaccountToPrincipal(s : Icrc1Interface.Subaccount) : Principal {
-      let subaccountBytes = Blob.toArray(s);
+    public func toPrincipal(subaccount : Icrc1Interface.Subaccount) : Principal {
+      let subaccountBytes = Blob.toArray(subaccount);
       let principalSize = Nat8.toNat(subaccountBytes[0]);
       let principalData : [Nat8] = Array.tabulate(principalSize, func(n : Nat) : Nat8 = subaccountBytes[n + 1]);
       Principal.fromBlob(Blob.fromArray(principalData));
     };
-
-    private func consolidateAccount(p : Principal) : async* () {
-      if (not obtainTrackingInfoLock(p)) return;
-      var latestBalance = 0;
-      try {
-        latestBalance := await icrc1Ledger.icrc1_balance_of({
-          owner = ownPrincipal;
-          subaccount = ?principalToSubaccount(p);
-        });
-      } catch (err) {
-        releaseTrackingInfoLock(p);
-        throw err;
-      };
-      updateDepositBalance(p, latestBalance);
-      if (latestBalance != 0) {
-        let transferResult = try {
-          await icrc1Ledger.icrc1_transfer({
-            from_subaccount = ?principalToSubaccount(p);
-            to = { owner = ownPrincipal; subaccount = null };
-            amount = latestBalance;
-            fee = null;
-            memo = null;
-            created_at_time = null;
-          });
-        } catch (err) {
-          #Err(#CallIcrc1LedgerError);
-        };
-        switch (transferResult) {
-          case (#Ok _) {
-            credit(p, latestBalance);
-            updateDepositBalance(p, 0);
-          };
-          case (#Err _) {
-            updateDepositBalance(p, latestBalance);
-            consolidationBacklog := AssocList.replace<Principal, ()>(consolidationBacklog, p, Principal.equal, ?()).0;
-          };
-        };
-      };
-      releaseTrackingInfoLock(p);
-    };
-
-    private func getOrCreateTrackingInfo(p : Principal) : TrackingInfo = switch (tree.get(p)) {
-      case (?ti) ti;
-      case (null) {
-        let ti = {
-          var deposit_balance = 0;
-          var credit_balance : Int = 0;
-          var consolidationLock = false;
-        };
-        tree.put(p, ti);
-        ti;
-      };
-    };
-
-    private func cleanTrackingInfoIfZero(info : TrackingInfo, p : Principal) {
-      if (info.deposit_balance == 0 and info.credit_balance == 0 and not info.consolidationLock) {
-        tree.delete(p);
-      };
-    };
-
-    public func obtainTrackingInfoLock(p : Principal) : Bool {
-      let info = getOrCreateTrackingInfo(p);
-      if (info.consolidationLock) return false;
-      info.consolidationLock := true;
-      true;
-    };
-
-    public func releaseTrackingInfoLock(p : Principal) {
-      // while testing we should trap here
-      let ?info = tree.get(p) else {
-        Debug.trap("releasing lock that isn't locked");
-      };
-      if (not info.consolidationLock) Debug.trap("releasing lock that isn't locked");
-      info.consolidationLock := false;
-      cleanTrackingInfoIfZero(info, p);
-    };
-
-    private func updateDepositBalance(p : Principal, deposit_balance : Nat) : () {
-      let info = getOrCreateTrackingInfo(p);
-      info.deposit_balance := deposit_balance;
-      cleanTrackingInfoIfZero(info, p);
-    };
-
-    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : Icrc1Interface.Icrc1LedgerInterface;
-
-    // a backlog of principals, with failed account consolidation
-    var consolidationBacklog : AssocList.AssocList<Principal, ()> = null;
-
-    // The map from principal to tracking info:
-    var tree : RBTree.RBTree<Principal, TrackingInfo> = RBTree.RBTree<Principal, TrackingInfo>(Principal.compare);
   };
 };
