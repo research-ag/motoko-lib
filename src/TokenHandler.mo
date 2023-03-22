@@ -60,15 +60,15 @@ module TokenHandler {
     ownPrincipal : Principal,
   ) {
 
-    /** The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared 
-    to the last balance seen. If it has increased then it will adjust the deposit_balance (and hence the usable_balance). 
-    It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0. 
-    Note: concurrent notify() for the same P have to be handled with locks. */
+    /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared 
+    /// to the last balance seen. If it has increased then it will adjust the deposit_balance (and hence the usable_balance). 
+    /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0. 
+    /// Note: concurrent notify() for the same P have to be handled with locks.
     public func notify(p : Principal) : async* () {
       await* consolidateAccount(p);
     };
 
-    /** deduct amount from P’s usable balance. Return false if the balance is insufficient. */
+    /// deduct amount from P’s usable balance. Return false if the balance is insufficient.
     public func debit(p : Principal, amount : Nat) : Bool {
       let ?info = tree.get(p) else return false;
       if (info.deposit_balance + info.credit_balance < amount) {
@@ -79,14 +79,14 @@ module TokenHandler {
       return true;
     };
 
-    /**  add amount to P’s usable balance (the credit is created out of thin air) */
+    ///  add amount to P’s usable balance (the credit is created out of thin air)
     public func credit(p : Principal, amount : Nat) : () {
       let info = getOrCreateTrackingInfo(p);
       info.credit_balance += amount;
       cleanTrackingInfoIfZero(info, p);
     };
 
-    /** query the usable balance */
+    /// query the usable balance
     public func balance(p : Principal) : Nat {
       let ?item = tree.get(p) else return 0;
       let balance = item.deposit_balance + item.credit_balance;
@@ -97,7 +97,7 @@ module TokenHandler {
       }
     };
 
-    /** query all tracked balances for debug purposes */
+    /// query all tracked balances for debug purposes
     public func info(p : Principal) : StableTrackingInfo {
       let ?item = tree.get(p) else return {
         deposit_balance = 0;
@@ -110,7 +110,7 @@ module TokenHandler {
       };
     };
 
-    /** process first account, which was failed to consolidate last time */
+    /// process first account, which was failed to consolidate last time
     public func processConsolidationBacklog() : async () = async switch (consolidationBacklog) {
       case (null) return;
       case (?((p, _), list)) {
@@ -119,7 +119,7 @@ module TokenHandler {
       };
     };
 
-    /** serialize tracking data */
+    /// serialize tracking data
     public func share() : [(Principal, StableTrackingInfo)] = Iter.toArray(
       Iter.map<(Principal, TrackingInfo), (Principal, StableTrackingInfo)>(
         Iter.filter<(Principal, TrackingInfo)>(
@@ -130,7 +130,7 @@ module TokenHandler {
       )
     );
 
-    /** deserialize tracking data */
+    /// deserialize tracking data
     public func unshare(values : [(Principal, StableTrackingInfo)]) {
       tree := RBTree.RBTree<Principal, TrackingInfo>(Principal.compare);
       for ((p, value) in values.vals()) {
