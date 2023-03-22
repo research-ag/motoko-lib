@@ -11,6 +11,7 @@ nav:
     - Sha256/512: modules/sha2.md
     - Queue: modules/queue.md
     - PRNG: modules/prng.md
+    - TokenHandler: modules/token_handler.md
   - APIs:
     - Vector: modoc/Vector.md
     - Enumeration: modoc/Enumeration.md
