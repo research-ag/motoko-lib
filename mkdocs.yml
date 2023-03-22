@@ -19,6 +19,7 @@ nav:
     - Sha512: modoc/Sha512.md
     - Queue: modoc/Queue.md
     - PRNG: modoc/Prng.md
+    - TokenHandler: modoc/TokenHandler.md
   - Setup: setup.md
   - Benchmarks: benches.md
   - Contribute: contribute.md
