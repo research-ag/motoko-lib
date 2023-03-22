@@ -8,6 +8,8 @@ import Debug "mo:base/Debug";
 import Int "mo:base/Int";
 import AssocList "mo:base/AssocList";
 import Blob "mo:base/Blob";
+import Nat8 "mo:base/Nat8";
+import Array "mo:base/Array";
 
 // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
 module Icrc1Interface {
@@ -149,8 +151,8 @@ module TokenHandler {
       try {
         latestBalance := await icrc1Ledger.icrc1_balance_of({
           owner = ownPrincipal;
-          subaccount = ?Principal.toBlob(p);
-        }); // FIXME should be 32 bytes instead of 29;
+          subaccount = ?principalToSubaccount(p);
+        });
       } catch (err) {
         releaseTrackingInfoLock(p);
         throw err;
@@ -159,7 +161,7 @@ module TokenHandler {
       if (latestBalance != 0) {
         let transferResult = try {
           await icrc1Ledger.icrc1_transfer({
-            from_subaccount = ?Principal.toBlob(p); // FIXME should be 32 bytes instead of 29
+            from_subaccount = ?principalToSubaccount(p);
             to = { owner = ownPrincipal; subaccount = null };
             amount = latestBalance;
             fee = null;
@@ -224,6 +226,31 @@ module TokenHandler {
       let info = getOrCreateTrackingInfo(p);
       info.deposit_balance := deposit_balance;
       cleanTrackingInfoIfZero(info, p);
+    };
+
+    private func principalToSubaccount(p : Principal) : Icrc1Interface.Subaccount {
+      // principal blob size can vary, but 29 bytes as most. We preserve it's size in result blob 
+      // and it's data itself so it can be deserialized back to principal
+      let principalBytes = Blob.toArray(Principal.toBlob(p));
+      let principalSize = principalBytes.size();
+      assert principalSize <= 29;
+      let subaccountData : [Nat8] = Array.tabulate(32, func (n: Nat): Nat8 = 
+        if (n == 0) {
+          Nat8.fromNat(principalSize);
+        } else if (n > principalSize) {
+          0;
+        } else {
+          principalBytes[n - 1];
+        }
+      );
+      Blob.fromArray(subaccountData);
+    };
+
+    private func subaccountToPrincipal(s : Icrc1Interface.Subaccount) : Principal {
+      let subaccountBytes = Blob.toArray(s);
+      let principalSize = Nat8.toNat(subaccountBytes[0]);
+      let principalData : [Nat8] = Array.tabulate(principalSize, func (n: Nat): Nat8 = subaccountBytes[n + 1]);
+      Principal.fromBlob(Blob.fromArray(principalData));
     };
 
     let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : Icrc1Interface.Icrc1LedgerInterface;
