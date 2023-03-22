@@ -66,9 +66,8 @@ module TokenHandler {
 
     /** deduct amount from P’s usable balance. Return false if the balance is insufficient. */
     public func debit(p: Principal, amount: Nat): Bool {
-      let info = getOrCreateTrackingInfo(p);
+      let ?info = tree.get(p) else return false;
       if (info.deposit_balance + info.credit_balance < amount) {
-        cleanTrackingInfoIfZero(info, p);
         return false;
       };
       info.credit_balance -= amount;
@@ -84,9 +83,14 @@ module TokenHandler {
     };
 
     /** query the usable balance */
-    public func balance(p: Principal): Int {
+    public func balance(p: Principal): Nat {
       let ?item = tree.get(p) else return 0;
-      item.deposit_balance + item.credit_balance;
+      let balance = item.deposit_balance + item.credit_balance;
+      if (balance >= 0) {
+        return Int.abs(balance);
+      } else {
+        Debug.trap("item.deposit_balance + item.credit_balance < 0");
+      }
     };
 
     /** query all tracked balances for debug purposes */
