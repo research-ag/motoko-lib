@@ -36,14 +36,16 @@ module TokenHandler {
     // The map from principal to tracking info:
     var tree : RBTree.RBTree<Principal, TrackingInfoLock> = RBTree.RBTree<Principal, TrackingInfoLock>(Principal.compare);
 
+    func clean(principal : Principal, info : TrackingInfoLock) {
+      if (info.deposit_balance == 0 and info.credit_balance == 0 and not info.lock) {
+        tree.delete(principal);
+      };
+    };
+
     func change(principal : Principal, f : (TrackingInfoLock) -> Bool) : Bool {
       let ?info = tree.get(principal) else return false;
       let changed = f(info);
-      if (changed) {
-        if (info.deposit_balance == 0 and info.credit_balance == 0 and not info.lock) {
-          tree.delete(principal);
-        };
-      };
+      if (changed) clean(principal, info);
       return changed;
     };
 
@@ -60,11 +62,9 @@ module TokenHandler {
           info;
         };
       };
-      let ret = f(info);
-      if (info.deposit_balance == 0 and info.credit_balance == 0 and not info.lock) {
-        tree.delete(principal);
-      };
-      ret;
+      let changed = f(info);
+      clean(principal, info);
+      changed;
     };
 
     /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
@@ -229,6 +229,7 @@ module TokenHandler {
       };
     };
 
+    /// Convert Principal to Icrc1Interface.Subaccount
     public func toSubaccount(principal : Principal) : Icrc1Interface.Subaccount {
       // principal blob size can vary, but 29 bytes as most. We preserve it'subaccount size in result blob
       // and it'subaccount data itself so it can be deserialized back to principal
@@ -248,6 +249,7 @@ module TokenHandler {
       Blob.fromArray(subaccountData);
     };
 
+    /// Convert Icrc1Interface.Subaccount to Principal
     public func toPrincipal(subaccount : Icrc1Interface.Subaccount) : Principal {
       let subaccountBytes = Blob.toArray(subaccount);
       let principalSize = Nat8.toNat(subaccountBytes[0]);

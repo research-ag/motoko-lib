@@ -1,5 +1,6 @@
 # Prng
 Implementation of the 128-bit Seiran PRNG
+
 See: https://github.com/andanteyk/prng-seiran
 
 WARNING: This is not a cryptographically secure pseudorandom
@@ -17,6 +18,7 @@ class Seiran128()
 func init(seed : Nat64)
 ```
 
+Initialize the PRNG with a particular seed
 
 
 ### Function `next`
@@ -24,6 +26,7 @@ func init(seed : Nat64)
 func next() : Nat64
 ```
 
+Return the PRNG result and advance the state
 
 
 ### Function `jump32`
@@ -31,6 +34,7 @@ func next() : Nat64
 func jump32()
 ```
 
+Advance the state 2^32 times
 
 
 ### Function `jump64`
@@ -38,6 +42,7 @@ func jump32()
 func jump64()
 ```
 
+Advance the state 2^64 times
 
 
 ### Function `jump96`
@@ -45,6 +50,7 @@ func jump64()
 func jump96()
 ```
 
+Advance the state 2^96 times
 
 ## Class `SFC64`
 
@@ -65,6 +71,7 @@ func init3(seed1 : Nat64, seed2 : Nat64, seed3 : Nat64)
 func init1(seed : Nat64)
 ```
 
+Initialize the PRNG with a particular seed
 
 
 ### Function `init`
@@ -79,6 +86,7 @@ func init()
 func next() : Nat64
 ```
 
+Return the PRNG result and advance the state
 
 ## Class `SFC32`
 
@@ -92,6 +100,7 @@ class SFC32(p : Nat32, q : Nat32, r : Nat32)
 func init3(seed1 : Nat32, seed2 : Nat32, seed3 : Nat32)
 ```
 
+Initialize the PRNG with 3 seeds
 
 
 ### Function `init1`
@@ -99,6 +108,7 @@ func init3(seed1 : Nat32, seed2 : Nat32, seed3 : Nat32)
 func init1(seed : Nat32)
 ```
 
+Initialize the PRNG with a particular seed
 
 
 ### Function `init`
@@ -106,6 +116,7 @@ func init1(seed : Nat32)
 func init()
 ```
 
+Initialize the PRNG
 
 
 ### Function `next`
@@ -113,33 +124,40 @@ func init()
 func next() : Nat32
 ```
 
+Return the PRNG result and advance the state
 
 ## Function `SFC64a`
 ``` motoko
 func SFC64a() : SFC64
 ```
 
+SFC64a is same as numpy:
+https:///github.com/numpy/numpy/blob/b6d372c25fab5033b828dd9de551eb0b7fa55800/numpy/random/src/sfc64/sfc64.h#L28
 
 ## Function `SFC32a`
 ``` motoko
 func SFC32a() : SFC32
 ```
 
+Use this  
 
 ## Function `SFC32b`
 ``` motoko
 func SFC32b() : SFC32
 ```
 
+Use this.
 
 ## Function `SFC64b`
 ``` motoko
 func SFC64b() : SFC64
 ```
 
+Not recommended. Use `a` version.
 
 ## Function `SFC32c`
 ``` motoko
 func SFC32c() : SFC32
 ```
 
+Not recommended. Use `a` version.

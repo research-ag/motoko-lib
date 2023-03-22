@@ -1,14 +1,8 @@
 # TokenHandler
 
-## Type `StableTrackingInfo`
+## Type `TrackingInfo`
 ``` motoko
-type StableTrackingInfo = { deposit_balance : Nat; credit_balance : Int }
-```
-
-
-## Type `Icrc1LedgerInterface`
-``` motoko
-type Icrc1LedgerInterface = Icrc1Interface.Icrc1LedgerInterface
+type TrackingInfo = { deposit_balance : Nat; credit_balance : Int }
 ```
 
 
@@ -21,7 +15,7 @@ class TokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal)
 
 ### Function `notify`
 ``` motoko
-func notify(p : Principal) : async* ()
+func notify(principal : Principal) : async* ()
 ```
 
 The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
@@ -32,7 +26,7 @@ Note: concurrent notify() for the same P have to be handled with locks.
 
 ### Function `debit`
 ``` motoko
-func debit(p : Principal, amount : Nat) : Bool
+func debit(principal : Principal, amount : Nat) : Bool
 ```
 
 deduct amount from P’s usable balance. Return false if the balance is insufficient.
@@ -40,7 +34,7 @@ deduct amount from P’s usable balance. Return false if the balance is insuffic
 
 ### Function `credit`
 ``` motoko
-func credit(p : Principal, amount : Nat) : ()
+func credit(principal : Principal, amount : Nat) : ()
 ```
 
  add amount to P’s usable balance (the credit is created out of thin air)
@@ -48,7 +42,7 @@ func credit(p : Principal, amount : Nat) : ()
 
 ### Function `balance`
 ``` motoko
-func balance(p : Principal) : Nat
+func balance(principal : Principal) : Nat
 ```
 
 query the usable balance
@@ -56,7 +50,7 @@ query the usable balance
 
 ### Function `info`
 ``` motoko
-func info(p : Principal) : StableTrackingInfo and { usable_balance : Nat }
+func info(principal : Principal) : TrackingInfo and { usable_balance : Nat }
 ```
 
 query all tracked balances for debug purposes
@@ -72,7 +66,7 @@ process first account, which was failed to consolidate last time
 
 ### Function `share`
 ``` motoko
-func share() : [(Principal, StableTrackingInfo)]
+func share() : [(Principal, TrackingInfo)]
 ```
 
 serialize tracking data
@@ -80,28 +74,23 @@ serialize tracking data
 
 ### Function `unshare`
 ``` motoko
-func unshare(values : [(Principal, StableTrackingInfo)])
+func unshare(values : [(Principal, TrackingInfo)])
 ```
 
 deserialize tracking data
 
 
-### Function `principalToSubaccount`
+### Function `toSubaccount`
 ``` motoko
-func principalToSubaccount(p : Principal) : Icrc1Interface.Subaccount
+func toSubaccount(principal : Principal) : Icrc1Interface.Subaccount
 ```
 
+Convert Principal to Icrc1Interface.Subaccount
 
 
-### Function `obtainTrackingInfoLock`
+### Function `toPrincipal`
 ``` motoko
-func obtainTrackingInfoLock(p : Principal) : Bool
+func toPrincipal(subaccount : Icrc1Interface.Subaccount) : Principal
 ```
 
-
-
-### Function `releaseTrackingInfoLock`
-``` motoko
-func releaseTrackingInfoLock(p : Principal)
-```
-
+Convert Icrc1Interface.Subaccount to Principal

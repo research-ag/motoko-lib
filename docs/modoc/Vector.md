@@ -303,6 +303,7 @@ func forAll<X>(vec : Vector<X>, predicate : X -> Bool) : Bool
 ```
 
 Returns true iff every element in `vec` satisfies `predicate`.
+In particular, if `vec` is empty the function returns `true`.
 
 Example:
 ```motoko include=initialize
@@ -326,6 +327,7 @@ func forSome<X>(vec : Vector<X>, predicate : X -> Bool) : Bool
 ```
 
 Returns true iff some element in `vec` satisfies `predicate`.
+In particular, if `vec` is empty the function returns `false`.
 
 Example:
 ```motoko include=initialize
@@ -349,6 +351,8 @@ func forNone<X>(vec : Vector<X>, predicate : X -> Bool) : Bool
 ```
 
 Returns true iff no element in `vec` satisfies `predicate`.
+This is logically equivalent to that all elements in `vec` satisfy `not predicate`.
+In particular, if `vec` is empty the function returns `true`.
 
 Example:
 ```motoko include=initialize
