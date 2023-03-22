@@ -98,15 +98,19 @@ module TokenHandler {
     };
 
     /// query all tracked balances for debug purposes
-    public func info(p : Principal) : StableTrackingInfo {
+    public func info(p : Principal) : StableTrackingInfo and { usable_balance: Nat } {
       let ?item = tree.get(p) else return {
         deposit_balance = 0;
         credit_balance = 0;
         usable_balance = 0;
       };
+      if (item.deposit_balance + item.credit_balance < 0) {
+        Debug.trap("item.deposit_balance + item.credit_balance < 0");
+      };
       {
         deposit_balance = item.deposit_balance;
         credit_balance = item.credit_balance;
+        usable_balance = Int.abs(item.deposit_balance + item.credit_balance);
       };
     };
 
@@ -216,7 +220,6 @@ module TokenHandler {
         let ti = {
           var deposit_balance = 0;
           var credit_balance : Int = 0;
-          var usable_balance : Int = 0;
           var consolidationLock = false;
         };
         tree.put(p, ti);

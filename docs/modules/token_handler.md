@@ -35,7 +35,7 @@ Works asynchronously.
   <br>
   Queries the usable balance
 
-- **Balances info (for debug)** `info(p : Principal) : { deposit_balance : Nat; credit_balance : Int; }`
+- **Balances info (for debug)** `info(p : Principal) : { deposit_balance : Nat; credit_balance : Int; usable_balance : Int; }`
   <br>
   Queries all tracked balances
 
