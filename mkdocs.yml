@@ -20,6 +20,7 @@ nav:
     - Queue: modoc/Queue.md
     - PRNG: modoc/Prng.md
     - TokenHandler: modoc/TokenHandler.md
+    - ICRC1Interface: modoc/ICRC1Interface.md
   - Setup: setup.md
   - Benchmarks: benches.md
   - Contribute: contribute.md

@@ -10,37 +10,7 @@ import AssocList "mo:base/AssocList";
 import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
 import Array "mo:base/Array";
-
-// https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
-module Icrc1Interface {
-  public type Subaccount = Blob;
-  public type Account = { owner : Principal; subaccount : ?Subaccount };
-  public type TransferArgs = {
-    from_subaccount : ?Subaccount;
-    to : Account;
-    amount : Nat;
-    fee : ?Nat;
-    memo : ?Blob;
-    created_at_time : ?Nat64;
-  };
-  public type TransferError = {
-    #BadFee : { expected_fee : Nat };
-    #BadBurn : { min_burn_amount : Nat };
-    #InsufficientFunds : { balance : Nat };
-    #TooOld;
-    #CreatedInFuture : { ledger_time : Nat64 };
-    #Duplicate : { duplicate_of : Nat };
-    #TemporarilyUnavailable;
-    #GenericError : { error_code : Nat; message : Text };
-  };
-  public type Icrc1LedgerInterface = actor {
-    icrc1_balance_of : (Account) -> async (Nat);
-    icrc1_transfer : (TransferArgs) -> async ({
-      #Ok : Nat;
-      #Err : TransferError;
-    });
-  };
-};
+import Icrc1Interface "ICRC1Interface";
 
 module TokenHandler {
   public type StableTrackingInfo = {
@@ -60,9 +30,9 @@ module TokenHandler {
     ownPrincipal : Principal,
   ) {
 
-    /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared 
-    /// to the last balance seen. If it has increased then it will adjust the deposit_balance (and hence the usable_balance). 
-    /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0. 
+    /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
+    /// to the last balance seen. If it has increased then it will adjust the deposit_balance (and hence the usable_balance).
+    /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
     /// Note: concurrent notify() for the same P have to be handled with locks.
     public func notify(p : Principal) : async* () {
       await* consolidateAccount(p);
@@ -94,11 +64,13 @@ module TokenHandler {
         return Int.abs(balance);
       } else {
         Debug.trap("item.deposit_balance + item.credit_balance < 0");
-      }
+      };
     };
 
     /// query all tracked balances for debug purposes
-    public func info(p : Principal) : StableTrackingInfo and { usable_balance: Nat } {
+    public func info(p : Principal) : StableTrackingInfo and {
+      usable_balance : Nat;
+    } {
       let ?item = tree.get(p) else return {
         deposit_balance = 0;
         credit_balance = 0;
@@ -150,19 +122,20 @@ module TokenHandler {
     };
 
     public func principalToSubaccount(p : Principal) : Icrc1Interface.Subaccount {
-      // principal blob size can vary, but 29 bytes as most. We preserve it's size in result blob 
+      // principal blob size can vary, but 29 bytes as most. We preserve it's size in result blob
       // and it's data itself so it can be deserialized back to principal
       let principalBytes = Blob.toArray(Principal.toBlob(p));
       let principalSize = principalBytes.size();
       assert principalSize <= 29;
-      let subaccountData : [Nat8] = Array.tabulate(32, func (n: Nat): Nat8 = 
-        if (n == 0) {
+      let subaccountData : [Nat8] = Array.tabulate(
+        32,
+        func(n : Nat) : Nat8 = if (n == 0) {
           Nat8.fromNat(principalSize);
         } else if (n > principalSize) {
           0;
         } else {
           principalBytes[n - 1];
-        }
+        },
       );
       Blob.fromArray(subaccountData);
     };
@@ -170,7 +143,7 @@ module TokenHandler {
     private func subaccountToPrincipal(s : Icrc1Interface.Subaccount) : Principal {
       let subaccountBytes = Blob.toArray(s);
       let principalSize = Nat8.toNat(subaccountBytes[0]);
-      let principalData : [Nat8] = Array.tabulate(principalSize, func (n: Nat): Nat8 = subaccountBytes[n + 1]);
+      let principalData : [Nat8] = Array.tabulate(principalSize, func(n : Nat) : Nat8 = subaccountBytes[n + 1]);
       Principal.fromBlob(Blob.fromArray(principalData));
     };
 
