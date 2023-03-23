@@ -1,11 +1,5 @@
 # TokenHandler
 
-## Value `ICRC1Interface`
-``` motoko
-let ICRC1Interface
-```
-
-
 ## Type `TrackingInfo`
 ``` motoko
 type TrackingInfo = { deposit_balance : Nat; credit_balance : Int }
@@ -84,19 +78,3 @@ func unshare(values : [(Principal, TrackingInfo)])
 ```
 
 deserialize tracking data
-
-
-### Function `toSubaccount`
-``` motoko
-func toSubaccount(principal : Principal) : ICRC1Interface.Subaccount
-```
-
-Convert Principal to ICRC1Interface.Subaccount
-
-
-### Function `toPrincipal`
-``` motoko
-func toPrincipal(subaccount : ICRC1Interface.Subaccount) : Principal
-```
-
-Convert ICRC1Interface.Subaccount to Principal

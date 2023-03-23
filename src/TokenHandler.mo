@@ -13,7 +13,7 @@ import Array "mo:base/Array";
 
 module TokenHandler {
   // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
-  public module ICRC1Interface {
+  module ICRC1Interface {
     public type Subaccount = Blob;
     public type Account = { owner : Principal; subaccount : ?Subaccount };
     public type TransferArgs = {
@@ -260,7 +260,7 @@ module TokenHandler {
     };
 
     /// Convert Principal to ICRC1Interface.Subaccount
-    public func toSubaccount(principal : Principal) : ICRC1Interface.Subaccount {
+    func toSubaccount(principal : Principal) : ICRC1Interface.Subaccount {
       // principal blob size can vary, but 29 bytes as most. We preserve it'subaccount size in result blob
       // and it'subaccount data itself so it can be deserialized back to principal
       let principalBytes = Blob.toArray(Principal.toBlob(principal));
@@ -280,7 +280,7 @@ module TokenHandler {
     };
 
     /// Convert ICRC1Interface.Subaccount to Principal
-    public func toPrincipal(subaccount : ICRC1Interface.Subaccount) : Principal {
+    func toPrincipal(subaccount : ICRC1Interface.Subaccount) : Principal {
       let subaccountBytes = Blob.toArray(subaccount);
       let principalSize = Nat8.toNat(subaccountBytes[0]);
       let principalData : [Nat8] = Array.tabulate(principalSize, func(n : Nat) : Nat8 = subaccountBytes[n + 1]);
