@@ -57,6 +57,7 @@ module TokenHandler {
   public class TokenHandler(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
+    fee: Nat,
   ) {
 
     let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1Interface.Icrc1LedgerInterface;
@@ -64,7 +65,7 @@ module TokenHandler {
     // The map from principal to tracking info:
     var tree : RBTree.RBTree<Principal, TrackingInfoLock> = RBTree.RBTree<Principal, TrackingInfoLock>(Principal.compare);
 
-    // a backlog of principals, with failed account consolidation
+    // a backlog of principals, waiting for consolidation
     var consolidationBacklog : AssocList.AssocList<Principal, ()> = null;
     var consolidationBacklogSize : Nat = 0;
 
@@ -80,13 +81,14 @@ module TokenHandler {
         credit_balance = 0;
         usable_balance = 0;
       };
-      if (item.deposit_balance + item.credit_balance < 0) {
-        Debug.trap("item.deposit_balance + item.credit_balance < 0");
+      let usableDeposit = Int.max(0, item.deposit_balance - fee);
+      if (item.credit_balance + usableDeposit < 0) {
+        Debug.trap("item.credit_balance + Int.max(0, item.deposit_balance - fee) < 0");
       };
       {
         deposit_balance = item.deposit_balance;
         credit_balance = item.credit_balance;
-        usable_balance = Int.abs(item.deposit_balance + item.credit_balance);
+        usable_balance = Int.abs(item.credit_balance + usableDeposit);
       };
     };
 
@@ -152,7 +154,7 @@ module TokenHandler {
       try {
         let latestBalance = await* loadICRC1Balance(principal);
         updateDeposit(principal, latestBalance);
-        if (latestBalance != 0) {
+        if (latestBalance > fee) {
           // schedule consolidation for this principal
           pushToBacklog(principal);
           ignore processBacklog();
@@ -164,7 +166,7 @@ module TokenHandler {
       };
     };
 
-    /// process first account, which was failed to consolidate last time
+    /// process first account from backlog
     public func processBacklog() : async () = async switch (consolidationBacklog) {
       case (null) return;
       case (?((principal, _), list)) {
@@ -173,13 +175,13 @@ module TokenHandler {
         // consolidate account
         if (not obtainLock(principal)) return;
         let latestBalance = await* loadICRC1Balance(principal);
-        if (latestBalance != 0) {
+        if (latestBalance > fee) {
           updateDeposit(principal, latestBalance);
           let transferResult = try {
             await icrc1Ledger.icrc1_transfer({
               from_subaccount = ?toSubaccount(principal);
               to = { owner = ownPrincipal; subaccount = null };
-              amount = latestBalance;
+              amount = latestBalance - fee;
               fee = null;
               memo = null;
               created_at_time = null;
@@ -190,8 +192,8 @@ module TokenHandler {
           };
           switch (transferResult) {
             case (#Ok _) {
-              credit(principal, latestBalance);
               updateDeposit(principal, 0);
+              credit(principal, latestBalance - fee);
               // remove from backlog if present
               removeFromBacklog(principal);
             };
