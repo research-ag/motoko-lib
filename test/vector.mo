@@ -515,6 +515,41 @@ run(
 
 /* --------------------------------------- */
 
+vector := Vector.reversed<Nat>(Vector.fromArray<Nat>([0,1,2,3,4,5,6,7]));
+vector2 := Vector.reversed<Nat>(Vector.fromArray<Nat>([0,1,2,3,4,5,6]));
+vector3 := Vector.reversed<Nat>(Vector.new<Nat>());
+vector4 := Vector.reversed<Nat>(Vector.make<Nat>(3));
+
+run(
+  suite(
+    "reversed",
+    [
+      test(
+        "even elements",
+        Vector.toArray(vector),
+        M.equals(T.array(T.natTestable, [7, 6, 5, 4, 3, 2, 1, 0]))
+      ),
+      test(
+        "odd elements",
+        Vector.toArray(vector2),
+        M.equals(T.array(T.natTestable, [6, 5, 4, 3, 2, 1, 0]))
+      ),
+      test(
+        "empty",
+        Vector.toArray(vector3),
+        M.equals(T.array(T.natTestable, [] : [Nat]))
+      ),
+      test(
+        "singleton",
+        Vector.toArray(vector4),
+        M.equals(T.array(T.natTestable, [3]))
+      )
+    ]
+  )
+);
+
+/* --------------------------------------- */
+
 vector := Vector.fromArray<Nat>([0,1,2,3,4,5,6]);
 
 run(

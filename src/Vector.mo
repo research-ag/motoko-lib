@@ -1212,10 +1212,10 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in O(1) time and space.
   public func contains<X>(vec : Vector<X>, element : X, equal : (X, X) -> Bool) : Bool {
-    for ((x, _) in items(vec)) {
-      if (equal(x, element)) return true;
-    };
-    return false;
+    switch(indexOf(element, vec, equal)) {
+    case (?i) { true };
+    case (null) { false };
+    }
   };
 
   /// Finds the greatest element in `vector` defined by `compare`.
@@ -1238,19 +1238,19 @@ module Static {
   ///
   /// *Runtime and space assumes that `compare` runs in O(1) time and space.
   public func max<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X {
-    if (size<X>(vec) == 0) {
+    if (size(vec) == 0) {
       return null
     };
 
-    var maxSoFar = get<X>(vec, 0);
-    for ((x, _) in items(vec)) {
+    var maxSoFar = get(vec, 0);
+    iterate<X>(vec, func (x) {
       switch (compare(x, maxSoFar)) {
         case (#greater) {
           maxSoFar := x
         };
         case _ {}
       }
-    };
+    });
 
     ?maxSoFar
   };
@@ -1274,19 +1274,19 @@ module Static {
   ///
   /// *Runtime and space assumes that `compare` runs in O(1) time and space.
   public func min<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X {
-    if (size<X>(vec) == 0) {
+    if (size(vec) == 0) {
       return null
     };
 
-    var minSoFar = get<X>(vec, 0);
-    for ((x, _) in items(vec)) {
+    var minSoFar = get(vec, 0);
+    iterate<X>(vec, func (x) {
       switch (compare(x, minSoFar)) {
         case (#less) {
           minSoFar := x
         };
         case _ {}
       }
-    };
+    });
 
     ?minSoFar
   };
@@ -1315,15 +1315,17 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in O(1) time and space.
   public func equal<X>(vec1 : Vector<X>, vec2 : Vector<X>, equal : (X, X) -> Bool) : Bool {
-    let size1 = size<X>(vec1);
+    let size1 = size(vec1);
 
-    if (size1 != size<X>(vec2)) {
+    if (size1 != size(vec2)) {
       return false
     };
 
+    let next1 = vals_(vec1).unsafe_next;
+    let next2 = vals_(vec2).unsafe_next;
     var i = 0;
     while (i < size1) {
-      if (not equal(get<X>(vec1, i), get<X>(vec2, i))) {
+      if (not equal(next1(), next2())) {
         return false
       };
       i += 1
@@ -1354,13 +1356,15 @@ module Static {
   ///
   /// *Runtime and space assumes that `compare` runs in O(1) time and space.
   public func compare<X>(vec1 : Vector<X>, vec2 : Vector<X>, compare_fn : (X, X) -> Order.Order) : Order.Order {
-    let size1 = size<X>(vec1);
-    let size2 = size<X>(vec2);
+    let size1 = size(vec1);
+    let size2 = size(vec2);
     let minSize = if (size1 < size2) { size1 } else { size2 };
 
+    let next1 = vals_(vec1).unsafe_next;
+    let next2 = vals_(vec2).unsafe_next;
     var i = 0;
     while (i < minSize) {
-      switch (compare_fn(get<X>(vec1, i), get<X>(vec2, i))) {
+      switch (compare_fn(next1(), next2())) {
         case (#less) {
           return #less
         };
@@ -1399,11 +1403,12 @@ module Static {
   ///
   /// *Runtime and space assumes that `toText` runs in O(1) time and space.
   public func toText<X>(vec : Vector<X>, toText_fn : X -> Text) : Text {
-    let vsize : Int = size<X>(vec);
+    let vsize : Int = size(vec);
+    let next = vals_(vec).unsafe_next;
     var i = 0;
     var text = "";
     while (i < vsize - 1) {
-      text := text # toText_fn(get<X>(vec, i)) # ", "; // Text implemented as rope
+      text := text # toText_fn(next()) # ", "; // Text implemented as rope
       i += 1
     };
     if (vsize > 0) {
@@ -1435,9 +1440,9 @@ module Static {
   public func foldLeft<A, X>(vec : Vector<X>, base : A, combine : (A, X) -> A) : A {
     var accumulation = base;
 
-    for ((x, _) in items(vec)) {
-      accumulation := combine(accumulation, x)
-    };
+    iterate<X>(vec, func (x) {
+      accumulation := combine(accumulation, x);
+    });
 
     accumulation
   };
@@ -1461,17 +1466,11 @@ module Static {
   ///
   /// *Runtime and space assumes that `combine` runs in O(1) time and space.
   public func foldRight<X, A>(vec : Vector<X>, base : A, combine : (X, A) -> A) : A {
-    let vsize = size<X>(vec);
-    if (vsize == 0) {
-      return base
-    };
     var accumulation = base;
 
-    var i = vsize;
-    while (i >= 1) {
-      i -= 1; // to avoid Nat underflow, subtract first and stop iteration at 1
-      accumulation := combine(get<X>(vec, i), accumulation)
-    };
+    iterateRev<X>(vec, func (x) {
+      accumulation := combine(x, accumulation);
+    });
 
     accumulation
   };
@@ -1490,7 +1489,7 @@ module Static {
   ///
   /// Space: O(1)
   public func make<X>(element : X) : Vector<X> {
-    init<X>(1, element)
+    init(1, element)
   };
 
   /// Reverses the order of elements in `vector`.
@@ -1509,21 +1508,46 @@ module Static {
   ///
   /// Space: O(1)
   public func reverse<X>(vec : Vector<X>) {
-    let vsize = size<X>(vec);
+    let vsize = size(vec);
     if (vsize == 0) {
       return
     };
 
     var i = 0;
     var j = vsize - 1 : Nat;
-    var temp = get<X>(vec, 0);
+    var temp = get(vec, 0);
     while (i < vsize / 2) {
-      temp := get<X>(vec, j);
-      put<X>(vec, j, get<X>(vec, i));
-      put<X>(vec, i, temp);
+      temp := get(vec, j);
+      put(vec, j, get(vec, i));
+      put(vec, i, temp);
       i += 1;
-      j -= 1
+      j -= 1;
     }
+  };
+
+  /// Reverses the order of elements in `vector` and returns a new
+  /// Vector.
+  ///
+  /// Example:
+  /// ```motoko include=initialize
+  /// import Nat "mo:base/Nat";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1,2,3]);
+  ///
+  /// let rvec = Vector.reversed<Nat>(vec);
+  /// Vector.toText<Nat>(rvec, Nat.toText); // => "[3, 2, 1]"
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  public func reversed<X>(vec : Vector<X>) : Vector<X> {
+    let rvec = new<X>();
+    iterateRev<X>(vec, func (x) {
+      add(rvec, x);
+    });
+
+    return rvec;
   };
 
   /// Returns true if and only if the vector is empty.
@@ -1538,7 +1562,7 @@ module Static {
   /// Runtime: O(1)
   ///
   /// Space: O(1)
-  public func isEmpty<X>(vec : Vector<X>) : Bool = size<X>(vec) == 0;
+  public func isEmpty<X>(vec : Vector<X>) : Bool = size(vec) == 0;
 
   /// Submodule with Vector as a class
   /// This allows to use VectorClass as a drop-in replacement of Buffer
