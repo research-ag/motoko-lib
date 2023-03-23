@@ -10,9 +10,39 @@ import AssocList "mo:base/AssocList";
 import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
 import Array "mo:base/Array";
-import Icrc1Interface "ICRC1Interface";
 
 module TokenHandler {
+  // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
+  public module ICRC1Interface {
+    public type Subaccount = Blob;
+    public type Account = { owner : Principal; subaccount : ?Subaccount };
+    public type TransferArgs = {
+      from_subaccount : ?Subaccount;
+      to : Account;
+      amount : Nat;
+      fee : ?Nat;
+      memo : ?Blob;
+      created_at_time : ?Nat64;
+    };
+    public type TransferError = {
+      #BadFee : { expected_fee : Nat };
+      #BadBurn : { min_burn_amount : Nat };
+      #InsufficientFunds : { balance : Nat };
+      #TooOld;
+      #CreatedInFuture : { ledger_time : Nat64 };
+      #Duplicate : { duplicate_of : Nat };
+      #TemporarilyUnavailable;
+      #GenericError : { error_code : Nat; message : Text };
+    };
+    public type Icrc1LedgerInterface = actor {
+      icrc1_balance_of : (Account) -> async (Nat);
+      icrc1_transfer : (TransferArgs) -> async ({
+        #Ok : Nat;
+        #Err : TransferError;
+      });
+    };
+  };
+
   public type TrackingInfo = {
     deposit_balance : Nat;
     credit_balance : Int;
@@ -28,7 +58,7 @@ module TokenHandler {
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
   ) {
-    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : Icrc1Interface.Icrc1LedgerInterface;
+    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1Interface.Icrc1LedgerInterface;
 
     // a backlog of principals, with failed account consolidation
     var consolidationBacklog : AssocList.AssocList<Principal, ()> = null;
@@ -229,8 +259,8 @@ module TokenHandler {
       };
     };
 
-    /// Convert Principal to Icrc1Interface.Subaccount
-    public func toSubaccount(principal : Principal) : Icrc1Interface.Subaccount {
+    /// Convert Principal to ICRC1Interface.Subaccount
+    public func toSubaccount(principal : Principal) : ICRC1Interface.Subaccount {
       // principal blob size can vary, but 29 bytes as most. We preserve it'subaccount size in result blob
       // and it'subaccount data itself so it can be deserialized back to principal
       let principalBytes = Blob.toArray(Principal.toBlob(principal));
@@ -249,8 +279,8 @@ module TokenHandler {
       Blob.fromArray(subaccountData);
     };
 
-    /// Convert Icrc1Interface.Subaccount to Principal
-    public func toPrincipal(subaccount : Icrc1Interface.Subaccount) : Principal {
+    /// Convert ICRC1Interface.Subaccount to Principal
+    public func toPrincipal(subaccount : ICRC1Interface.Subaccount) : Principal {
       let subaccountBytes = Blob.toArray(subaccount);
       let principalSize = Nat8.toNat(subaccountBytes[0]);
       let principalData : [Nat8] = Array.tabulate(principalSize, func(n : Nat) : Nat8 = subaccountBytes[n + 1]);
