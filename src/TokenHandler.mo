@@ -153,6 +153,8 @@ module TokenHandler {
         let latestBalance = await* loadICRC1Balance(principal);
         updateDeposit(principal, latestBalance);
         if (latestBalance != 0) {
+          // we want this entry to be processed first, so we have to be sure that record will be the first one in the stack
+          removeFromBacklog(principal);
           // schedule consolidation for this principal
           pushToBacklog(principal);
           ignore processBacklog();
