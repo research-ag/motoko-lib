@@ -438,7 +438,7 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func indexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
-    // inlining would save 10 cycles per entry
+    // inlining would save 10 instructions per entry
     firstIndexWith<X>(vec, func(x) = equal(element, x));
   };
 
@@ -462,7 +462,7 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in `O(1)` time and space.
   public func lastIndexOf<X>(element : X, vec : Vector<X>, equal : (X, X) -> Bool) : ?Nat {
-    // inlining would save 10 cycles per entry
+    // inlining would save 10 instructions per entry
     lastIndexWith<X>(vec, func(x) = equal(element, x));
   };
 

@@ -304,7 +304,7 @@ func locate_readable<X>(index : Nat) : (Nat, Nat) {
   (Nat32.toNat(e_mask + b_mask + 2 + (i >> up) & b_mask), Nat32.toNat(i & e_mask));
 };
 
-// this was optimized in terms of cycles
+// this was optimized in terms of instructions
 func locate_optimal<X>(index : Nat) : (Nat, Nat) {
   // super block s = bit length - 1 = (32 - leading zeros) - 1
   // blocks before super block s == 2 ** s

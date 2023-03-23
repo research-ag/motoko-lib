@@ -65,7 +65,7 @@ Several pseudo random number generators.
 
 #### Comparison
 
-We measured the most commonly used sha256 implementations at between 48k - 52k cycles per chunk and the empty message at around 100k cycles.
+We measured the most commonly used sha256 implementations at between 48k - 52k instructions per chunk and the empty message at around 100k instructions.
 
 ## Unit tests
 
