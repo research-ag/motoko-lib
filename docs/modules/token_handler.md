@@ -21,7 +21,6 @@ Works asynchronously.
   The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
   to the last balance seen. If it has increased then it will adjust the deposit_balance (and hence the usable_balance).
   It will also trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
-  Concurrent notify() for the same P are handled with locks.
 
 - **Debit** `debit(p : Principal, amount : Nat) : Bool`
   <br>
@@ -39,16 +38,20 @@ Works asynchronously.
   <br>
   Queries all tracked balances
 
-- **Get ICRC1 subaccount for principal** `principalToSubaccount(p : Principal) : Icrc1Interface.Subaccount`
+- **Backlog size** `backlogSize() : Nat`
+  <br>
+  Queries consolidation backlog size
+
+- **Get ICRC1 subaccount for principal** `toSubaccount(principal : Principal) : Icrc1Interface.Subaccount`
   <br>
   This function returns corresponding subaccount for client. Use this function to inform user where to send tokens to.
   The user has to send tokens to ICRC1 account
-  `(<this canister principal>, principalToSubaccount(<user's principal>))`
+  `(<this canister principal>, toSubaccount(<user's principal>))`
 
 - **Process consolidation backlog** `processConsolidationBacklog() : async ()`
   <br>
   If some consolidation process has been failed, the account would have been added to the backlog, this function
-  will take one account from the backlog and retry the consolidation. Backlog works like a FIFO queue.
+  will take one account from the backlog and retry the consolidation. Backlog works like a stack: last added element will be executed first.
   It is useful to call this function with some timer
 
 - **Share** `share() : [(Principal, { deposit_balance : Nat; credit_balance : Int; })]`
