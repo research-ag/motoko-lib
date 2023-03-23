@@ -59,6 +59,15 @@ module TokenHandler {
     ownPrincipal : Principal,
   ) {
 
+    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1Interface.Icrc1LedgerInterface;
+
+    // The map from principal to tracking info:
+    var tree : RBTree.RBTree<Principal, TrackingInfoLock> = RBTree.RBTree<Principal, TrackingInfoLock>(Principal.compare);
+
+    // a backlog of principals, with failed account consolidation
+    var consolidationBacklog : AssocList.AssocList<Principal, ()> = null;
+    var consolidationBacklogSize : Nat = 0;
+
     /// query the usable balance
     public func balance(principal : Principal) : Nat = info(principal).usable_balance;
 
@@ -313,15 +322,5 @@ module TokenHandler {
         case (_) consolidationBacklogSize -= 1;
       };
     };
-
-    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1Interface.Icrc1LedgerInterface;
-
-    // The map from principal to tracking info:
-    var tree : RBTree.RBTree<Principal, TrackingInfoLock> = RBTree.RBTree<Principal, TrackingInfoLock>(Principal.compare);
-
-    // a backlog of principals, with failed account consolidation
-    var consolidationBacklog : AssocList.AssocList<Principal, ()> = null;
-    var consolidationBacklogSize : Nat = 0;
-
   };
 };
