@@ -153,8 +153,6 @@ module TokenHandler {
         let latestBalance = await* loadICRC1Balance(principal);
         updateDeposit(principal, latestBalance);
         if (latestBalance != 0) {
-          // we want this entry to be processed first, so we have to be sure that record will be the first one in the stack
-          removeFromBacklog(principal);
           // schedule consolidation for this principal
           pushToBacklog(principal);
           ignore processBacklog();
@@ -172,7 +170,37 @@ module TokenHandler {
       case (?((principal, _), list)) {
         consolidationBacklog := list;
         consolidationBacklogSize -= 1;
-        await* consolidateAccount(principal);
+        // consolidate account
+        if (not obtainLock(principal)) return;
+        let latestBalance = await* loadICRC1Balance(principal);
+        if (latestBalance != 0) {
+          updateDeposit(principal, latestBalance);
+          let transferResult = try {
+            await icrc1Ledger.icrc1_transfer({
+              from_subaccount = ?toSubaccount(principal);
+              to = { owner = ownPrincipal; subaccount = null };
+              amount = latestBalance;
+              fee = null;
+              memo = null;
+              created_at_time = null;
+            });
+          } catch (err) {
+            releaseLock(principal);
+            #Err(#CallIcrc1LedgerError);
+          };
+          switch (transferResult) {
+            case (#Ok _) {
+              credit(principal, latestBalance);
+              updateDeposit(principal, 0);
+              // remove from backlog if present
+              removeFromBacklog(principal);
+            };
+            case (#Err _) {
+              pushToBacklog(principal);
+            };
+          };
+        };
+        releaseLock(principal);
       };
     };
 
@@ -272,39 +300,6 @@ module TokenHandler {
       );
       // while testing we should trap here
       if (not changed) Debug.trap("releasing lock that isn't locked");
-    };
-
-    func consolidateAccount(principal : Principal) : async* () {
-      if (not obtainLock(principal)) return;
-      let latestBalance = await* loadICRC1Balance(principal);
-      if (latestBalance != 0) {
-        updateDeposit(principal, latestBalance);
-        let transferResult = try {
-          await icrc1Ledger.icrc1_transfer({
-            from_subaccount = ?toSubaccount(principal);
-            to = { owner = ownPrincipal; subaccount = null };
-            amount = latestBalance;
-            fee = null;
-            memo = null;
-            created_at_time = null;
-          });
-        } catch (err) {
-          releaseLock(principal);
-          #Err(#CallIcrc1LedgerError);
-        };
-        switch (transferResult) {
-          case (#Ok _) {
-            credit(principal, latestBalance);
-            updateDeposit(principal, 0);
-            // remove from backlog if present
-            removeFromBacklog(principal);
-          };
-          case (#Err _) {
-            pushToBacklog(principal);
-          };
-        };
-      };
-      releaseLock(principal);
     };
 
     func pushToBacklog(principal: Principal) {
