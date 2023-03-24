@@ -11,10 +11,11 @@ import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
+import List "mo:base/List";
 
 module TokenHandler {
   // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
-  module ICRC1Interface {
+  module ICRC1 {
     public type Subaccount = Blob;
     public type Account = { owner : Principal; subaccount : ?Subaccount };
     public type TransferArgs = {
@@ -35,7 +36,7 @@ module TokenHandler {
       #TemporarilyUnavailable;
       #GenericError : { error_code : Nat; message : Text };
     };
-    public type Icrc1LedgerInterface = actor {
+    public type ICRC1Ledger = actor {
       icrc1_balance_of : (Account) -> async (Nat);
       icrc1_transfer : (TransferArgs) -> async ({
         #Ok : Nat;
@@ -44,32 +45,51 @@ module TokenHandler {
     };
   };
 
-  /// Convert Principal to ICRC1Interface.Subaccount
-  public func toSubaccount(principal : Principal) : ICRC1Interface.Subaccount {
-    // principal blob size can vary, but 29 bytes as most. We preserve it'subaccount size in result blob
-    // and it'subaccount data itself so it can be deserialized back to principal
-    let principalBytes = Blob.toArray(Principal.toBlob(principal));
-    let principalSize = principalBytes.size();
-    //assert principalSize <= 29;
-    let subaccountData : [Nat8] = Array.tabulate(
-      32,
-      func(n : Nat) : Nat8 = if (n == 0) {
-        Nat8.fromNat(principalSize);
-      } else if (n <= principalSize) {
-        principalBytes[n - 1];
-      } else {
+  /// Convert Principal to ICRC1.Subaccount
+  public func toSubaccount(p : Principal) : ICRC1.Subaccount {
+    // p blob size can vary, but 29 bytes as most. We preserve it'subaccount size in result blob
+    // and it'subaccount data itself so it can be deserialized back to p
+    let bytes = Blob.toArray(Principal.toBlob(p));
+    let size = bytes.size();
+    
+    assert size <= 29;
+    
+    let a = Array.tabulate<Nat8>(32, func (i : Nat) : Nat8 {
+      if (i + size < 31) {
         0;
-      },
-    );
-    Blob.fromArray(subaccountData);
+      } else 
+      if (i + size == 31) {
+        Nat8.fromNat(size)
+      } else {
+        bytes[i + size - 32];
+      };
+    });
+    Blob.fromArray(a);
   };
 
-  /// Convert ICRC1Interface.Subaccount to Principal
-  public func toPrincipal(subaccount : ICRC1Interface.Subaccount) : Principal {
-    let subaccountBytes = Blob.toArray(subaccount);
-    let principalSize = Nat8.toNat(subaccountBytes[0]);
-    let principalData : [Nat8] = Array.tabulate(principalSize, func(n : Nat) : Nat8 = subaccountBytes[n + 1]);
-    Principal.fromBlob(Blob.fromArray(principalData));
+  /// Convert ICRC1.Subaccount to Principal
+  public func toPrincipal(subaccount : ICRC1.Subaccount) : ?Principal {
+    func first(a : [Nat8]) : Nat {
+      var i = 0;
+      while (i < 32) {
+        if (bytes[i] != 0) {
+          return i;
+        };
+        i += 1;
+      };
+      i;
+    };
+
+    let bytes = Blob.toArray(subaccount);
+    assert bytes.size() == 32;
+
+    let size_index = first(bytes);
+    if (size_index == 32) return null;
+    
+    let size = Nat8.toNat(bytes[size_index]);
+    assert size_index + size == 31;
+
+    ?Principal.fromBlob(Blob.fromArray(Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])));
   };
 
   public type Info = {
@@ -81,24 +101,24 @@ module TokenHandler {
     var lock : Bool; // lock flag. For internal usage only
   };
 
-  public class Map() {
+  class Map() {
     var tree : RBTree.RBTree<Principal, InfoLock> = RBTree.RBTree<Principal, InfoLock>(Principal.compare);
 
-    func clean(principal : Principal, info : InfoLock) {
+    func clean(p : Principal, info : InfoLock) {
       if (info.deposit == 0 and info.credit == 0 and not info.lock) {
-        tree.delete(principal);
+        tree.delete(p);
       };
     };
 
-    public func change(principal : Principal, f : (Info) -> Bool) : Bool {
-      let ?info = tree.get(principal) else return false;
+    public func change(p : Principal, f : (Info) -> Bool) : Bool {
+      let ?info = tree.get(p) else return false;
       let changed = f(info);
-      if (changed) clean(principal, info);
+      if (changed) clean(p, info);
       return changed;
     };
 
-    public func set(principal : Principal, f : (Info) -> Bool) : Bool {
-      let info = switch (tree.get(principal)) {
+    public func set(p : Principal, f : (Info) -> Bool) : Bool {
+      let info = switch (tree.get(p)) {
         case (?info) info;
         case (null) {
           let info = {
@@ -106,26 +126,26 @@ module TokenHandler {
             var credit : Int = 0;
             var lock = false;
           };
-          tree.put(principal, info);
+          tree.put(p, info);
           info;
         };
       };
       let changed = f(info);
-      clean(principal, info);
+      clean(p, info);
       changed;
     };
 
-    public func get(principal : Principal) : ?InfoLock = tree.get(principal);
+    public func get(p : Principal) : ?InfoLock = tree.get(p);
 
-    public func lock(principal : Principal) : Bool {
-      let ?info = tree.get(principal) else Debug.trap("Lock not existent principal");
+    public func lock(p : Principal) : Bool {
+      let ?info = tree.get(p) else Debug.trap("Lock not existent p");
       if (info.lock) return false;
       info.lock := true;
       true;
     };
 
-    public func unlock(principal : Principal) {
-      let ?info = tree.get(principal) else Debug.trap("Unlock not existent principal");
+    public func unlock(p : Principal) {
+      let ?info = tree.get(p) else Debug.trap("Unlock not existent p");
       if (not info.lock) Debug.trap("releasing lock that isn't locked");
       info.lock := false;
     };
@@ -133,16 +153,16 @@ module TokenHandler {
     public func share() : [(Principal, Info)] = Iter.toArray(
       Iter.filter<(Principal, InfoLock)>(
         tree.entries(),
-        func((principal, info)) = info.credit != 0 or info.deposit != 0,
+        func((p, info)) = info.credit != 0 or info.deposit != 0,
       )
     );
 
     /// deserialize tracking data
     public func unshare(values : [(Principal, Info)]) {
       tree := RBTree.RBTree<Principal, InfoLock>(Principal.compare);
-      for ((principal, value) in values.vals()) {
+      for ((p, value) in values.vals()) {
         tree.put(
-          principal,
+          p,
           {
             var deposit = value.deposit;
             var credit = value.credit;
@@ -153,13 +173,13 @@ module TokenHandler {
     };
   };
 
-  public class BackLog() {
+  class BackLog() {
     // a backlog of principals, waiting for consolidation
     var backlog : AssocList.AssocList<Principal, ()> = null;
     var size_ : Nat = 0;
 
-    public func push(principal : Principal) {
-      let (updated, prev) = AssocList.replace<Principal, ()>(backlog, principal, Principal.equal, ?());
+    public func push(p : Principal) {
+      let (updated, prev) = AssocList.replace<Principal, ()>(backlog, p, Principal.equal, ?());
       backlog := updated;
       switch (prev) {
         case (null) size_ += 1;
@@ -167,8 +187,8 @@ module TokenHandler {
       };
     };
 
-    public func remove(principal : Principal) {
-      let (updated, prev) = AssocList.replace<Principal, ()>(backlog, principal, Principal.equal, null);
+    public func remove(p : Principal) {
+      let (updated, prev) = AssocList.replace<Principal, ()>(backlog, p, Principal.equal, null);
       backlog := updated;
       switch (prev) {
         case (null) {};
@@ -182,23 +202,24 @@ module TokenHandler {
     public func pop() : ?Principal {
       switch (backlog) {
         case (null) null;
-        case (?((principal, _), list)) {
+        case (?((p, _), list)) {
           backlog := list;
           size_ -= 1;
-          ?principal;
+          ?p;
         };
       };
     };
 
     public func share() : [Principal] {
-      func fold(list : AssocList.AssocList<Principal, ()>) : Buffer.Buffer<Principal> {
-        let ?((principal, _), tail) = list else return Buffer.Buffer<Principal>(0);
-        let a = fold(tail);
-        a.add(principal);
-        a;
-      };
+      let array = Array.init<Principal>(size_,Principal.fromText("2vxsx-fae"));
 
-      Buffer.toArray(fold(backlog));
+      var i = 0;
+      List.iterate(backlog, func ((x, _) : (Principal, ())) {
+        array[i] := x;
+        i += 1;
+      });
+
+      Array.freeze(array);
     };
 
     public func unshare(array : [Principal]) {
@@ -218,9 +239,9 @@ module TokenHandler {
     fee : Nat,
   ) {
 
-    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1Interface.Icrc1LedgerInterface;
+    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1.ICRC1Ledger;
 
-    // The map from principal to tracking info:
+    // The map from p to tracking info:
     // var tree : RBTree.RBTree<Principal, InfoLock> = RBTree.RBTree<Principal, InfoLock>(Principal.compare);
 
     let map : Map = Map();
@@ -231,13 +252,13 @@ module TokenHandler {
     // var backlogSize : Nat = 0;
 
     /// query the usable balance
-    public func balance(principal : Principal) : Nat = info(principal).usable_balance;
+    public func balance(p : Principal) : Nat = info(p).usable_balance;
 
     /// query all tracked balances for debug purposes
-    public func info(principal : Principal) : Info and {
+    public func info(p : Principal) : Info and {
       var usable_balance : Nat;
     } {
-      let ?item = map.get(principal) else return {
+      let ?item = map.get(p) else return {
         var deposit = 0;
         var credit = 0;
         var usable_balance = 0;
@@ -253,9 +274,9 @@ module TokenHandler {
     public func backlogSize() : Nat = backlog.size();
 
     /// deduct amount from P’s usable balance. Return false if the balance is insufficient.
-    public func debit(principal : Principal, amount : Nat) : Bool {
+    public func debit(p : Principal, amount : Nat) : Bool {
       map.change(
-        principal,
+        p,
         func(info) {
           if (usableBalance(info) < amount) return false;
           info.credit -= amount;
@@ -265,9 +286,9 @@ module TokenHandler {
     };
 
     ///  add amount to P’s usable balance (the credit is created out of thin air)
-    public func credit(principal : Principal, amount : Nat) : () {
+    public func credit(p : Principal, amount : Nat) : () {
       ignore map.set(
-        principal,
+        p,
         func(info) {
           info.credit += amount;
           true;
@@ -278,19 +299,19 @@ module TokenHandler {
     /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
     /// to the last balance seen. If it has increased then it will adjust the deposit (and hence the usable_balance).
     /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
-    public func notify(principal : Principal) : async* () {
-      if (not map.lock(principal)) return;
+    public func notify(p : Principal) : async* () {
+      if (not map.lock(p)) return;
       try {
-        let latestBalance = await* loadBalance(principal);
-        updateDeposit(principal, latestBalance);
+        let latestBalance = await* loadBalance(p);
+        updateDeposit(p, latestBalance);
         if (latestBalance > fee) {
-          // schedule consolidation for this principal
-          backlog.push(principal);
+          // schedule consolidation for this p
+          backlog.push(p);
           ignore processBacklog();
         };
-        map.unlock(principal);
+        map.unlock(p);
       } catch err {
-        map.unlock(principal);
+        map.unlock(p);
         throw err;
       };
     };
@@ -298,9 +319,7 @@ module TokenHandler {
     /// process first account from backlog
     public func processBacklog() : async* () {
       func consolidate(p : Principal) : async* () {
-        let latestBalance = try { 
-          await* loadBalance(p) 
-        } catch (err) {
+        let latestBalance = try { await* loadBalance(p) } catch (err) {
           backlog.push(p);
           return;
         };
@@ -332,10 +351,10 @@ module TokenHandler {
         };
       };
 
-      let ?principal = backlog.pop() else return;
-      if (not map.lock(principal)) return;
-      await* consolidate(principal);
-      map.unlock(principal);
+      let ?p = backlog.pop() else return;
+      if (not map.lock(p)) return;
+      await* consolidate(p);
+      map.unlock(p);
     };
 
     /// serialize tracking data
@@ -347,7 +366,7 @@ module TokenHandler {
       backlog.unshare(values.1);
     };
 
-    func usableBalance(item: Info): Nat {
+    func usableBalance(item : Info) : Nat {
       let usableDeposit = Int.max(0, item.deposit - fee);
       if (item.credit + usableDeposit < 0) {
         Debug.trap("item.credit + Int.max(0, item.deposit - fee) < 0");
@@ -355,14 +374,14 @@ module TokenHandler {
       Int.abs(item.credit + usableDeposit);
     };
 
-    func updateDeposit(principal : Principal, deposit : Nat) : () {
-      ignore map.set(principal, func(info) { info.deposit := deposit; true });
+    func updateDeposit(p : Principal, deposit : Nat) : () {
+      ignore map.set(p, func(info) { info.deposit := deposit; true });
     };
 
-    func loadBalance(principal : Principal) : async* Nat {
+    func loadBalance(p : Principal) : async* Nat {
       await icrc1Ledger.icrc1_balance_of({
         owner = ownPrincipal;
-        subaccount = ?toSubaccount(principal);
+        subaccount = ?toSubaccount(p);
       });
     };
   };

@@ -7,7 +7,7 @@ import Array "mo:base/Array";
 import Nat8 "mo:base/Nat8";
 
 actor TestActor {
-  type I = {
+  type Item = {
     account : { owner : Principal; subaccount : ?Blob };
     amount : Nat;
   };
@@ -16,21 +16,21 @@ actor TestActor {
 
     let n = 10;
     let a = Array.init<Nat8>(32, 0);
+    let sub_principal = Array.tabulate<Principal>(
+      n,
+      func(i) = Principal.fromBlob(Blob.fromArray([255 - Nat8.fromNat(i)])),
+    );
     let sub_blob = Array.tabulate<Blob>(
       n,
-      func(i) {
-        a[0] := 255 - Nat8.fromNat(i);
-        Blob.fromArrayMut(a);
-      },
+      func(i) = TokenHandler.toSubaccount(sub_principal[i]),
     );
-    let sub_principal = Array.tabulate<Principal>(n, func(i) = Principal.fromBlob(sub_blob[i]));
 
     let fee = 1;
     let anonymous = Principal.fromText("2vxsx-fae");
 
     Cycles.add(100_000_000_000);
     let ledger = await Ledger.Ledger({
-      initial_mints = Array.tabulate<I>(
+      initial_mints = Array.tabulate<Item>(
         n,
         func(i) = {
           account = {
