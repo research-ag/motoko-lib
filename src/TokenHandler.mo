@@ -302,16 +302,21 @@ module TokenHandler {
     };
 
     /// process first account from backlog
-    public func processBacklog() : async () = async {
-      func consolidate(principal : Principal) : async () {
-        let latestBalance = await* loadBalance(principal);
+    public func processBacklog() : async* () {
+      func consolidate(p : Principal) : async* () {
+        let latestBalance = try { 
+          await* loadBalance(p) 
+        } catch (err) {
+          backlog.push(p);
+          return;
+        };
         if (latestBalance <= fee) return;
 
-        updateDeposit(principal, latestBalance);
+        updateDeposit(p, latestBalance);
 
         let transferResult = try {
           await icrc1Ledger.icrc1_transfer({
-            from_subaccount = ?toSubaccount(principal);
+            from_subaccount = ?toSubaccount(p);
             to = { owner = ownPrincipal; subaccount = null };
             amount = latestBalance - fee;
             fee = null;
@@ -324,20 +329,18 @@ module TokenHandler {
 
         switch (transferResult) {
           case (#Ok _) {
-            updateDeposit(principal, 0);
-            credit(principal, latestBalance - fee);
-            // remove from backlog if present
-            backlog.remove(principal);
+            updateDeposit(p, 0);
+            credit(p, latestBalance - fee);
           };
           case (#Err _) {
-            backlog.push(principal);
+            backlog.push(p);
           };
         };
       };
 
       let ?principal = backlog.pop() else return;
       if (not map.lock(principal)) return;
-      await consolidate(principal);
+      await* consolidate(principal);
       map.unlock(principal);
     };
 
