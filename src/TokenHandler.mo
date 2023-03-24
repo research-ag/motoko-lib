@@ -242,16 +242,10 @@ module TokenHandler {
         var credit = 0;
         var usable_balance = 0;
       };
-
-      let usableDeposit = Int.max(0, item.deposit - fee);
-      if (item.credit + usableDeposit < 0) {
-        Debug.trap("item.credit + Int.max(0, item.deposit - fee) < 0");
-      };
-
       {
         var deposit = item.deposit;
         var credit = item.credit;
-        var usable_balance = Int.abs(item.credit + usableDeposit);
+        var usable_balance = usableBalance(item);
       };
     };
 
@@ -263,7 +257,7 @@ module TokenHandler {
       map.change(
         principal,
         func(info) {
-          if (info.deposit + info.credit < amount) return false;
+          if (usableBalance(info) < amount) return false;
           info.credit -= amount;
           return true;
         },
@@ -351,6 +345,14 @@ module TokenHandler {
     public func unshare(values : ([(Principal, Info)], [Principal])) {
       map.unshare(values.0);
       backlog.unshare(values.1);
+    };
+
+    func usableBalance(item: Info): Nat {
+      let usableDeposit = Int.max(0, item.deposit - fee);
+      if (item.credit + usableDeposit < 0) {
+        Debug.trap("item.credit + Int.max(0, item.deposit - fee) < 0");
+      };
+      Int.abs(item.credit + usableDeposit);
     };
 
     func updateDeposit(principal : Principal, deposit : Nat) : () {
