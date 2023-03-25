@@ -18,72 +18,70 @@ module {
     #sha256;
   };
 
-  let K : [Nat32] = [
-    0x428a2f98,
-    0x71374491,
-    0xb5c0fbcf,
-    0xe9b5dba5,
-    0x3956c25b,
-    0x59f111f1,
-    0x923f82a4,
-    0xab1c5ed5,
-    0xd807aa98,
-    0x12835b01,
-    0x243185be,
-    0x550c7dc3,
-    0x72be5d74,
-    0x80deb1fe,
-    0x9bdc06a7,
-    0xc19bf174,
-    0xe49b69c1,
-    0xefbe4786,
-    0x0fc19dc6,
-    0x240ca1cc,
-    0x2de92c6f,
-    0x4a7484aa,
-    0x5cb0a9dc,
-    0x76f988da,
-    0x983e5152,
-    0xa831c66d,
-    0xb00327c8,
-    0xbf597fc7,
-    0xc6e00bf3,
-    0xd5a79147,
-    0x06ca6351,
-    0x14292967,
-    0x27b70a85,
-    0x2e1b2138,
-    0x4d2c6dfc,
-    0x53380d13,
-    0x650a7354,
-    0x766a0abb,
-    0x81c2c92e,
-    0x92722c85,
-    0xa2bfe8a1,
-    0xa81a664b,
-    0xc24b8b70,
-    0xc76c51a3,
-    0xd192e819,
-    0xd6990624,
-    0xf40e3585,
-    0x106aa070,
-    0x19a4c116,
-    0x1e376c08,
-    0x2748774c,
-    0x34b0bcb5,
-    0x391c0cb3,
-    0x4ed8aa4a,
-    0x5b9cca4f,
-    0x682e6ff3,
-    0x748f82ee,
-    0x78a5636f,
-    0x84c87814,
-    0x8cc70208,
-    0x90befffa,
-    0xa4506ceb,
-    0xbef9a3f7,
-    0xc67178f2,
-  ];
+  let K00 : Nat32 = 0x428a2f98;
+  let K01 : Nat32 = 0x71374491;
+  let K02 : Nat32 = 0xb5c0fbcf;
+  let K03 : Nat32 = 0xe9b5dba5;
+  let K04 : Nat32 = 0x3956c25b;
+  let K05 : Nat32 = 0x59f111f1;
+  let K06 : Nat32 = 0x923f82a4;
+  let K07 : Nat32 = 0xab1c5ed5;
+  let K08 : Nat32 = 0xd807aa98;
+  let K09 : Nat32 = 0x12835b01;
+  let K10 : Nat32 = 0x243185be;
+  let K11 : Nat32 = 0x550c7dc3;
+  let K12 : Nat32 = 0x72be5d74;
+  let K13 : Nat32 = 0x80deb1fe;
+  let K14 : Nat32 = 0x9bdc06a7;
+  let K15 : Nat32 = 0xc19bf174;
+  let K16 : Nat32 = 0xe49b69c1;
+  let K17 : Nat32 = 0xefbe4786;
+  let K18 : Nat32 = 0x0fc19dc6;
+  let K19 : Nat32 = 0x240ca1cc;
+  let K20 : Nat32 = 0x2de92c6f;
+  let K21 : Nat32 = 0x4a7484aa;
+  let K22 : Nat32 = 0x5cb0a9dc;
+  let K23 : Nat32 = 0x76f988da;
+  let K24 : Nat32 = 0x983e5152;
+  let K25 : Nat32 = 0xa831c66d;
+  let K26 : Nat32 = 0xb00327c8;
+  let K27 : Nat32 = 0xbf597fc7;
+  let K28 : Nat32 = 0xc6e00bf3;
+  let K29 : Nat32 = 0xd5a79147;
+  let K30 : Nat32 = 0x06ca6351;
+  let K31 : Nat32 = 0x14292967;
+  let K32 : Nat32 = 0x27b70a85;
+  let K33 : Nat32 = 0x2e1b2138;
+  let K34 : Nat32 = 0x4d2c6dfc;
+  let K35 : Nat32 = 0x53380d13;
+  let K36 : Nat32 = 0x650a7354;
+  let K37 : Nat32 = 0x766a0abb;
+  let K38 : Nat32 = 0x81c2c92e;
+  let K39 : Nat32 = 0x92722c85;
+  let K40 : Nat32 = 0xa2bfe8a1;
+  let K41 : Nat32 = 0xa81a664b;
+  let K42 : Nat32 = 0xc24b8b70;
+  let K43 : Nat32 = 0xc76c51a3;
+  let K44 : Nat32 = 0xd192e819;
+  let K45 : Nat32 = 0xd6990624;
+  let K46 : Nat32 = 0xf40e3585;
+  let K47 : Nat32 = 0x106aa070;
+  let K48 : Nat32 = 0x19a4c116;
+  let K49 : Nat32 = 0x1e376c08;
+  let K50 : Nat32 = 0x2748774c;
+  let K51 : Nat32 = 0x34b0bcb5;
+  let K52 : Nat32 = 0x391c0cb3;
+  let K53 : Nat32 = 0x4ed8aa4a;
+  let K54 : Nat32 = 0x5b9cca4f;
+  let K55 : Nat32 = 0x682e6ff3;
+  let K56 : Nat32 = 0x748f82ee;
+  let K57 : Nat32 = 0x78a5636f;
+  let K58 : Nat32 = 0x84c87814;
+  let K59 : Nat32 = 0x8cc70208;
+  let K60 : Nat32 = 0x90befffa;
+  let K61 : Nat32 = 0xa4506ceb;
+  let K62 : Nat32 = 0xbef9a3f7;
+  let K63 : Nat32 = 0xc67178f2;
 
   let ivs : [[Nat32]] = [
     [
@@ -110,11 +108,6 @@ module {
     ],
   ];
 
-  // indices used in the 48 expansion rounds
-  let expansion_rounds = [(0, 1, 9, 14, 16), (1, 2, 10, 15, 17), (2, 3, 11, 16, 18), (3, 4, 12, 17, 19), (4, 5, 13, 18, 20), (5, 6, 14, 19, 21), (6, 7, 15, 20, 22), (7, 8, 16, 21, 23), (8, 9, 17, 22, 24), (9, 10, 18, 23, 25), (10, 11, 19, 24, 26), (11, 12, 20, 25, 27), (12, 13, 21, 26, 28), (13, 14, 22, 27, 29), (14, 15, 23, 28, 30), (15, 16, 24, 29, 31), (16, 17, 25, 30, 32), (17, 18, 26, 31, 33), (18, 19, 27, 32, 34), (19, 20, 28, 33, 35), (20, 21, 29, 34, 36), (21, 22, 30, 35, 37), (22, 23, 31, 36, 38), (23, 24, 32, 37, 39), (24, 25, 33, 38, 40), (25, 26, 34, 39, 41), (26, 27, 35, 40, 42), (27, 28, 36, 41, 43), (28, 29, 37, 42, 44), (29, 30, 38, 43, 45), (30, 31, 39, 44, 46), (31, 32, 40, 45, 47), (32, 33, 41, 46, 48), (33, 34, 42, 47, 49), (34, 35, 43, 48, 50), (35, 36, 44, 49, 51), (36, 37, 45, 50, 52), (37, 38, 46, 51, 53), (38, 39, 47, 52, 54), (39, 40, 48, 53, 55), (40, 41, 49, 54, 56), (41, 42, 50, 55, 57), (42, 43, 51, 56, 58), (43, 44, 52, 57, 59), (44, 45, 53, 58, 60), (45, 46, 54, 59, 61), (46, 47, 55, 60, 62), (47, 48, 56, 61, 63)];
-  // indices used in the 64 compression rounds
-  let compression_rounds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63];
-
   let rot = Nat32.bitrotRight;
 
   public class Digest(algo_ : Algorithm) {
@@ -125,8 +118,16 @@ module {
 
     public func algo() : Algorithm = algo_;
 
-    let state : [var Nat32] = Array.init<Nat32>(8, 0);
-    let msg : [var Nat32] = Array.init<Nat32>(64, 0);
+    var s0 : Nat32 = 0;
+    var s1 : Nat32 = 0;
+    var s2 : Nat32 = 0;
+    var s3 : Nat32 = 0;
+    var s4 : Nat32 = 0;
+    var s5 : Nat32 = 0;
+    var s6 : Nat32 = 0;
+    var s7 : Nat32 = 0;
+
+    let msg : [var Nat32] = Array.init<Nat32>(16, 0);
     let digest = Array.init<Nat8>(sum_bytes, 0);
     var word : Nat32 = 0;
 
@@ -139,7 +140,14 @@ module {
       i_byte := 4;
       i_block := 0;
       for (i in [0, 1, 2, 3, 4, 5, 6, 7].vals()) {
-        state[i] := ivs[iv][i];
+        s0 := ivs[iv][0];
+        s1 := ivs[iv][1];
+        s2 := ivs[iv][2];
+        s3 := ivs[iv][3];
+        s4 := ivs[iv][4];
+        s5 := ivs[iv][5];
+        s6 := ivs[iv][6];
+        s7 := ivs[iv][7];
       };
     };
 
@@ -161,41 +169,163 @@ module {
     };
 
     private func process_block() : () {
+      let w00 = msg[0];
+      let w01 = msg[1];
+      let w02 = msg[2];
+      let w03 = msg[3];
+      let w04 = msg[4];
+      let w05 = msg[5];
+      let w06 = msg[6];
+      let w07 = msg[7];
+      let w08 = msg[8];
+      let w09 = msg[9];
+      let w10 = msg[10];
+      let w11 = msg[11];
+      let w12 = msg[12];
+      let w13 = msg[13];
+      let w14 = msg[14];
+      let w15 = msg[15];
+      let w16 = w00 +% rot(w01, 07) ^ rot(w01, 18) ^ (w01 >> 03) +% w09 +% rot(w14, 17) ^ rot(w14, 19) ^ (w14 >> 10);
+      let w17 = w01 +% rot(w02, 07) ^ rot(w02, 18) ^ (w02 >> 03) +% w10 +% rot(w15, 17) ^ rot(w15, 19) ^ (w15 >> 10);
+      let w18 = w02 +% rot(w03, 07) ^ rot(w03, 18) ^ (w03 >> 03) +% w11 +% rot(w16, 17) ^ rot(w16, 19) ^ (w16 >> 10);
+      let w19 = w03 +% rot(w04, 07) ^ rot(w04, 18) ^ (w04 >> 03) +% w12 +% rot(w17, 17) ^ rot(w17, 19) ^ (w17 >> 10);
+      let w20 = w04 +% rot(w05, 07) ^ rot(w05, 18) ^ (w05 >> 03) +% w13 +% rot(w18, 17) ^ rot(w18, 19) ^ (w18 >> 10);
+      let w21 = w05 +% rot(w06, 07) ^ rot(w06, 18) ^ (w06 >> 03) +% w14 +% rot(w19, 17) ^ rot(w19, 19) ^ (w19 >> 10);
+      let w22 = w06 +% rot(w07, 07) ^ rot(w07, 18) ^ (w07 >> 03) +% w15 +% rot(w20, 17) ^ rot(w20, 19) ^ (w20 >> 10);
+      let w23 = w07 +% rot(w08, 07) ^ rot(w08, 18) ^ (w08 >> 03) +% w16 +% rot(w21, 17) ^ rot(w21, 19) ^ (w21 >> 10);
+      let w24 = w08 +% rot(w09, 07) ^ rot(w09, 18) ^ (w09 >> 03) +% w17 +% rot(w22, 17) ^ rot(w22, 19) ^ (w22 >> 10);
+      let w25 = w09 +% rot(w10, 07) ^ rot(w10, 18) ^ (w10 >> 03) +% w18 +% rot(w23, 17) ^ rot(w23, 19) ^ (w23 >> 10);
+      let w26 = w10 +% rot(w11, 07) ^ rot(w11, 18) ^ (w11 >> 03) +% w19 +% rot(w24, 17) ^ rot(w24, 19) ^ (w24 >> 10);
+      let w27 = w11 +% rot(w12, 07) ^ rot(w12, 18) ^ (w12 >> 03) +% w20 +% rot(w25, 17) ^ rot(w25, 19) ^ (w25 >> 10);
+      let w28 = w12 +% rot(w13, 07) ^ rot(w13, 18) ^ (w13 >> 03) +% w21 +% rot(w26, 17) ^ rot(w26, 19) ^ (w26 >> 10);
+      let w29 = w13 +% rot(w14, 07) ^ rot(w14, 18) ^ (w14 >> 03) +% w22 +% rot(w27, 17) ^ rot(w27, 19) ^ (w27 >> 10);
+      let w30 = w14 +% rot(w15, 07) ^ rot(w15, 18) ^ (w15 >> 03) +% w23 +% rot(w28, 17) ^ rot(w28, 19) ^ (w28 >> 10);
+      let w31 = w15 +% rot(w16, 07) ^ rot(w16, 18) ^ (w16 >> 03) +% w24 +% rot(w29, 17) ^ rot(w29, 19) ^ (w29 >> 10);
+      let w32 = w16 +% rot(w17, 07) ^ rot(w17, 18) ^ (w17 >> 03) +% w25 +% rot(w30, 17) ^ rot(w30, 19) ^ (w30 >> 10);
+      let w33 = w17 +% rot(w18, 07) ^ rot(w18, 18) ^ (w18 >> 03) +% w26 +% rot(w31, 17) ^ rot(w31, 19) ^ (w31 >> 10);
+      let w34 = w18 +% rot(w19, 07) ^ rot(w19, 18) ^ (w19 >> 03) +% w27 +% rot(w32, 17) ^ rot(w32, 19) ^ (w32 >> 10);
+      let w35 = w19 +% rot(w20, 07) ^ rot(w20, 18) ^ (w20 >> 03) +% w28 +% rot(w33, 17) ^ rot(w33, 19) ^ (w33 >> 10);
+      let w36 = w20 +% rot(w21, 07) ^ rot(w21, 18) ^ (w21 >> 03) +% w29 +% rot(w34, 17) ^ rot(w34, 19) ^ (w34 >> 10);
+      let w37 = w21 +% rot(w22, 07) ^ rot(w22, 18) ^ (w22 >> 03) +% w30 +% rot(w35, 17) ^ rot(w35, 19) ^ (w35 >> 10);
+      let w38 = w22 +% rot(w23, 07) ^ rot(w23, 18) ^ (w23 >> 03) +% w31 +% rot(w36, 17) ^ rot(w36, 19) ^ (w36 >> 10);
+      let w39 = w23 +% rot(w24, 07) ^ rot(w24, 18) ^ (w24 >> 03) +% w32 +% rot(w37, 17) ^ rot(w37, 19) ^ (w37 >> 10);
+      let w40 = w24 +% rot(w25, 07) ^ rot(w25, 18) ^ (w25 >> 03) +% w33 +% rot(w38, 17) ^ rot(w38, 19) ^ (w38 >> 10);
+      let w41 = w25 +% rot(w26, 07) ^ rot(w26, 18) ^ (w26 >> 03) +% w34 +% rot(w39, 17) ^ rot(w39, 19) ^ (w39 >> 10);
+      let w42 = w26 +% rot(w27, 07) ^ rot(w27, 18) ^ (w27 >> 03) +% w35 +% rot(w40, 17) ^ rot(w40, 19) ^ (w40 >> 10);
+      let w43 = w27 +% rot(w28, 07) ^ rot(w28, 18) ^ (w28 >> 03) +% w36 +% rot(w41, 17) ^ rot(w41, 19) ^ (w41 >> 10);
+      let w44 = w28 +% rot(w29, 07) ^ rot(w29, 18) ^ (w29 >> 03) +% w37 +% rot(w42, 17) ^ rot(w42, 19) ^ (w42 >> 10);
+      let w45 = w29 +% rot(w30, 07) ^ rot(w30, 18) ^ (w30 >> 03) +% w38 +% rot(w43, 17) ^ rot(w43, 19) ^ (w43 >> 10);
+      let w46 = w30 +% rot(w31, 07) ^ rot(w31, 18) ^ (w31 >> 03) +% w39 +% rot(w44, 17) ^ rot(w44, 19) ^ (w44 >> 10);
+      let w47 = w31 +% rot(w32, 07) ^ rot(w32, 18) ^ (w32 >> 03) +% w40 +% rot(w45, 17) ^ rot(w45, 19) ^ (w45 >> 10);
+      let w48 = w32 +% rot(w33, 07) ^ rot(w33, 18) ^ (w33 >> 03) +% w41 +% rot(w46, 17) ^ rot(w46, 19) ^ (w46 >> 10);
+      let w49 = w33 +% rot(w34, 07) ^ rot(w34, 18) ^ (w34 >> 03) +% w42 +% rot(w47, 17) ^ rot(w47, 19) ^ (w47 >> 10);
+      let w50 = w34 +% rot(w35, 07) ^ rot(w35, 18) ^ (w35 >> 03) +% w43 +% rot(w48, 17) ^ rot(w48, 19) ^ (w48 >> 10);
+      let w51 = w35 +% rot(w36, 07) ^ rot(w36, 18) ^ (w36 >> 03) +% w44 +% rot(w49, 17) ^ rot(w49, 19) ^ (w49 >> 10);
+      let w52 = w36 +% rot(w37, 07) ^ rot(w37, 18) ^ (w37 >> 03) +% w45 +% rot(w50, 17) ^ rot(w50, 19) ^ (w50 >> 10);
+      let w53 = w37 +% rot(w38, 07) ^ rot(w38, 18) ^ (w38 >> 03) +% w46 +% rot(w51, 17) ^ rot(w51, 19) ^ (w51 >> 10);
+      let w54 = w38 +% rot(w39, 07) ^ rot(w39, 18) ^ (w39 >> 03) +% w47 +% rot(w52, 17) ^ rot(w52, 19) ^ (w52 >> 10);
+      let w55 = w39 +% rot(w40, 07) ^ rot(w40, 18) ^ (w40 >> 03) +% w48 +% rot(w53, 17) ^ rot(w53, 19) ^ (w53 >> 10);
+      let w56 = w40 +% rot(w41, 07) ^ rot(w41, 18) ^ (w41 >> 03) +% w49 +% rot(w54, 17) ^ rot(w54, 19) ^ (w54 >> 10);
+      let w57 = w41 +% rot(w42, 07) ^ rot(w42, 18) ^ (w42 >> 03) +% w50 +% rot(w55, 17) ^ rot(w55, 19) ^ (w55 >> 10);
+      let w58 = w42 +% rot(w43, 07) ^ rot(w43, 18) ^ (w43 >> 03) +% w51 +% rot(w56, 17) ^ rot(w56, 19) ^ (w56 >> 10);
+      let w59 = w43 +% rot(w44, 07) ^ rot(w44, 18) ^ (w44 >> 03) +% w52 +% rot(w57, 17) ^ rot(w57, 19) ^ (w57 >> 10);
+      let w60 = w44 +% rot(w45, 07) ^ rot(w45, 18) ^ (w45 >> 03) +% w53 +% rot(w58, 17) ^ rot(w58, 19) ^ (w58 >> 10);
+      let w61 = w45 +% rot(w46, 07) ^ rot(w46, 18) ^ (w46 >> 03) +% w54 +% rot(w59, 17) ^ rot(w59, 19) ^ (w59 >> 10);
+      let w62 = w46 +% rot(w47, 07) ^ rot(w47, 18) ^ (w47 >> 03) +% w55 +% rot(w60, 17) ^ rot(w60, 19) ^ (w60 >> 10);
+      let w63 = w47 +% rot(w48, 07) ^ rot(w48, 18) ^ (w48 >> 03) +% w56 +% rot(w61, 17) ^ rot(w61, 19) ^ (w61 >> 10);
+
+/*
       for ((i, j, k, l, m) in expansion_rounds.vals()) {
         // (j,k,l,m) = (i+1,i+9,i+14,i+16)
         let (v0, v1) = (msg[j], msg[l]);
-        // Below is an inlined version of this code:
-        //   let s0 = rot(v0, 07) ^ rot(v0, 18) ^ (v0 >> 03);
-        //   let s1 = rot(v1, 17) ^ rot(v1, 19) ^ (v1 >> 10);
-        //   msg[m] := msg[i] +% s0 +% msg[k] +% s1;
-        msg[m] := msg[i] +% rot(v0, 07) ^ rot(v0, 18) ^ (v0 >> 03) +% msg[k] +% rot(v1, 17) ^ rot(v1, 19) ^ (v1 >> 10);
+        let s0 = rot(v0, 07) ^ rot(v0, 18) ^ (v0 >> 03);
+        let s1 = rot(v1, 17) ^ rot(v1, 19) ^ (v1 >> 10);
+        msg[m] := msg[i] +% s0 +% msg[k] +% s1;
       };
+*/
       // compress
-      var a = state[0];
-      var b = state[1];
-      var c = state[2];
-      var d = state[3];
-      var e = state[4];
-      var f = state[5];
-      var g = state[6];
-      var h = state[7];
+      var a = s0;
+      var b = s1;
+      var c = s2;
+      var d = s3;
+      var e = s4;
+      var f = s5;
+      var g = s6;
+      var h = s7;
+      var t = 0 : Nat32;
+
+      t := h +% K00 +% w00 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K01 +% w01 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K02 +% w02 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K03 +% w03 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K04 +% w04 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K05 +% w05 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K06 +% w06 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K07 +% w07 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K08 +% w08 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K09 +% w09 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K10 +% w10 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K11 +% w11 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K12 +% w12 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K13 +% w13 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K14 +% w14 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K15 +% w15 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K16 +% w16 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K17 +% w17 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K18 +% w18 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K19 +% w19 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K20 +% w20 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K21 +% w21 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K22 +% w22 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K23 +% w23 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K24 +% w24 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K25 +% w25 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K26 +% w26 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K27 +% w27 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K28 +% w28 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K29 +% w29 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K30 +% w30 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K31 +% w31 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K32 +% w32 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K33 +% w33 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K34 +% w34 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K35 +% w35 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K36 +% w36 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K37 +% w37 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K38 +% w38 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K39 +% w39 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K40 +% w40 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K41 +% w41 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K42 +% w42 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K43 +% w43 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K44 +% w44 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K45 +% w45 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K46 +% w46 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K47 +% w47 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K48 +% w48 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K49 +% w49 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K50 +% w50 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K51 +% w51 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K52 +% w52 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K53 +% w53 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K54 +% w54 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K55 +% w55 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K56 +% w56 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K57 +% w57 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K58 +% w58 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K59 +% w59 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K60 +% w60 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K61 +% w61 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K62 +% w62 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+      t := h +% K63 +% w63 +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25); h := g; g := f; f := e; e := d +% t; d := c; c := b; b := a; a := t +% (b & c) ^ (b & d) ^ (c & d) +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+
+/*
       for (i in compression_rounds.keys()) {
-        //  Below is an inlined version of this code:
-        //    let ch = (e & f) ^ (^ e & g);
-        //    let maj = (a & b) ^ (a & c) ^ (b & c);
-        //    let sigma0 = rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
-        //    let sigma1 = rot(e, 06) ^ rot(e, 11) ^ rot(e, 25);
-        //    let t = h +% K[i] +% msg[i] +% ch +% sigma1;
-        //    h := g;
-        //    g := f;
-        //    f := e;
-        //    e := d +% t;
-        //    d := c;
-        //    c := b;
-        //    b := a;
-        //    a := t +% maj +% sigma0;
+        let ch = (e & f) ^ (^ e & g);
         let maj = (a & b) ^ (a & c) ^ (b & c);
-        let t = h +% K[i] +% msg[i] +% (e & f) ^ (^ e & g) +% rot(e, 06) ^ rot(e, 11) ^ rot(e, 25);
+        let sigma0 = rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+        let sigma1 = rot(e, 06) ^ rot(e, 11) ^ rot(e, 25);
+        let t = h +% K[i] +% msg[i] +% ch +% sigma1;
         h := g;
         g := f;
         f := e;
@@ -203,17 +333,18 @@ module {
         d := c;
         c := b;
         b := a;
-        a := t +% maj +% rot(a, 02) ^ rot(a, 13) ^ rot(a, 22);
+        a := t +% maj +% sigma0;
       };
+*/
       // final addition
-      state[0] +%= a;
-      state[1] +%= b;
-      state[2] +%= c;
-      state[3] +%= d;
-      state[4] +%= e;
-      state[5] +%= f;
-      state[6] +%= g;
-      state[7] +%= h;
+      s0 +%= a;
+      s1 +%= b;
+      s2 +%= c;
+      s3 +%= d;
+      s4 +%= e;
+      s5 +%= f;
+      s6 +%= g;
+      s7 +%= h;
     };
 
     public func writeIter(iter : { next() : ?Nat8 }) : () {
@@ -263,49 +394,41 @@ module {
       writeByte(Nat8.fromIntWrap(Nat64.toNat(n_bits & 0xff)));
 
       // retrieve sum
-      word := state[0];
-      digest[0] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[1] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[2] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[3] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state[1];
-      digest[4] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[5] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[6] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[7] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state[2];
-      digest[8] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[9] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[10] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[11] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state[3];
-      digest[12] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[13] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[14] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[15] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state[4];
-      digest[16] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[17] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[18] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[19] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state[5];
-      digest[20] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[21] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[22] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[23] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
-      word := state[6];
-      digest[24] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[25] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[26] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[27] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
+      digest[0] := Nat8.fromIntWrap(Nat32.toNat((s0 >> 24) & 0xff));
+      digest[1] := Nat8.fromIntWrap(Nat32.toNat((s0 >> 16) & 0xff));
+      digest[2] := Nat8.fromIntWrap(Nat32.toNat((s0 >> 8) & 0xff));
+      digest[3] := Nat8.fromIntWrap(Nat32.toNat(s0 & 0xff));
+      digest[4] := Nat8.fromIntWrap(Nat32.toNat((s1 >> 24) & 0xff));
+      digest[5] := Nat8.fromIntWrap(Nat32.toNat((s1 >> 16) & 0xff));
+      digest[6] := Nat8.fromIntWrap(Nat32.toNat((s1 >> 8) & 0xff));
+      digest[7] := Nat8.fromIntWrap(Nat32.toNat(s1 & 0xff));
+      digest[8] := Nat8.fromIntWrap(Nat32.toNat((s2 >> 24) & 0xff));
+      digest[9] := Nat8.fromIntWrap(Nat32.toNat((s2 >> 16) & 0xff));
+      digest[10] := Nat8.fromIntWrap(Nat32.toNat((s2 >> 8) & 0xff));
+      digest[11] := Nat8.fromIntWrap(Nat32.toNat(s2 & 0xff));
+      digest[12] := Nat8.fromIntWrap(Nat32.toNat((s3 >> 24) & 0xff));
+      digest[13] := Nat8.fromIntWrap(Nat32.toNat((s3 >> 16) & 0xff));
+      digest[14] := Nat8.fromIntWrap(Nat32.toNat((s3 >> 8) & 0xff));
+      digest[15] := Nat8.fromIntWrap(Nat32.toNat(s3 & 0xff));
+      digest[16] := Nat8.fromIntWrap(Nat32.toNat((s4 >> 24) & 0xff));
+      digest[17] := Nat8.fromIntWrap(Nat32.toNat((s4 >> 16) & 0xff));
+      digest[18] := Nat8.fromIntWrap(Nat32.toNat((s4 >> 8) & 0xff));
+      digest[19] := Nat8.fromIntWrap(Nat32.toNat(s4 & 0xff));
+      digest[20] := Nat8.fromIntWrap(Nat32.toNat((s5 >> 24) & 0xff));
+      digest[21] := Nat8.fromIntWrap(Nat32.toNat((s5 >> 16) & 0xff));
+      digest[22] := Nat8.fromIntWrap(Nat32.toNat((s5 >> 8) & 0xff));
+      digest[23] := Nat8.fromIntWrap(Nat32.toNat(s5 & 0xff));
+      digest[24] := Nat8.fromIntWrap(Nat32.toNat((s6 >> 24) & 0xff));
+      digest[25] := Nat8.fromIntWrap(Nat32.toNat((s6 >> 16) & 0xff));
+      digest[26] := Nat8.fromIntWrap(Nat32.toNat((s6 >> 8) & 0xff));
+      digest[27] := Nat8.fromIntWrap(Nat32.toNat(s6 & 0xff));
 
       if (algo_ == #sha224) return Blob.fromArrayMut(digest);
 
-      word := state[7];
-      digest[28] := Nat8.fromIntWrap(Nat32.toNat((word >> 24) & 0xff));
-      digest[29] := Nat8.fromIntWrap(Nat32.toNat((word >> 16) & 0xff));
-      digest[30] := Nat8.fromIntWrap(Nat32.toNat((word >> 8) & 0xff));
-      digest[31] := Nat8.fromIntWrap(Nat32.toNat(word & 0xff));
+      digest[28] := Nat8.fromIntWrap(Nat32.toNat((s7 >> 24) & 0xff));
+      digest[29] := Nat8.fromIntWrap(Nat32.toNat((s7 >> 16) & 0xff));
+      digest[30] := Nat8.fromIntWrap(Nat32.toNat((s7 >> 8) & 0xff));
+      digest[31] := Nat8.fromIntWrap(Nat32.toNat(s7 & 0xff));
 
       return Blob.fromArrayMut(digest);
     };
