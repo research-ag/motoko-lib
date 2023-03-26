@@ -1241,7 +1241,10 @@ module Static {
     var maxSoFar = get(vec, 0);
     iterate<X>(
       vec,
-      func(x) = if (compare(x, maxSoFar) == #greater) { maxSoFar := x },
+      func(x) = switch (compare(x, maxSoFar)) {
+        case (#greater) maxSoFar := x;
+        case _ {};
+      },
     );
 
     return ?maxSoFar;
@@ -1271,7 +1274,10 @@ module Static {
     var minSoFar = get(vec, 0);
     iterate<X>(
       vec,
-      func(x) = if (compare(x, minSoFar) == #less) { minSoFar := x },
+      func(x) = switch (compare(x, minSoFar)) {
+        case (#less) minSoFar := x;
+        case _ {};
+      },
     );
 
     return ?minSoFar;
