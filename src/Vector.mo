@@ -742,7 +742,7 @@ module Static {
       db[i_element];
     };
   };
-   
+
   /// Returns an Iterator (`Iter`) over the items in reverse order, i.e. pairs of value and index of a Vector.
   /// Iterator provides a single method `next()`, which returns
   /// elements in reverse order, or `null` when out of elements to iterate over.
@@ -1212,10 +1212,10 @@ module Static {
   ///
   /// *Runtime and space assumes that `equal` runs in O(1) time and space.
   public func contains<X>(vec : Vector<X>, element : X, equal : (X, X) -> Bool) : Bool {
-    switch(indexOf(element, vec, equal)) {
-    case (?i) { true };
-    case (null) { false };
-    }
+    switch (indexOf(element, vec, equal)) {
+      case (?i) { true };
+      case (null) { false };
+    };
   };
 
   /// Finds the greatest element in `vector` defined by `compare`.
@@ -1239,20 +1239,23 @@ module Static {
   /// *Runtime and space assumes that `compare` runs in O(1) time and space.
   public func max<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X {
     if (size(vec) == 0) {
-      return null
+      return null;
     };
 
     var maxSoFar = get(vec, 0);
-    iterate<X>(vec, func (x) {
-      switch (compare(x, maxSoFar)) {
-        case (#greater) {
-          maxSoFar := x
+    iterate<X>(
+      vec,
+      func(x) {
+        switch (compare(x, maxSoFar)) {
+          case (#greater) {
+            maxSoFar := x;
+          };
+          case _ {};
         };
-        case _ {}
-      }
-    });
+      },
+    );
 
-    ?maxSoFar
+    ?maxSoFar;
   };
 
   /// Finds the least element in `vector` defined by `compare`.
@@ -1275,20 +1278,23 @@ module Static {
   /// *Runtime and space assumes that `compare` runs in O(1) time and space.
   public func min<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X {
     if (size(vec) == 0) {
-      return null
+      return null;
     };
 
     var minSoFar = get(vec, 0);
-    iterate<X>(vec, func (x) {
-      switch (compare(x, minSoFar)) {
-        case (#less) {
-          minSoFar := x
+    iterate<X>(
+      vec,
+      func(x) {
+        switch (compare(x, minSoFar)) {
+          case (#less) {
+            minSoFar := x;
+          };
+          case _ {};
         };
-        case _ {}
-      }
-    });
+      },
+    );
 
-    ?minSoFar
+    ?minSoFar;
   };
 
   /// Defines equality for two vectors, using `equal` to recursively compare elements in the
@@ -1318,7 +1324,7 @@ module Static {
     let size1 = size(vec1);
 
     if (size1 != size(vec2)) {
-      return false
+      return false;
     };
 
     let next1 = vals_(vec1).unsafe_next;
@@ -1326,12 +1332,12 @@ module Static {
     var i = 0;
     while (i < size1) {
       if (not equal(next1(), next2())) {
-        return false
+        return false;
       };
-      i += 1
+      i += 1;
     };
 
-    true
+    true;
   };
 
   /// Defines comparison for two vectors, using `compare` to recursively compare elements in the
@@ -1366,23 +1372,23 @@ module Static {
     while (i < minSize) {
       switch (compare_fn(next1(), next2())) {
         case (#less) {
-          return #less
+          return #less;
         };
         case (#greater) {
-          return #greater
+          return #greater;
         };
-        case _ {}
+        case _ {};
       };
-      i += 1
+      i += 1;
     };
 
     if (size1 < size2) {
-      #less
+      #less;
     } else if (size1 == size2) {
-      #equal
+      #equal;
     } else {
-      #greater
-    }
+      #greater;
+    };
   };
 
   /// Creates a textual representation of `vector`, using `toText` to recursively
@@ -1409,14 +1415,14 @@ module Static {
     var text = "";
     while (i < vsize - 1) {
       text := text # toText_fn(next()) # ", "; // Text implemented as rope
-      i += 1
+      i += 1;
     };
     if (vsize > 0) {
       // avoid the trailing comma
-      text := text # toText_fn(get<X>(vec, i))
+      text := text # toText_fn(get<X>(vec, i));
     };
 
-    "[" # text # "]"
+    "[" # text # "]";
   };
 
   /// Collapses the elements in `vector` into a single value by starting with `base`
@@ -1440,11 +1446,14 @@ module Static {
   public func foldLeft<A, X>(vec : Vector<X>, base : A, combine : (A, X) -> A) : A {
     var accumulation = base;
 
-    iterate<X>(vec, func (x) {
-      accumulation := combine(accumulation, x);
-    });
+    iterate<X>(
+      vec,
+      func(x) {
+        accumulation := combine(accumulation, x);
+      },
+    );
 
-    accumulation
+    accumulation;
   };
 
   /// Collapses the elements in `vector` into a single value by starting with `base`
@@ -1468,11 +1477,14 @@ module Static {
   public func foldRight<X, A>(vec : Vector<X>, base : A, combine : (X, A) -> A) : A {
     var accumulation = base;
 
-    iterateRev<X>(vec, func (x) {
-      accumulation := combine(x, accumulation);
-    });
+    iterateRev<X>(
+      vec,
+      func(x) {
+        accumulation := combine(x, accumulation);
+      },
+    );
 
-    accumulation
+    accumulation;
   };
 
   /// Returns a new vector with capacity and size 1, containing `element`.
@@ -1489,7 +1501,7 @@ module Static {
   ///
   /// Space: O(1)
   public func make<X>(element : X) : Vector<X> {
-    init(1, element)
+    init(1, element);
   };
 
   /// Reverses the order of elements in `vector`.
@@ -1510,7 +1522,7 @@ module Static {
   public func reverse<X>(vec : Vector<X>) {
     let vsize = size(vec);
     if (vsize == 0) {
-      return
+      return;
     };
 
     var i = 0;
@@ -1522,7 +1534,7 @@ module Static {
       put(vec, i, temp);
       i += 1;
       j -= 1;
-    }
+    };
   };
 
   /// Reverses the order of elements in `vector` and returns a new
@@ -1543,9 +1555,12 @@ module Static {
   /// Space: O(1)
   public func reversed<X>(vec : Vector<X>) : Vector<X> {
     let rvec = new<X>();
-    iterateRev<X>(vec, func (x) {
-      add(rvec, x);
-    });
+    iterateRev<X>(
+      vec,
+      func(x) {
+        add(rvec, x);
+      },
+    );
 
     return rvec;
   };
