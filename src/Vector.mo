@@ -1534,7 +1534,9 @@ module Static {
   /// Runtime: O(1)
   ///
   /// Space: O(1)
-  public func isEmpty<X>(vec : Vector<X>) : Bool = size(vec) == 0;
+  public func isEmpty<X>(vec : Vector<X>) : Bool {
+    vec.i_block == 1 and vec.i_element == 0;
+  };
 
   /// Submodule with Vector as a class
   /// This allows to use VectorClass as a drop-in replacement of Buffer
