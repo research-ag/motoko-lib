@@ -243,6 +243,13 @@ module TokenHandler {
     #credited: Nat;
   });
 
+  public type StableData = (
+    [(Principal, Info)],          // map
+    [Principal],                  // backlog
+    Nat,                          // consolidatedFunds
+    Vector.Vector<JournalRecord>  // journal
+  );
+
   public class TokenHandler(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
@@ -257,6 +264,7 @@ module TokenHandler {
     let map : Map = Map();
     let backlog : BackLog = BackLog();
     var journal : Vector.Vector<JournalRecord> = Vector.new();
+    var consolidatedFunds : Nat = 0;
 
     /// query the usable balance
     public func balance(p : Principal) : Nat = info(p).usable_balance;
@@ -359,6 +367,7 @@ module TokenHandler {
           case (#Ok _) {
             ignore updateDeposit(p, 0);
             credit(p, transferAmount);
+            consolidatedFunds += transferAmount;
             Vector.add(journal, (Time.now(), p, #consolidated(transferAmount)));
           };
           case (#Err _) {
@@ -374,14 +383,15 @@ module TokenHandler {
     };
 
     /// serialize tracking data
-    public func share() : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>) 
-      = (map.share(), backlog.share(), journal);
+    public func share() : StableData
+      = (map.share(), backlog.share(), consolidatedFunds, journal);
 
     /// deserialize tracking data
-    public func unshare(values : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>)) {
+    public func unshare(values : StableData) {
       map.unshare(values.0);
       backlog.unshare(values.1);
-      journal := values.2;
+      consolidatedFunds := values.2;
+      journal := values.3;
     };
 
     func usableBalanceForPrincipal(p: Principal) : Nat 
