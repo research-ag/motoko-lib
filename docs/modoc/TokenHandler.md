@@ -88,7 +88,7 @@ process first account from backlog
 
 ### Function `share`
 ``` motoko
-func share() : ([(Principal, Info)], [Principal])
+func share() : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>)
 ```
 
 serialize tracking data
@@ -96,7 +96,7 @@ serialize tracking data
 
 ### Function `unshare`
 ``` motoko
-func unshare(values : ([(Principal, Info)], [Principal]))
+func unshare(values : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>))
 ```
 
 deserialize tracking data

@@ -12,6 +12,9 @@ import Nat8 "mo:base/Nat8";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import List "mo:base/List";
+import Time = "mo:base/Time";
+
+import Vector "Vector";
 
 module TokenHandler {
   // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
@@ -233,6 +236,13 @@ module TokenHandler {
     };
   };
 
+  type JournalRecord = (Time.Time, Principal, {
+    #newDeposit: Nat;
+    #consolidated: Nat;
+    #debited: Nat;
+    #credited: Nat;
+  });
+
   public class TokenHandler(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
@@ -246,10 +256,7 @@ module TokenHandler {
 
     let map : Map = Map();
     let backlog : BackLog = BackLog();
-
-    // a backlog of principals, waiting for consolidation
-    // var backlog : AssocList.AssocList<Principal, ()> = null;
-    // var backlogSize : Nat = 0;
+    var journal : Vector.Vector<JournalRecord> = Vector.new();
 
     /// query the usable balance
     public func balance(p : Principal) : Nat = info(p).usable_balance;
@@ -280,6 +287,7 @@ module TokenHandler {
         func(info) {
           if (usableBalance(info) < amount) return false;
           info.credit -= amount;
+          Vector.add(journal, (Time.now(), p, #debited(amount)));
           return true;
         },
       );
@@ -294,6 +302,7 @@ module TokenHandler {
           true;
         },
       );
+      Vector.add(journal, (Time.now(), p, #credited(amount)));
     };
 
     /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
@@ -311,7 +320,10 @@ module TokenHandler {
           ignore processBacklog();
         };
         map.unlock(p);
-        (latestBalance - oldBalance, usableBalanceForPrincipal(p));
+        assert latestBalance > oldBalance;
+        let balanceDelta = Int.abs(latestBalance - oldBalance);
+        Vector.add(journal, (Time.now(), p, #newDeposit(balanceDelta)));
+        (balanceDelta, usableBalanceForPrincipal(p));
       } catch err {
         map.unlock(p);
         throw err;
@@ -326,6 +338,7 @@ module TokenHandler {
           return;
         };
         if (latestBalance <= fee) return;
+        let transferAmount = Int.abs(latestBalance - fee);
 
         ignore updateDeposit(p, latestBalance);
 
@@ -333,7 +346,7 @@ module TokenHandler {
           await icrc1Ledger.icrc1_transfer({
             from_subaccount = ?toSubaccount(p);
             to = { owner = ownPrincipal; subaccount = null };
-            amount = latestBalance - fee;
+            amount = transferAmount;
             fee = null;
             memo = null;
             created_at_time = null;
@@ -345,7 +358,8 @@ module TokenHandler {
         switch (transferResult) {
           case (#Ok _) {
             ignore updateDeposit(p, 0);
-            credit(p, latestBalance - fee);
+            credit(p, transferAmount);
+            Vector.add(journal, (Time.now(), p, #consolidated(transferAmount)));
           };
           case (#Err _) {
             backlog.push(p);
@@ -360,12 +374,14 @@ module TokenHandler {
     };
 
     /// serialize tracking data
-    public func share() : ([(Principal, Info)], [Principal]) = (map.share(), backlog.share());
+    public func share() : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>) 
+      = (map.share(), backlog.share(), journal);
 
     /// deserialize tracking data
-    public func unshare(values : ([(Principal, Info)], [Principal])) {
+    public func unshare(values : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>)) {
       map.unshare(values.0);
       backlog.unshare(values.1);
+      journal := values.2;
     };
 
     func usableBalanceForPrincipal(p: Principal) : Nat 
