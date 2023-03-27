@@ -299,17 +299,19 @@ module TokenHandler {
     /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
     /// to the last balance seen. If it has increased then it will adjust the deposit (and hence the usable_balance).
     /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
-    public func notify(p : Principal) : async* () {
-      if (not map.lock(p)) return;
+    /// Returns the newly detected deposit and total usable balance
+    public func notify(p : Principal) : async* (Nat, Nat) {
+      if (not map.lock(p)) return (0, usableBalanceForPrincipal(p));
       try {
         let latestBalance = await* loadBalance(p);
-        updateDeposit(p, latestBalance);
+        let oldBalance = updateDeposit(p, latestBalance);
         if (latestBalance > fee) {
           // schedule consolidation for this p
           backlog.push(p);
           ignore processBacklog();
         };
         map.unlock(p);
+        (latestBalance - oldBalance, usableBalanceForPrincipal(p));
       } catch err {
         map.unlock(p);
         throw err;
@@ -325,7 +327,7 @@ module TokenHandler {
         };
         if (latestBalance <= fee) return;
 
-        updateDeposit(p, latestBalance);
+        ignore updateDeposit(p, latestBalance);
 
         let transferResult = try {
           await icrc1Ledger.icrc1_transfer({
@@ -342,7 +344,7 @@ module TokenHandler {
 
         switch (transferResult) {
           case (#Ok _) {
-            updateDeposit(p, 0);
+            ignore updateDeposit(p, 0);
             credit(p, latestBalance - fee);
           };
           case (#Err _) {
@@ -366,6 +368,9 @@ module TokenHandler {
       backlog.unshare(values.1);
     };
 
+    func usableBalanceForPrincipal(p: Principal) : Nat 
+      = Option.get(Option.map<InfoLock, Nat>(map.get(p), usableBalance), 0);
+
     func usableBalance(item : Info) : Nat {
       let usableDeposit = Int.max(0, item.deposit - fee);
       if (item.credit + usableDeposit < 0) {
@@ -374,8 +379,15 @@ module TokenHandler {
       Int.abs(item.credit + usableDeposit);
     };
 
-    func updateDeposit(p : Principal, deposit : Nat) : () {
-      ignore map.set(p, func(info) { info.deposit := deposit; true });
+    // returns old deposit
+    func updateDeposit(p : Principal, deposit : Nat) : Nat {
+      var oldDeposit = 0;
+      ignore map.set(p, func(info) { 
+        oldDeposit := info.deposit;
+        info.deposit := deposit; 
+        true;
+      });
+      oldDeposit;
     };
 
     func loadBalance(p : Principal) : async* Nat {
