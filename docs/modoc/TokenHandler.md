@@ -20,6 +20,12 @@ type Info = { var deposit : Nat; var credit : Int }
 ```
 
 
+## Type `StableData`
+``` motoko
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Vector.Vector<JournalRecord>)
+```
+
+
 ## Class `TokenHandler`
 
 ``` motoko
@@ -49,6 +55,22 @@ func backlogSize() : Nat
 ```
 
 retrieve the current size of consolidation backlog
+
+
+### Function `backlogFunds`
+``` motoko
+func backlogFunds() : Nat
+```
+
+retrieve the estimated sum of all balances in the backlog
+
+
+### Function `consolidatedFunds`
+``` motoko
+func consolidatedFunds() : Nat
+```
+
+retrieve the sum of all successful consolidations
 
 
 ### Function `debit`
@@ -88,7 +110,7 @@ process first account from backlog
 
 ### Function `share`
 ``` motoko
-func share() : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>)
+func share() : StableData
 ```
 
 serialize tracking data
@@ -96,7 +118,7 @@ serialize tracking data
 
 ### Function `unshare`
 ``` motoko
-func unshare(values : ([(Principal, Info)], [Principal], Vector.Vector<JournalRecord>))
+func unshare(values : StableData)
 ```
 
 deserialize tracking data

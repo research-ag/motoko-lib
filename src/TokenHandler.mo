@@ -178,59 +178,63 @@ module TokenHandler {
 
   class BackLog() {
     // a backlog of principals, waiting for consolidation
-    var backlog : AssocList.AssocList<Principal, ()> = null;
+    var backlog : AssocList.AssocList<Principal, Nat> = null;
     var size_ : Nat = 0;
+    var funds_ : Nat = 0;
 
-    public func push(p : Principal) {
-      let (updated, prev) = AssocList.replace<Principal, ()>(backlog, p, Principal.equal, ?());
+    public func push(p : Principal, amount: Nat) {
+      let (updated, prev) = AssocList.replace<Principal, Nat>(backlog, p, Principal.equal, ?amount);
+      funds_ += amount;
       backlog := updated;
       switch (prev) {
         case (null) size_ += 1;
-        case (_) {};
+        case (?prevAmount) {
+          funds_ -= prevAmount;
+        };
       };
     };
 
     public func remove(p : Principal) {
-      let (updated, prev) = AssocList.replace<Principal, ()>(backlog, p, Principal.equal, null);
+      let (updated, prev) = AssocList.replace<Principal, Nat>(backlog, p, Principal.equal, null);
       backlog := updated;
       switch (prev) {
         case (null) {};
-        case (_) size_ -= 1;
+        case (?prevAmount) {
+          size_ -= 1;
+          funds_ -= prevAmount;
+        };
       };
     };
 
     /// retrieve the current size of consolidation backlog
     public func size() : Nat = size_;
 
+    /// retrieve the estimated sum of all balances in the backlog 
+    public func funds() : Nat = funds_;
+
     public func pop() : ?Principal {
       switch (backlog) {
         case (null) null;
-        case (?((p, _), list)) {
+        case (?((p, amount), list)) {
           backlog := list;
           size_ -= 1;
+          funds_ -= amount;
           ?p;
         };
       };
     };
 
-    public func share() : [Principal] {
-      let array = Array.init<Principal>(size_,Principal.fromText("2vxsx-fae"));
-
-      var i = 0;
-      List.iterate(backlog, func ((x, _) : (Principal, ())) {
-        array[i] := x;
-        i += 1;
-      });
-
-      Array.freeze(array);
+    public func share() : (Nat, [(Principal, Nat)]) {
+      (funds_, List.toArray(backlog));
     };
 
-    public func unshare(array : [Principal]) {
+    public func unshare(data : (Nat, [(Principal, Nat)])) {
       backlog := null;
-      size_ := array.size();
+      funds_ := data.0;
+      size_ := data.1.size();
       var i = size_;
       while (i > 0) {
-        backlog := ?((array[i - 1], ()), backlog);
+        backlog := ?(data.1[i - 1], backlog);
         i -= 1;
       };
     };
@@ -245,7 +249,7 @@ module TokenHandler {
 
   public type StableData = (
     [(Principal, Info)],          // map
-    [Principal],                  // backlog
+    (Nat, [(Principal, Nat)]),    // backlog
     Nat,                          // consolidatedFunds
     Vector.Vector<JournalRecord>  // journal
   );
@@ -264,7 +268,7 @@ module TokenHandler {
     let map : Map = Map();
     let backlog : BackLog = BackLog();
     var journal : Vector.Vector<JournalRecord> = Vector.new();
-    var consolidatedFunds : Nat = 0;
+    var consolidatedFunds_ : Nat = 0;
 
     /// query the usable balance
     public func balance(p : Principal) : Nat = info(p).usable_balance;
@@ -287,6 +291,12 @@ module TokenHandler {
 
     /// retrieve the current size of consolidation backlog
     public func backlogSize() : Nat = backlog.size();
+
+    /// retrieve the estimated sum of all balances in the backlog
+    public func backlogFunds() : Nat = backlog.funds();
+
+    /// retrieve the sum of all successful consolidations
+    public func consolidatedFunds() : Nat = consolidatedFunds_;
 
     /// deduct amount from P’s usable balance. Return false if the balance is insufficient.
     public func debit(p : Principal, amount : Nat) : Bool {
@@ -324,7 +334,7 @@ module TokenHandler {
         let oldBalance = updateDeposit(p, latestBalance);
         if (latestBalance > fee) {
           // schedule consolidation for this p
-          backlog.push(p);
+          backlog.push(p, latestBalance);
           ignore processBacklog();
         };
         map.unlock(p);
@@ -342,7 +352,7 @@ module TokenHandler {
     public func processBacklog() : async* () {
       func consolidate(p : Principal) : async* () {
         let latestBalance = try { await* loadBalance(p) } catch (err) {
-          backlog.push(p);
+          backlog.push(p, 0);
           return;
         };
         if (latestBalance <= fee) return;
@@ -367,11 +377,11 @@ module TokenHandler {
           case (#Ok _) {
             ignore updateDeposit(p, 0);
             credit(p, transferAmount);
-            consolidatedFunds += transferAmount;
+            consolidatedFunds_ += transferAmount;
             Vector.add(journal, (Time.now(), p, #consolidated(transferAmount)));
           };
           case (#Err _) {
-            backlog.push(p);
+            backlog.push(p, latestBalance);
           };
         };
       };
@@ -384,13 +394,13 @@ module TokenHandler {
 
     /// serialize tracking data
     public func share() : StableData
-      = (map.share(), backlog.share(), consolidatedFunds, journal);
+      = (map.share(), backlog.share(), consolidatedFunds_, journal);
 
     /// deserialize tracking data
     public func unshare(values : StableData) {
       map.unshare(values.0);
       backlog.unshare(values.1);
-      consolidatedFunds := values.2;
+      consolidatedFunds_ := values.2;
       journal := values.3;
     };
 
