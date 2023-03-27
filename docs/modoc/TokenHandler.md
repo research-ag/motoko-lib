@@ -69,13 +69,13 @@ func credit(p : Principal, amount : Nat) : ()
 
 ### Function `notify`
 ``` motoko
-func notify(p : Principal) : async* (Nat, Nat)
+func notify(p : Principal) : async* ?(Nat, Nat)
 ```
 
 The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
 to the last balance seen. If it has increased then it will adjust the deposit (and hence the usable_balance).
 It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
-Returns the newly detected deposit and total usable balance
+Returns the newly detected deposit and total usable balance if success, otherwise null
 
 
 ### Function `processBacklog`

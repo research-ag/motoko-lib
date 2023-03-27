@@ -308,9 +308,9 @@ module TokenHandler {
     /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
     /// to the last balance seen. If it has increased then it will adjust the deposit (and hence the usable_balance).
     /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
-    /// Returns the newly detected deposit and total usable balance
-    public func notify(p : Principal) : async* (Nat, Nat) {
-      if (not map.lock(p)) return (0, usableBalanceForPrincipal(p));
+    /// Returns the newly detected deposit and total usable balance if success, otherwise null
+    public func notify(p : Principal) : async* ?(Nat, Nat) {
+      if (not map.lock(p)) return null;
       try {
         let latestBalance = await* loadBalance(p);
         let oldBalance = updateDeposit(p, latestBalance);
@@ -323,7 +323,7 @@ module TokenHandler {
         assert latestBalance > oldBalance;
         let balanceDelta = Int.abs(latestBalance - oldBalance);
         Vector.add(journal, (Time.now(), p, #newDeposit(balanceDelta)));
-        (balanceDelta, usableBalanceForPrincipal(p));
+        ?(balanceDelta, usableBalanceForPrincipal(p));
       } catch err {
         map.unlock(p);
         throw err;
