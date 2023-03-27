@@ -347,7 +347,7 @@ module TokenHandler {
             from_subaccount = ?toSubaccount(p);
             to = { owner = ownPrincipal; subaccount = null };
             amount = transferAmount;
-            fee = null;
+            fee = ?fee;
             memo = null;
             created_at_time = null;
           });
