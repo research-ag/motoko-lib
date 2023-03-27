@@ -87,7 +87,7 @@ module TokenHandler {
     if (size_index == 32) return null;
     
     let size = Nat8.toNat(bytes[size_index]);
-    assert size_index + size == 31;
+    if (size_index + size != 31) return null;
 
     ?Principal.fromBlob(Blob.fromArray(Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])));
   };
