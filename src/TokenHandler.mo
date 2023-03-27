@@ -174,6 +174,11 @@ module TokenHandler {
         );
       };
     };
+
+    public func items(): Iter.Iter<InfoLock> = Iter.map<(Principal, InfoLock), InfoLock>(
+      tree.entries(), 
+      func (entry: (Principal, InfoLock)) : InfoLock = entry.1
+    );
   };
 
   class BackLog() {
@@ -390,6 +395,7 @@ module TokenHandler {
       if (not map.lock(p)) return;
       await* consolidate(p);
       map.unlock(p);
+      assertBalancesIntegrity();
     };
 
     /// serialize tracking data
@@ -402,6 +408,14 @@ module TokenHandler {
       backlog.unshare(values.1);
       consolidatedFunds_ := values.2;
       journal := values.3;
+    };
+
+    func assertBalancesIntegrity() : () {
+      var usableSum = 0;
+      for (info in map.items()) {
+        usableSum += usableBalance(info);
+      };
+      assert usableSum + fee * backlog.size() == consolidatedFunds_ + backlog.funds();
     };
 
     func usableBalanceForPrincipal(p: Principal) : Nat 
