@@ -20,4 +20,6 @@ c.push(6);
 c.push(7);
 c.push(8);
 
-assert Iter.toArray(c.slice(0, 9)) == [4, 5, 6, 7, 8];
+let (a, b) = c.available();
+assert Iter.toArray(c.slice(a, b)) == [4, 5, 6, 7, 8];
+assert Iter.toArray(c.slice(a + 1, b - 1)) == [5, 6, 7];
