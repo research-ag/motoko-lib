@@ -22,14 +22,14 @@ type Info = { var deposit : Nat; var credit : Int }
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Vector.Vector<JournalRecord>)
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, ([var ?JournalRecord], Nat, Int))
 ```
 
 
 ## Class `TokenHandler`
 
 ``` motoko
-class TokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, fee : Nat)
+class TokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, fee : Nat, journalSize : Nat)
 ```
 
 
@@ -47,6 +47,22 @@ func info(p : Principal) : Info and { var usable_balance : Nat }
 ```
 
 query all tracked balances for debug purposes
+
+
+### Function `queryJournal`
+``` motoko
+func queryJournal() : [JournalRecord]
+```
+
+query journal for debug purposes
+
+
+### Function `isFrozen`
+``` motoko
+func isFrozen() : Bool
+```
+
+retrieve the current freeze state
 
 
 ### Function `backlogSize`
@@ -83,7 +99,7 @@ deduct amount from P’s usable balance. Return false if the balance is insuffic
 
 ### Function `credit`
 ``` motoko
-func credit(p : Principal, amount : Nat) : ()
+func credit(p : Principal, amount : Nat) : Bool
 ```
 
  add amount to P’s usable balance (the credit is created out of thin air)

@@ -14,7 +14,7 @@ module CircularBuffer {
     /// Number of items that were ever pushed to the buffer
     public func pushesAmount() : Nat = Int.abs(pushes);
 
-    /// insert value into the buffer
+    /// Insert value into the buffer
     public func push(item : T) {
       array[last] := ?item;
       pushes += 1;
