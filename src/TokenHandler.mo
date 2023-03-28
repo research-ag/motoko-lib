@@ -360,11 +360,9 @@ module TokenHandler {
           backlog.push(p, 0);
           return;
         };
+        ignore updateDeposit(p, latestBalance);
         if (latestBalance <= fee) return;
         let transferAmount = Int.abs(latestBalance - fee);
-
-        ignore updateDeposit(p, latestBalance);
-
         let transferResult = try {
           await icrc1Ledger.icrc1_transfer({
             from_subaccount = ?toSubaccount(p);
