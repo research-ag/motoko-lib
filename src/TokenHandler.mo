@@ -10,7 +10,7 @@ import Array "mo:base/Array";
 import List "mo:base/List";
 import Time = "mo:base/Time";
 
-import Vector "Vector";
+import CircularBuffer "CircularBuffer";
 
 module TokenHandler {
   // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
@@ -264,16 +264,17 @@ module TokenHandler {
   });
 
   public type StableData = (
-    [(Principal, Info)],          // map
-    (Nat, [(Principal, Nat)]),    // backlog
-    Nat,                          // consolidatedFunds
-    Vector.Vector<JournalRecord>  // journal
+    [(Principal, Info)],              // map
+    (Nat, [(Principal, Nat)]),        // backlog
+    Nat,                              // consolidatedFunds
+    ([var ?JournalRecord], Nat, Int)  // journal
   );
 
   public class TokenHandler(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
     fee : Nat,
+    journalSize: Nat,
   ) {
 
     let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1.ICRC1Ledger;
@@ -282,11 +283,11 @@ module TokenHandler {
     var isFrozen_ : Bool = false;
     func freezeTokenHandler(errorText: Text): () {
       isFrozen_ := true;
-      Vector.add(journal, (Time.now(), ownPrincipal, #error(errorText)));
+      journal.push((Time.now(), ownPrincipal, #error(errorText)));
     };
 
     let backlog : BackLog = BackLog();
-    var journal : Vector.Vector<JournalRecord> = Vector.new();
+    var journal : CircularBuffer.CircularBuffer<JournalRecord> = CircularBuffer.CircularBuffer<JournalRecord>(journalSize);
     var consolidatedFunds_ : Nat = 0;
     let map : Map = Map(freezeTokenHandler);
 
@@ -308,6 +309,14 @@ module TokenHandler {
         var usable_balance = usableBalance(item);
       };
     };
+
+    /// query journal for debug purposes
+    public func queryJournal(): [JournalRecord] = Iter.toArray(
+      journal.slice(
+        Int.abs(Int.max(0, journal.pushesAmount() - journalSize)), 
+        journal.pushesAmount()
+      )
+    );
 
     /// retrieve the current freeze state
     public func isFrozen() : Bool = isFrozen_;
@@ -331,7 +340,7 @@ module TokenHandler {
         func(info) {
           if (usableBalance(info) < amount) return false;
           info.credit -= amount;
-          Vector.add(journal, (Time.now(), p, #debited(amount)));
+          journal.push((Time.now(), p, #debited(amount)));
           return true;
         },
       );
@@ -349,7 +358,7 @@ module TokenHandler {
           true;
         },
       );
-      Vector.add(journal, (Time.now(), p, #credited(amount)));
+      journal.push((Time.now(), p, #credited(amount)));
       true;
     };
 
@@ -377,7 +386,7 @@ module TokenHandler {
           return null;
         };
         let balanceDelta = Int.abs(latestBalance - oldBalance);
-        Vector.add(journal, (Time.now(), p, #newDeposit(balanceDelta)));
+        journal.push((Time.now(), p, #newDeposit(balanceDelta)));
         ?(balanceDelta, usableBalanceForPrincipal(p));
       } catch err {
         map.unlock(p);
@@ -413,7 +422,7 @@ module TokenHandler {
             ignore updateDeposit(p, 0);
             ignore credit(p, transferAmount);
             consolidatedFunds_ += transferAmount;
-            Vector.add(journal, (Time.now(), p, #consolidated(transferAmount)));
+            journal.push((Time.now(), p, #consolidated(transferAmount)));
           };
           case (#Err _) {
             backlog.push(p, latestBalance);
@@ -433,14 +442,14 @@ module TokenHandler {
 
     /// serialize tracking data
     public func share() : StableData
-      = (map.share(), backlog.share(), consolidatedFunds_, journal);
+      = (map.share(), backlog.share(), consolidatedFunds_, journal.share());
 
     /// deserialize tracking data
     public func unshare(values : StableData) {
       map.unshare(values.0);
       backlog.unshare(values.1);
       consolidatedFunds_ := values.2;
-      journal := values.3;
+      journal.unshare(values.3);
     };
 
     func assertBalancesIntegrity() : () {
