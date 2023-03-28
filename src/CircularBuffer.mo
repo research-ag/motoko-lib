@@ -9,7 +9,6 @@ module CircularBuffer {
   public class CircularBuffer<T>(capacity : Nat) {
     var array : [var ?T] = Array.init(capacity, null);
     var last : Nat = 0;
-
     var pushes : Int = 0;
 
     /// Number of items that were ever pushed to the buffer
@@ -51,6 +50,16 @@ module CircularBuffer {
           ret;
         };
       };
+    };
+
+    /// Share stable content
+    public func share() : ([var ?T], Nat, Int) = (array, last, pushes);
+
+    /// Unshare from stable content
+    public func unshare(data : ([var ?T], Nat, Int)) {
+      array := data.0;
+      last := data.1;
+      pushes := data.2;
     };
   };
 };
