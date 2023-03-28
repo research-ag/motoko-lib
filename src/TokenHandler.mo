@@ -1,16 +1,12 @@
-import R "mo:base/Result";
-import Cycles "mo:base/ExperimentalCycles";
 import RBTree "mo:base/RBTree";
 import Principal "mo:base/Principal";
 import Iter "mo:base/Iter";
 import Option "mo:base/Option";
-import Debug "mo:base/Debug";
 import Int "mo:base/Int";
 import AssocList "mo:base/AssocList";
 import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
 import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
 import List "mo:base/List";
 import Time = "mo:base/Time";
 
@@ -104,7 +100,7 @@ module TokenHandler {
     var lock : Bool; // lock flag. For internal usage only
   };
 
-  class Map() {
+  class Map(freezeTokenHandler: (text: Text) -> ()) {
     var tree : RBTree.RBTree<Principal, InfoLock> = RBTree.RBTree<Principal, InfoLock>(Principal.compare);
 
     func clean(p : Principal, info : InfoLock) {
@@ -141,16 +137,30 @@ module TokenHandler {
     public func get(p : Principal) : ?InfoLock = tree.get(p);
 
     public func lock(p : Principal) : Bool {
-      let ?info = tree.get(p) else Debug.trap("Lock not existent p");
-      if (info.lock) return false;
-      info.lock := true;
-      true;
+      switch (tree.get(p)) {
+        case (null) {
+          freezeTokenHandler("Lock not existent p");
+          false;
+        };
+        case (?info) {
+          if (info.lock) return false;
+          info.lock := true;
+          true;
+        };
+      };
     };
 
     public func unlock(p : Principal) {
-      let ?info = tree.get(p) else Debug.trap("Unlock not existent p");
-      if (not info.lock) Debug.trap("releasing lock that isn't locked");
-      info.lock := false;
+
+      switch (tree.get(p)) {
+        case (null) {
+          freezeTokenHandler("Unlock not existent p");
+        };
+        case (?info) {
+          if (not info.lock) freezeTokenHandler("releasing lock that isn't locked");
+          info.lock := false;
+        };
+      };
     };
 
     public func share() : [(Principal, Info)] = Iter.toArray(
@@ -250,6 +260,7 @@ module TokenHandler {
     #consolidated: Nat;
     #debited: Nat;
     #credited: Nat;
+    #error: Text;
   });
 
   public type StableData = (
@@ -267,13 +278,17 @@ module TokenHandler {
 
     let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1.ICRC1Ledger;
 
-    // The map from p to tracking info:
-    // var tree : RBTree.RBTree<Principal, InfoLock> = RBTree.RBTree<Principal, InfoLock>(Principal.compare);
+    /// if some unexpected error happened, this flag turns true and handler stops doing anything until recreated 
+    var isFrozen_ : Bool = false;
+    func freezeTokenHandler(errorText: Text): () {
+      isFrozen_ := true;
+      Vector.add(journal, (Time.now(), ownPrincipal, #error(errorText)));
+    };
 
-    let map : Map = Map();
     let backlog : BackLog = BackLog();
     var journal : Vector.Vector<JournalRecord> = Vector.new();
     var consolidatedFunds_ : Nat = 0;
+    let map : Map = Map(freezeTokenHandler);
 
     /// query the usable balance
     public func balance(p : Principal) : Nat = info(p).usable_balance;
@@ -294,6 +309,9 @@ module TokenHandler {
       };
     };
 
+    /// retrieve the current freeze state
+    public func isFrozen() : Bool = isFrozen_;
+
     /// retrieve the current size of consolidation backlog
     public func backlogSize() : Nat = backlog.size();
 
@@ -305,6 +323,9 @@ module TokenHandler {
 
     /// deduct amount from P’s usable balance. Return false if the balance is insufficient.
     public func debit(p : Principal, amount : Nat) : Bool {
+      if (isFrozen()) {
+        return false;
+      };
       map.change(
         p,
         func(info) {
@@ -317,7 +338,10 @@ module TokenHandler {
     };
 
     ///  add amount to P’s usable balance (the credit is created out of thin air)
-    public func credit(p : Principal, amount : Nat) : () {
+    public func credit(p : Principal, amount : Nat) : Bool {
+      if (isFrozen()) {
+        return false;
+      };
       ignore map.set(
         p,
         func(info) {
@@ -326,6 +350,7 @@ module TokenHandler {
         },
       );
       Vector.add(journal, (Time.now(), p, #credited(amount)));
+      true;
     };
 
     /// The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
@@ -333,7 +358,7 @@ module TokenHandler {
     /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
     /// Returns the newly detected deposit and total usable balance if success, otherwise null
     public func notify(p : Principal) : async* ?(Nat, Nat) {
-      if (not map.lock(p)) return null;
+      if (isFrozen() or not map.lock(p)) return null;
       try {
         let latestBalance = await* loadBalance(p);
         let oldBalance = updateDeposit(p, latestBalance);
@@ -343,7 +368,10 @@ module TokenHandler {
           ignore processBacklog();
         };
         map.unlock(p);
-        assert latestBalance > oldBalance;
+        if (latestBalance <= oldBalance) {
+          freezeTokenHandler("latestBalance <= oldBalance on notify");
+          return null;
+        };
         let balanceDelta = Int.abs(latestBalance - oldBalance);
         Vector.add(journal, (Time.now(), p, #newDeposit(balanceDelta)));
         ?(balanceDelta, usableBalanceForPrincipal(p));
@@ -379,7 +407,7 @@ module TokenHandler {
         switch (transferResult) {
           case (#Ok _) {
             ignore updateDeposit(p, 0);
-            credit(p, transferAmount);
+            ignore credit(p, transferAmount);
             consolidatedFunds_ += transferAmount;
             Vector.add(journal, (Time.now(), p, #consolidated(transferAmount)));
           };
@@ -389,6 +417,9 @@ module TokenHandler {
         };
       };
 
+      if (isFrozen()) {
+        return;
+      };
       let ?p = backlog.pop() else return;
       if (not map.lock(p)) return;
       await* consolidate(p);
@@ -413,7 +444,9 @@ module TokenHandler {
       for (info in map.items()) {
         usableSum += usableBalance(info);
       };
-      assert usableSum + fee * backlog.size() == consolidatedFunds_ + backlog.funds();
+      if (usableSum + fee * backlog.size() != consolidatedFunds_ + backlog.funds()) {
+        freezeTokenHandler("Balances integrity failed");
+      }
     };
 
     func usableBalanceForPrincipal(p: Principal) : Nat 
@@ -422,7 +455,7 @@ module TokenHandler {
     func usableBalance(item : Info) : Nat {
       let usableDeposit = Int.max(0, item.deposit - fee);
       if (item.credit + usableDeposit < 0) {
-        Debug.trap("item.credit + Int.max(0, item.deposit - fee) < 0");
+        freezeTokenHandler("item.credit + Int.max(0, item.deposit - fee) < 0");
       };
       Int.abs(item.credit + usableDeposit);
     };
