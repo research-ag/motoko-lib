@@ -23,9 +23,9 @@ module CircularBuffer {
     };
 
     /// Return iterator to values added with numbers in interval `[from; to)`.
-    /// `from` should be less than `to`. Both should be not more then `pushes`.
+    /// `from` should be not more then `to`. Both should be not more then `pushes`.
     public func slice(from : Nat, to : Nat) : Iter.Iter<T> {
-      assert from < to and to <= pushes;
+      assert from <= to and to <= pushes;
 
       let min = if (pushes >= capacity) { pushes - capacity } else { 0 };
 
