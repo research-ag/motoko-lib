@@ -365,7 +365,11 @@ module TokenHandler {
         if (latestBalance > fee) {
           // schedule consolidation for this p
           backlog.push(p, latestBalance);
-          ignore processBacklog();
+          try {
+            ignore processBacklog();
+          } catch (err) {
+            // pass
+          }
         };
         map.unlock(p);
         if (latestBalance <= oldBalance) {
