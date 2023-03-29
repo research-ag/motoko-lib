@@ -198,6 +198,7 @@ module {
       i_byte -%= 1;
       if (i_byte == 0) {
         msg[Nat8.toNat(i_msg)] := word;
+        word := 0;
         i_byte := 8;
         i_msg +%= 1;
         if (i_msg == 16) {
