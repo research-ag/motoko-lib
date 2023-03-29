@@ -139,16 +139,14 @@ module {
       i_msg := 0;
       i_byte := 4;
       i_block := 0;
-      for (i in [0, 1, 2, 3, 4, 5, 6, 7].vals()) {
-        s0 := ivs[iv][0];
-        s1 := ivs[iv][1];
-        s2 := ivs[iv][2];
-        s3 := ivs[iv][3];
-        s4 := ivs[iv][4];
-        s5 := ivs[iv][5];
-        s6 := ivs[iv][6];
-        s7 := ivs[iv][7];
-      };
+      s0 := ivs[iv][0];
+      s1 := ivs[iv][1];
+      s2 := ivs[iv][2];
+      s3 := ivs[iv][3];
+      s4 := ivs[iv][4];
+      s5 := ivs[iv][5];
+      s6 := ivs[iv][6];
+      s7 := ivs[iv][7];
     };
 
     reset();
