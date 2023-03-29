@@ -116,19 +116,21 @@ module TokenHandler {
       return changed;
     };
 
-    public func set(p : Principal, f : (Info) -> Bool) : Bool {
-      let info = switch (tree.get(p)) {
-        case (?info) info;
-        case (null) {
-          let info = {
-            var deposit = 0;
-            var credit : Int = 0;
-            var lock = false;
-          };
-          tree.put(p, info);
-          info;
+    public func getOrCreate(p : Principal) : InfoLock = switch (tree.get(p)) {
+      case (?info) info;
+      case (null) {
+        let info = {
+          var deposit = 0;
+          var credit : Int = 0;
+          var lock = false;
         };
+        tree.put(p, info);
+        info;
       };
+    };
+
+    public func set(p : Principal, f : (Info) -> Bool) : Bool {
+      let info = getOrCreate(p);
       let changed = f(info);
       clean(p, info);
       changed;
@@ -137,19 +139,13 @@ module TokenHandler {
     public func get(p : Principal) : ?InfoLock = tree.get(p);
 
     public func lock(p : Principal) : Bool {
-      switch (tree.get(p)) {
-        case (null) false;
-        case (?info) {
-          if (info.lock) return false;
-          info.lock := true;
-          true;
-        };
-      };
+      let info = getOrCreate(p);
+      if (info.lock) return false;
+      info.lock := true;
+      true;
     };
 
-    public func unlock(p : Principal) {
-
-      switch (tree.get(p)) {
+    public func unlock(p : Principal) = switch (tree.get(p)) {
         case (null) {
           freezeTokenHandler("Unlock not existent p");
         };
@@ -158,7 +154,6 @@ module TokenHandler {
           info.lock := false;
         };
       };
-    };
 
     public func share() : [(Principal, Info)] = Iter.toArray(
       Iter.filter<(Principal, InfoLock)>(
