@@ -374,7 +374,9 @@ module TokenHandler {
         };
         map.unlock(p);
         if (latestBalance <= oldBalance) {
-          freezeTokenHandler("latestBalance <= oldBalance on notify");
+          if (latestBalance != oldBalance) {
+            freezeTokenHandler("latestBalance < oldBalance on notify");
+          };
           return null;
         };
         let balanceDelta = Int.abs(latestBalance - oldBalance);
