@@ -138,10 +138,7 @@ module TokenHandler {
 
     public func lock(p : Principal) : Bool {
       switch (tree.get(p)) {
-        case (null) {
-          freezeTokenHandler("Lock not existent p");
-          false;
-        };
+        case (null) false;
         case (?info) {
           if (info.lock) return false;
           info.lock := true;
