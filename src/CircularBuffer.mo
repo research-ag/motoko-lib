@@ -7,6 +7,8 @@ import Int "mo:base/Int";
 module CircularBuffer {
   /// Circular buffer, which preserves amount of pushed values
   public class CircularBuffer<T>(capacity : Nat) {
+    assert capacity != 0;
+    
     var array : [var ?T] = Array.init(capacity, null);
     var last : Nat = 0;
     var pushes : Int = 0;
@@ -27,16 +29,10 @@ module CircularBuffer {
       (Int.abs(Int.max(0, pushes - capacity)), Int.abs(pushes));
     };
 
-    func realIndex(index : Nat) : Nat {
-      var x = last - (pushes - index);
-      if (x < 0) x += capacity;
-      Int.abs(x);
-    };
-
     /// Returns single element added with number `index` or null if element is not available or index out of bounds.
     public func get(index : Nat) : ?T {
       let (l, r) = available();
-      if (l <= index and index < r) { array[realIndex(index)] } else { null };
+      if (l <= index and index < r) { array[index % capacity] } else { null };
     };
 
     /// Return iterator to values added with numbers in interval `[from; to)`.
@@ -50,7 +46,7 @@ module CircularBuffer {
       let count : Int = to - from;
 
       object {
-        var start = realIndex(from);
+        var start = from % capacity;
 
         var i = 0;
 
