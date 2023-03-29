@@ -1,5 +1,11 @@
 # TokenHandler
 
+## Value `ICRC1`
+``` motoko
+let ICRC1
+```
+
+
 ## Function `toSubaccount`
 ``` motoko
 func toSubaccount(p : Principal) : ICRC1.Subaccount
@@ -17,6 +23,12 @@ Convert ICRC1.Subaccount to Principal
 ## Type `Info`
 ``` motoko
 type Info = { var deposit : Nat; var credit : Int }
+```
+
+
+## Type `JournalRecord`
+``` motoko
+type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : Nat; #debited : Nat; #credited : Nat; #error : Text})
 ```
 
 

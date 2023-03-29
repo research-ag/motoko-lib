@@ -14,7 +14,7 @@ import CircularBuffer "CircularBuffer";
 
 module TokenHandler {
   // https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
-  module ICRC1 {
+  public module ICRC1 {
     public type Subaccount = Blob;
     public type Account = { owner : Principal; subaccount : ?Subaccount };
     public type TransferArgs = {
