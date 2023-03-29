@@ -252,7 +252,7 @@ module TokenHandler {
     };
   };
 
-  type JournalRecord = (Time.Time, Principal, {
+  public type JournalRecord = (Time.Time, Principal, {
     #newDeposit: Nat;
     #consolidated: Nat;
     #debited: Nat;
