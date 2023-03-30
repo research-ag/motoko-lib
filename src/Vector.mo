@@ -1192,6 +1192,99 @@ module Static {
     };
   };
 
+  /// Applies `f` to each element in `vec`.
+  ///
+  /// Example:
+  /// ```
+  /// import Nat "mo:base/Nat";
+  /// import Debug "mo:base/Debug";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1, 2, 3]);
+  ///
+  /// Vector.iterate<Nat>(vec, func (i, x) {
+  ///   Debug.print(Nat.toText(x)); // prints each element in vector
+  /// });
+  /// ```
+  ///
+  /// Runtime: `O(size)`
+  ///
+  /// Space: `O(size)`
+  ///
+  /// *Runtime and space assumes that `f` runs in O(1) time and space.
+  public func iterateItems<X>(vec : Vector<X>, f : (Nat, X) -> ()) {
+    let blocks = vec.data_blocks.size();
+    var i_block = 0;
+    var i_element = 0;
+    var size = 0;
+    var db : [var ?X] = [var];
+    var i = 0;
+
+    loop {
+      if (i_element == size) {
+        i_block += 1;
+        if (i_block >= blocks) return;
+        db := vec.data_blocks[i_block];
+        size := db.size();
+        if (size == 0) return;
+        i_element := 0;
+      };
+      switch (db[i_element]) {
+        case (?x) {
+          f(i, x);
+          i_element += 1;
+          i += 1;
+        };
+        case (_) return;
+      };
+    };
+  };
+
+  /// Applies `f` to each element in `vec` in reverse order.
+  ///
+  /// Example:
+  /// ```
+  /// import Nat "mo:base/Nat";
+  /// import Debug "mo:base/Debug";
+  ///
+  /// let vec = Vector.fromArray<Nat>([1, 2, 3]);
+  ///
+  /// Vector.iterate<Nat>(vec, func (i, x) {
+  ///   Debug.print(Nat.toText(x)); // prints each element in vector in reverse order
+  /// });
+  /// ```
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(size)
+  ///
+  /// *Runtime and space assumes that `f` runs in O(1) time and space.
+  public func iterateItemsRev<X>(vec : Vector<X>, f : (Nat, X) -> ()) {
+    var i_block = vec.i_block;
+    var i_element = vec.i_element;
+    var db : [var ?X] = if (i_block < vec.data_blocks.size()) {
+      vec.data_blocks[i_block];
+    } else { [var] };
+    var i = size(vec);
+
+    loop {
+      if (i_block == 1) {
+        return;
+      };
+      if (i_element == 0) {
+        i_block -= 1;
+        db := vec.data_blocks[i_block];
+        i_element := db.size() - 1;
+      } else {
+        i_element -= 1;
+      };
+      i -= 1;
+      switch (db[i_element]) {
+        case (?x) f(i, x);
+        case (_) Prim.trap(INTERNAL_ERROR);
+      };
+    };
+  };
+
   /// Returns true if Vector contains element with respect to equality
   /// defined by `equal`.
   ///

@@ -295,6 +295,45 @@ run(
 
 /* --------------------------------------- */
 
+sumN := 0;
+Vector.iterateItems<Nat>(vector, func(i,x) { sumN += i });
+sumRev := 0;
+Vector.iterateItemsRev<Nat>(vector, func(i,x) { sumRev += i });
+sum1 := 0;
+Vector.iterateItems<Nat>(Vector.init<Nat>(1, 1), func(i,x) { sum1 += x });
+sum0 := 0;
+Vector.iterateItems<Nat>(Vector.new<Nat>(), func(i,x) { sum0 += i });
+
+run(
+  suite(
+    "iterate",
+    [
+      test(
+        "sumN",
+        [sumN],
+        M.equals(T.array(T.natTestable, [n * (n + 1) / 2])),
+      ),
+      test(
+        "sumRev",
+        [sumRev],
+        M.equals(T.array(T.natTestable, [n * (n + 1) / 2])),
+      ),
+      test(
+        "sum1",
+        [sum1],
+        M.equals(T.array(T.natTestable, [1])),
+      ),
+      test(
+        "sum0",
+        [sum0],
+        M.equals(T.array(T.natTestable, [0])),
+      ),
+    ],
+  )
+);
+
+/* --------------------------------------- */
+
 vector := Vector.fromArray<Nat>([0,1,2,3,4,5]);
 
 run(
