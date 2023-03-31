@@ -311,12 +311,17 @@ module TokenHandler {
       };
     };
 
-    /// query journal for debug purposes
-    public func queryJournal(): [JournalRecord] = Iter.toArray(
-      journal.slice(
-        Int.abs(Int.max(0, journal.pushesAmount() - journalSize)),
-        journal.pushesAmount()
-      )
+    /// query journal for debug purposes. Returns:
+    /// 1) array of all items in order, starting from the oldest record in journal, but no earlier than "startFrom" if provided
+    /// 2) the index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
+    public func queryJournal(startFrom: ?Nat): ([JournalRecord], Nat) = (
+      Iter.toArray(
+        journal.slice(
+          Int.abs(Int.max(Option.get(startFrom, 0), journal.pushesAmount() - journalSize)),
+          journal.pushesAmount()
+        )
+      ),
+      journal.pushesAmount(),
     );
 
     /// retrieve the current freeze state
