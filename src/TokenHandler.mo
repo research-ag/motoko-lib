@@ -253,13 +253,12 @@ module TokenHandler {
 
   public type JournalRecord = (Time.Time, Principal, {
     #newDeposit: Nat;
-    #consolidated: Nat;
+    #consolidated: { deducted: Nat; credited: Nat };
     #debited: Nat;
     #credited: Nat;
     #feeUpdated: { old: Nat; new: Nat };
     #error: Text;
     #consolidationError: ICRC1.TransferError or { #CallIcrc1LedgerError };
-    #couldNotFetchFee;
   });
 
   public type StableData = (
@@ -434,7 +433,7 @@ module TokenHandler {
                   true;
                 },
               );
-              journal.push((Time.now(), p, #consolidated(transferAmount)));
+              journal.push((Time.now(), p, #consolidated({ deducted = latestBalance; credited = transferAmount; })));
             };
             case (#Err err) {
               journal.push((Time.now(), p, #consolidationError(err)));
