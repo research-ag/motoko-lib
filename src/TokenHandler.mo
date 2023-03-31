@@ -288,9 +288,12 @@ module TokenHandler {
     var journal : CircularBuffer.CircularBuffer<JournalRecord> = CircularBuffer.CircularBuffer<JournalRecord>(journalSize);
     var consolidatedFunds_ : Nat = 0;
     let map : Map = Map(freezeTokenHandler);
-    var fee : Nat = 0;
+    var fee_ : Nat = 0;
     var totalDebited : Nat = 0;
     var totalCredited : Nat = 0;
+
+    /// query the fee
+    public func getFee() : Nat = fee_;
 
     /// query the usable balance
     public func balance(p : Principal) : Nat = info(p).usable_balance;
@@ -384,7 +387,7 @@ module TokenHandler {
       try {
         let latestBalance = await* loadBalance(p);
         let oldBalance = updateDeposit(p, latestBalance);
-        if (latestBalance > fee) {
+        if (latestBalance > fee_) {
           // schedule consolidation for this p
           backlog.push(p, latestBalance);
           try {
@@ -413,14 +416,14 @@ module TokenHandler {
     public func processBacklog() : async* () {
       func consolidate(p : Principal) : async* () {
         func processConsolidationTransfer() : async* ?{ #Ok : Nat; #Err : ICRC1.TransferError or { #CallIcrc1LedgerError }; } {
-          if (latestBalance <= fee) return null;
-          let transferAmount = Int.abs(latestBalance - fee);
+          if (latestBalance <= fee_) return null;
+          let transferAmount = Int.abs(latestBalance - fee_);
           let transferResult = try {
             await icrc1Ledger.icrc1_transfer({
               from_subaccount = ?toSubaccount(p);
               to = { owner = ownPrincipal; subaccount = null };
               amount = transferAmount;
-              fee = ?fee;
+              fee = ?fee_;
               memo = null;
               created_at_time = null;
             });
@@ -455,8 +458,8 @@ module TokenHandler {
         let transferResult = await* processConsolidationTransfer();
         switch (transferResult) {
           case (?#Err(#BadFee { expected_fee })) {
-            journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee; new = expected_fee })));
-            fee := expected_fee;
+            journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
+            fee_ := expected_fee;
             let retryResult = await* processConsolidationTransfer();
             switch (retryResult) {
               case (?#Err err) backlog.push(p, latestBalance);
@@ -497,20 +500,20 @@ module TokenHandler {
       for (info in map.items()) {
         usableSum += usableBalance(info);
       };
-      if (usableSum + fee * backlog.size() + totalDebited != consolidatedFunds_ + backlog.funds() + totalCredited) {
+      if (usableSum + fee_ * backlog.size() + totalDebited != consolidatedFunds_ + backlog.funds() + totalCredited) {
         let values: [Text] = [
-          "Balances integrity failed", Nat.toText(usableSum), Nat.toText(fee * backlog.size()), Nat.toText(totalDebited),
+          "Balances integrity failed", Nat.toText(usableSum), Nat.toText(fee_ * backlog.size()), Nat.toText(totalDebited),
           Nat.toText(consolidatedFunds_), Nat.toText(backlog.funds()), Nat.toText(totalCredited)
         ];
         freezeTokenHandler(Text.join("; ", Iter.fromArray(values)));
       }
     };
 
-    func usableBalanceForPrincipal(p: Principal) : Nat 
+    func usableBalanceForPrincipal(p: Principal) : Nat
       = Option.get(Option.map<InfoLock, Nat>(map.get(p), usableBalance), 0);
 
     func usableBalance(item : Info) : Nat {
-      let usableDeposit = Int.max(0, item.deposit - fee);
+      let usableDeposit = Int.max(0, item.deposit - fee_);
       if (item.credit + usableDeposit < 0) {
         freezeTokenHandler("item.credit + Int.max(0, item.deposit - fee) < 0");
       };
