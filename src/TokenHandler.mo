@@ -11,6 +11,7 @@ import List "mo:base/List";
 import Time = "mo:base/Time";
 import Nat = "mo:base/Nat";
 import Text = "mo:base/Text";
+import Result "mo:base/Result";
 
 import CircularBuffer "CircularBuffer";
 
@@ -259,6 +260,7 @@ module TokenHandler {
     #feeUpdated: { old: Nat; new: Nat };
     #error: Text;
     #consolidationError: ICRC1.TransferError or { #CallIcrc1LedgerError };
+    #withdraw: { to: ICRC1.Account; amount: Nat };
   });
 
   public type StableData = (
@@ -479,6 +481,30 @@ module TokenHandler {
       await* consolidate(p);
       map.unlock(p);
       assertBalancesIntegrity();
+    };
+
+    /// send tokens to another account
+    public func withdraw(to : ICRC1.Account, amount: Nat): async* Result.Result<Nat, ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
+      if (amount <= fee_) return #err(#TooLowQuantity);
+      let callResult = try {
+        await icrc1Ledger.icrc1_transfer({
+          from_subaccount = null;
+          to = to;
+          amount = Int.abs(amount - fee_);
+          fee = ?fee_;
+          memo = null;
+          created_at_time = null;
+        });
+      } catch (err) {
+        #Err(#CallIcrc1LedgerError);
+      };
+      switch (callResult) {
+        case (#Ok balance) {
+          journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount; })));
+          #ok(balance);
+        };
+        case (#Err err) #err(err);
+      };
     };
 
     /// serialize tracking data
