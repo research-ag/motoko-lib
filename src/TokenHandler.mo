@@ -105,7 +105,7 @@ module TokenHandler {
     var lock : Bool; // lock flag. For internal usage only
   };
 
-  class Map(freezeTokenHandler: (text: Text) -> ()) {
+  class Map(assertionFailureCallback: (text: Text) -> ()) {
     var tree : RBTree.RBTree<Principal, InfoLock> = RBTree.RBTree<Principal, InfoLock>(Principal.compare);
 
     func clean(p : Principal, info : InfoLock) {
@@ -152,10 +152,10 @@ module TokenHandler {
 
     public func unlock(p : Principal) = switch (tree.get(p)) {
         case (null) {
-          freezeTokenHandler("Unlock not existent p");
+          assertionFailureCallback("Unlock not existent p");
         };
         case (?info) {
-          if (not info.lock) freezeTokenHandler("releasing lock that isn't locked");
+          if (not info.lock) assertionFailureCallback("releasing lock that isn't locked");
           info.lock := false;
         };
       };
