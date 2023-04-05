@@ -51,6 +51,11 @@ Vector with `O(sqrt(n))` memory waste based on paper "Resizable Arrays in Optima
 
 A new optimization of the whole Sha2 family.
 
+
+#### Comparison
+
+We measured the most commonly used sha256 implementations at between 48k - 52k instructions per chunk and the empty message at around 100k instructions.
+
 ### Enumeration
 
 Enumeration of `Blob`s in order they are added, i.e. bidirectional map from `Blob` to number it was added, and inverse.
@@ -63,9 +68,10 @@ Simple queue implemented as singly linked list.
 
 Several pseudo random number generators.
 
-#### Comparison
 
-We measured the most commonly used sha256 implementations at between 48k - 52k instructions per chunk and the empty message at around 100k instructions.
+### TokenHandler
+
+Library that allows a canister to detect deposits by individual users into per-user subaccounts on an ICRC1 ledger.
 
 ## Unit tests
 

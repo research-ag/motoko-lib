@@ -17,3 +17,6 @@ queue:
 
 prng:
 	$(MOC) $(VESSEL_PKGS) -wasi-system-api prng.mo && wasmtime prng.wasm
+
+circular_buffer:
+	$(MOC) $(VESSEL_PKGS) -wasi-system-api circular_buffer.mo && wasmtime circular_buffer.wasm

@@ -1,3 +1,5 @@
-*/.vessel/
+.vessel/
+.dfx
 *.wasm
 site/
+modoc-tmp

@@ -11,6 +11,7 @@ nav:
     - Sha256/512: modules/sha2.md
     - Queue: modules/queue.md
     - PRNG: modules/prng.md
+    - TokenHandler: modules/token_handler.md
   - APIs:
     - Vector: modoc/Vector.md
     - Enumeration: modoc/Enumeration.md
@@ -18,6 +19,7 @@ nav:
     - Sha512: modoc/Sha512.md
     - Queue: modoc/Queue.md
     - PRNG: modoc/Prng.md
+    - TokenHandler: modoc/TokenHandler.md
   - Setup: setup.md
   - Benchmarks: benches.md
   - Contribute: contribute.md

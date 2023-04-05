@@ -702,6 +702,288 @@ Space: O(size)
 
 *Runtime and space assumes that `f` runs in O(1) time and space.
 
+## Function `contains`
+``` motoko
+func contains<X>(vec : Vector<X>, element : X, equal : (X, X) -> Bool) : Bool
+```
+
+Returns true if Vector contains element with respect to equality
+defined by `equal`.
+
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+Vector.add(vec, 2);
+Vector.add(vec, 0);
+Vector.add(vec, 3);
+
+Vector.contains<Nat>(vec, 2, Nat.equal); // => true
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `equal` runs in O(1) time and space.
+
+## Function `max`
+``` motoko
+func max<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X
+```
+
+Finds the greatest element in `vector` defined by `compare`.
+Returns `null` if `vector` is empty.
+
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+Vector.add(vec, 1);
+Vector.add(vec, 2);
+
+Vector.max<Nat>(vec, Nat.compare); // => ?2
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `compare` runs in O(1) time and space.
+
+## Function `min`
+``` motoko
+func min<X>(vec : Vector<X>, compare : (X, X) -> Order.Order) : ?X
+```
+
+Finds the least element in `vector` defined by `compare`.
+Returns `null` if `vector` is empty.
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+Vector.add(vec, 1);
+Vector.add(vec, 2);
+
+Vector.min<Nat>(vec, Nat.compare); // => ?1
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `compare` runs in O(1) time and space.
+
+## Function `equal`
+``` motoko
+func equal<X>(vec1 : Vector<X>, vec2 : Vector<X>, equal : (X, X) -> Bool) : Bool
+```
+
+Defines equality for two vectors, using `equal` to recursively compare elements in the
+vectors. Returns true iff the two vectors are of the same size, and `equal`
+evaluates to true for every pair of elements in the two vectors of the same
+index.
+
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec1 = Vector.fromArray<Nat>([1,2]);
+let vec2 = Vector.new<Nat>();
+vec2.add(1);
+vec2.add(2);
+
+Vector.equal<Nat>(vec1, vec2, Nat.equal); // => true
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `equal` runs in O(1) time and space.
+
+## Function `compare`
+``` motoko
+func compare<X>(vec1 : Vector<X>, vec2 : Vector<X>, compare_fn : (X, X) -> Order.Order) : Order.Order
+```
+
+Defines comparison for two vectors, using `compare` to recursively compare elements in the
+vectors. Comparison is defined lexicographically.
+
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec1 = Vector.fromArray<Nat>([1,2]);
+let vec2 = Vector.new<Nat>();
+vec2.add(1);
+vec2.add(2);
+
+Vector.compare<Nat>(vec1, vec2, Nat.compare); // => #less
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `compare` runs in O(1) time and space.
+
+## Function `toText`
+``` motoko
+func toText<X>(vec : Vector<X>, toText_fn : X -> Text) : Text
+```
+
+Creates a textual representation of `vector`, using `toText` to recursively
+convert the elements into Text.
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec = Vector.fromArray<Nat>([1,2,3,4]);
+
+Vector.toText<Nat>(vec, Nat.toText); // => "[1, 2, 3, 4]"
+```
+
+Runtime: O(size)
+
+Space: O(size)
+
+*Runtime and space assumes that `toText` runs in O(1) time and space.
+
+## Function `foldLeft`
+``` motoko
+func foldLeft<A, X>(vec : Vector<X>, base : A, combine : (A, X) -> A) : A
+```
+
+Collapses the elements in `vector` into a single value by starting with `base`
+and progessively combining elements into `base` with `combine`. Iteration runs
+left to right.
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec = Vector.fromArray<Nat>([1,2,3]);
+
+Vector.foldLeft<Text, Nat>(vec, "", func (acc, x) { acc # Nat.toText(x)}); // => "123"
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `combine` runs in O(1) time and space.
+
+## Function `foldRight`
+``` motoko
+func foldRight<X, A>(vec : Vector<X>, base : A, combine : (X, A) -> A) : A
+```
+
+Collapses the elements in `vector` into a single value by starting with `base`
+and progessively combining elements into `base` with `combine`. Iteration runs
+right to left.
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec = Vector.fromArray<Nat>([1,2,3]);
+
+Vector.foldRight<Nat, Text>(vec, "", func (x, acc) { Nat.toText(x) # acc }); // => "123"
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+*Runtime and space assumes that `combine` runs in O(1) time and space.
+
+## Function `make`
+``` motoko
+func make<X>(element : X) : Vector<X>
+```
+
+Returns a new vector with capacity and size 1, containing `element`.
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec = Vector.make<Nat>(1);
+Vector.toText<Nat>(vec, Nat.toText); // => "[1]"
+```
+
+Runtime: O(1)
+
+Space: O(1)
+
+## Function `reverse`
+``` motoko
+func reverse<X>(vec : Vector<X>)
+```
+
+Reverses the order of elements in `vector`.
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec = Vector.fromArray<Nat>([1,2,3]);
+
+Vector.reverse<Nat>(vec);
+Vector.toText<Nat>(vec, Nat.toText); // => "[3, 2, 1]"
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+## Function `reversed`
+``` motoko
+func reversed<X>(vec : Vector<X>) : Vector<X>
+```
+
+Reverses the order of elements in `vector` and returns a new
+Vector.
+
+Example:
+```motoko include=initialize
+import Nat "mo:base/Nat";
+
+let vec = Vector.fromArray<Nat>([1,2,3]);
+
+let rvec = Vector.reversed<Nat>(vec);
+Vector.toText<Nat>(rvec, Nat.toText); // => "[3, 2, 1]"
+```
+
+Runtime: O(size)
+
+Space: O(1)
+
+## Function `isEmpty`
+``` motoko
+func isEmpty<X>(vec : Vector<X>) : Bool
+```
+
+Returns true if and only if the vector is empty.
+
+Example:
+```motoko include=initialize
+
+let vec = Vector.fromArray<Nat>([2,0,3]);
+Vector.isEmpty<Nat>(vec); // => false
+```
+
+Runtime: O(1)
+
+Space: O(1)
+
 ## Value `Class`
 ``` motoko
 let Class

@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "canisters": {
+      "main": {
+        "type": "motoko",
+        "main": "test.mo"
+      }
+    },
+    "defaults": {
+      "build": {
+        "packtool": "vessel sources",
+        "args": ""
+      }
+    }
+  }
