@@ -1,24 +1,10 @@
-# TokenHandler
+# HPLTokenHandler
 
-## Value `ICRC1`
+## Value `HPL`
 ``` motoko
-let ICRC1
+let HPL
 ```
 
-
-## Function `toSubaccount`
-``` motoko
-func toSubaccount(p : Principal) : ICRC1.Subaccount
-```
-
-Convert Principal to ICRC1.Subaccount
-
-## Function `toPrincipal`
-``` motoko
-func toPrincipal(subaccount : ICRC1.Subaccount) : ?Principal
-```
-
-Convert ICRC1.Subaccount to Principal
 
 ## Function `defaultHandlerStableData`
 ``` motoko
@@ -26,28 +12,28 @@ func defaultHandlerStableData() : StableData
 ```
 
 
-## Type `Info`
+## Type `TrackedCredit`
 ``` motoko
-type Info = { var deposit : Nat; var credit : Int }
+type TrackedCredit = Int
 ```
 
 
 ## Type `JournalRecord`
 ``` motoko
-type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : { deducted : Nat; credited : Nat }; #debited : Nat; #credited : Nat; #feeUpdated : { old : Nat; new : Nat }; #error : Text; #consolidationError : ICRC1.TransferError or {#CallIcrc1LedgerError}; #withdraw : { to : ICRC1.Account; amount : Nat }})
+type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : { deducted : Nat; credited : Nat }; #debited : Nat; #credited : Nat; #feeUpdated : { old : Nat; new : Nat }; #error : Text; #consolidationError : Any; #withdraw : Any})
 ```
 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Int))
+type StableData = ([(Principal, TrackedCredit)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Int))
 ```
 
 
-## Class `TokenHandler`
+## Class `HPLTokenHandler`
 
 ``` motoko
-class TokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, journalSize : Nat)
+class HPLTokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, journalSize : Nat)
 ```
 
 
@@ -69,7 +55,7 @@ query the usable balance
 
 ### Function `info`
 ``` motoko
-func info(p : Principal) : Info and { var usable_balance : Nat }
+func info(p : Principal) : TrackedCredit
 ```
 
 query all tracked balances for debug purposes
@@ -152,19 +138,12 @@ func processBacklog() : async* ()
 process first account from backlog
 
 
-### Function `withdraw`
-``` motoko
-func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<Nat, ICRC1.TransferError or {#CallIcrc1LedgerError; #TooLowQuantity}>
-```
-
-send tokens to another account
-
-
 ### Function `share`
 ``` motoko
 func share() : StableData
 ```
 
+send tokens to another account
 serialize tracking data
 
 
