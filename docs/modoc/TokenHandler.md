@@ -20,6 +20,12 @@ func toPrincipal(subaccount : ICRC1.Subaccount) : ?Principal
 
 Convert ICRC1.Subaccount to Principal
 
+## Function `defaultHandlerStableData`
+``` motoko
+func defaultHandlerStableData() : StableData
+```
+
+
 ## Type `Info`
 ``` motoko
 type Info = { var deposit : Nat; var credit : Int }
@@ -28,21 +34,29 @@ type Info = { var deposit : Nat; var credit : Int }
 
 ## Type `JournalRecord`
 ``` motoko
-type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : Nat; #debited : Nat; #credited : Nat; #error : Text})
+type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : { deducted : Nat; credited : Nat }; #debited : Nat; #credited : Nat; #feeUpdated : { old : Nat; new : Nat }; #error : Text; #consolidationError : ICRC1.TransferError or {#CallIcrc1LedgerError}; #withdraw : { to : ICRC1.Account; amount : Nat }})
 ```
 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, ([var ?JournalRecord], Nat, Int))
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Int))
 ```
 
 
 ## Class `TokenHandler`
 
 ``` motoko
-class TokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, fee : Nat, journalSize : Nat)
+class TokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, journalSize : Nat)
 ```
+
+
+### Function `getFee`
+``` motoko
+func getFee() : Nat
+```
+
+query the fee
 
 
 ### Function `balance`
@@ -63,10 +77,12 @@ query all tracked balances for debug purposes
 
 ### Function `queryJournal`
 ``` motoko
-func queryJournal() : [JournalRecord]
+func queryJournal(startFrom : ?Nat) : ([JournalRecord], Nat)
 ```
 
-query journal for debug purposes
+query journal for debug purposes. Returns:
+1) array of all items in order, starting from the oldest record in journal, but no earlier than "startFrom" if provided
+2) the index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
 
 
 ### Function `isFrozen`
@@ -134,6 +150,14 @@ func processBacklog() : async* ()
 ```
 
 process first account from backlog
+
+
+### Function `withdraw`
+``` motoko
+func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<Nat, ICRC1.TransferError or {#CallIcrc1LedgerError; #TooLowQuantity}>
+```
+
+send tokens to another account
 
 
 ### Function `share`
