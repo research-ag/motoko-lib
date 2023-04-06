@@ -94,8 +94,9 @@ module HPLTokenHandler {
     #credited: Nat;
     #debited: Nat;
     #error: Any;
-    #newDeposit: Nat;
     #openAccountError: { #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount };
+    #sweepIn: Nat;
+    #sweepOut: Nat;
     #withdraw: { to: (Principal, HPL.AccountReference); amount: Nat };
   });
 
@@ -217,10 +218,10 @@ module HPLTokenHandler {
       true;
     };
 
-    /// The handler will query the balance of virtual account, previously opened for P.
-    /// If there will be non-zero amount (deposit), the handler will turn balance to zero and add the deposit to the credit of P. 
+    /// The handler will turn the balance of virtual account, previously opened for P, to zero.
+    /// If there was non-zero amount (deposit), the handler will add the deposit to the credit of P. 
     /// Returns the newly detected deposit and total usable balance if success, otherwise null
-    public func notify(p : Principal) : async* ?(Nat, Nat) {
+    public func sweepIn(p : Principal) : async* ?(Nat, Nat) {
       if (isFrozen()) return null;
       let ?info = map.get(p) else return null;
       let updateResult = await hpl.setVirtualBalance(info.virtualAccountId, 0);
@@ -231,12 +232,34 @@ module HPLTokenHandler {
           };
           let deposit = Int.abs(delta); // expected delta here is always negative
           info.credit += deposit; 
-          journal.push((Time.now(), p, #newDeposit(deposit)));
+          journal.push((Time.now(), p, #sweepIn(deposit)));
           consolidatedFunds_ += deposit;
           ?(deposit, info.credit);
         };
         case (#err err) {
           let message = "Unexpected error during setting virtual account balance";
+          journal.push((Time.now(), ownPrincipal, #error(message, err)));
+          freezeTokenHandler(message);
+          throw Error.reject(message);
+        };
+      };
+    };
+
+    /// The handler will increment the balance of virtual account, previously opened for P, with user credit.
+    /// Returns total usable balance if success (available balance in the virtual account), otherwise null
+    public func sweepOut(p : Principal) : async* ?Nat {
+      if (isFrozen()) return null;
+      let ?info = map.get(p) else return null;
+      let updateResult = await hpl.incVirtualBalance(info.virtualAccountId, info.credit);
+      switch (updateResult) {
+        case (#ok newBalance) {
+          journal.push((Time.now(), p, #sweepOut(info.credit)));
+          totalDebited += info.credit;
+          info.credit := 0;
+          ?newBalance;
+        };
+        case (#err err) {
+          let message = "Unexpected error during incrementing virtual account balance";
           journal.push((Time.now(), ownPrincipal, #error(message, err)));
           freezeTokenHandler(message);
           throw Error.reject(message);

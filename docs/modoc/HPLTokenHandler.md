@@ -12,53 +12,58 @@ func defaultHandlerStableData() : StableData
 ```
 
 
-## Type `TrackedCredit`
+## Type `Info`
 ``` motoko
-type TrackedCredit = Int
+type Info = { var credit : Nat; virtualAccountId : HPL.VirtualAccountId }
+```
+
+
+## Type `StableInfo`
+``` motoko
+type StableInfo = { credit : Nat; virtualAccountId : HPL.VirtualAccountId }
 ```
 
 
 ## Type `JournalRecord`
 ``` motoko
-type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : { deducted : Nat; credited : Nat }; #debited : Nat; #credited : Nat; #feeUpdated : { old : Nat; new : Nat }; #error : Text; #consolidationError : Any; #withdraw : Any})
+type JournalRecord = (Time.Time, Principal, {#credited : Nat; #debited : Nat; #error : Any; #openAccountError : {#UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount}; #sweepIn : Nat; #sweepOut : Nat; #withdraw : { to : (Principal, HPL.AccountReference); amount : Nat }})
+```
+
+
+## Type `WithdrawError`
+``` motoko
+type WithdrawError = {#TooLargeFtQuantity; #TooLargeSubaccountId; #TooLargeVirtualAccountId; #UnknownPrincipal; #UnknownSubaccount; #UnknownVirtualAccount; #DeletedVirtualAccount; #MismatchInAsset; #MismatchInRemotePrincipal; #CallHPLError}
 ```
 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, TrackedCredit)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Int))
+type StableData = ([(Principal, StableInfo)], Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Int))
 ```
 
 
-## Class `HPLTokenHandler`
+## Class `TokenHandler`
 
 ``` motoko
-class HPLTokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, journalSize : Nat)
+class TokenHandler(hplLedgerPrincipal : Principal, assetId : HPL.AssetId, backingSubaccountId : HPL.SubaccountId, ownPrincipal : Principal, journalSize : Nat)
 ```
 
 
-### Function `getFee`
+### Function `getAccountReferenceFor`
 ``` motoko
-func getFee() : Nat
+func getAccountReferenceFor(p : Principal) : async* (Principal, HPL.VirtualAccountId)
 ```
 
-query the fee
+Returns reference to registered virtual account for P.
+If not registered yet, registers it automatically
 
 
 ### Function `balance`
 ``` motoko
-func balance(p : Principal) : Nat
+func balance(p : Principal) : ?Nat
 ```
 
 query the usable balance
-
-
-### Function `info`
-``` motoko
-func info(p : Principal) : TrackedCredit
-```
-
-query all tracked balances for debug purposes
 
 
 ### Function `queryJournal`
@@ -77,22 +82,6 @@ func isFrozen() : Bool
 ```
 
 retrieve the current freeze state
-
-
-### Function `backlogSize`
-``` motoko
-func backlogSize() : Nat
-```
-
-retrieve the current size of consolidation backlog
-
-
-### Function `backlogFunds`
-``` motoko
-func backlogFunds() : Nat
-```
-
-retrieve the estimated sum of all balances in the backlog
 
 
 ### Function `consolidatedFunds`
@@ -119,23 +108,31 @@ func credit(p : Principal, amount : Nat) : Bool
  add amount to P’s usable balance (the credit is created out of thin air)
 
 
-### Function `notify`
+### Function `sweepIn`
 ``` motoko
-func notify(p : Principal) : async* ?(Nat, Nat)
+func sweepIn(p : Principal) : async* ?(Nat, Nat)
 ```
 
-The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared
-to the last balance seen. If it has increased then it will adjust the deposit (and hence the usable_balance).
-It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
+The handler will turn the balance of virtual account, previously opened for P, to zero.
+If there was non-zero amount (deposit), the handler will add the deposit to the credit of P. 
 Returns the newly detected deposit and total usable balance if success, otherwise null
 
 
-### Function `processBacklog`
+### Function `sweepOut`
 ``` motoko
-func processBacklog() : async* ()
+func sweepOut(p : Principal) : async* ?Nat
 ```
 
-process first account from backlog
+The handler will increment the balance of virtual account, previously opened for P, with user credit.
+Returns total usable balance if success (available balance in the virtual account), otherwise null
+
+
+### Function `withdraw`
+``` motoko
+func withdraw(to : (Principal, HPL.AccountReference), amount : Nat) : async* R.Result<(), WithdrawError>
+```
+
+send tokens to another account
 
 
 ### Function `share`
@@ -143,7 +140,6 @@ process first account from backlog
 func share() : StableData
 ```
 
-send tokens to another account
 serialize tracking data
 
 
