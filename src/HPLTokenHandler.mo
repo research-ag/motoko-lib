@@ -160,7 +160,6 @@ module HPLTokenHandler {
             case (#err error) {
               let message = "Opening virtual account problem";
               journal.push((Time.now(), p, #error(message, error)));
-              freezeTokenHandler(message);
               throw Error.reject(message);
             };
           };
