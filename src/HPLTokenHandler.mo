@@ -98,19 +98,32 @@ module HPLTokenHandler {
     #sweepIn: Nat;
     #sweepOut: Nat;
     #withdraw: { to: (Principal, HPL.AccountReference); amount: Nat };
+    #deposit: { from: (Principal, HPL.VirtualAccountId); amount: Nat };
   });
 
-  public type WithdrawError = { 
+  public type DepositError = {
+    #CallHPLError;
+    #DeletedVirtualAccount;
+    #InsufficientFunds;
+    #MismatchInAsset;
+    #MismatchInRemotePrincipal; 
+    #TooLargeFtQuantity;
+    #TooLargeVirtualAccountId;
+    #UnknownPrincipal;
+    #UnknownVirtualAccount;
+  };
+
+  public type WithdrawError = {
+    #CallHPLError;
+    #DeletedVirtualAccount;
+    #MismatchInAsset;
+    #MismatchInRemotePrincipal; 
     #TooLargeFtQuantity;
     #TooLargeSubaccountId;
     #TooLargeVirtualAccountId;
     #UnknownPrincipal;
     #UnknownSubaccount;
     #UnknownVirtualAccount;
-    #DeletedVirtualAccount;
-    #MismatchInAsset;
-    #MismatchInRemotePrincipal; 
-    #CallHPLError;
   };
 
   public type StableData = (
@@ -263,6 +276,45 @@ module HPLTokenHandler {
           journal.push((Time.now(), ownPrincipal, #error(message, err)));
           freezeTokenHandler(message);
           throw Error.reject(message);
+        };
+      };
+    };
+
+    /// receive tokens from user's virtual account, where remotePrincipal == ownPrincipal
+    public func deposit(from : (Principal, HPL.VirtualAccountId), amount: Nat): async* R.Result<(), DepositError> {
+      let callResult = try {
+        await hpl.submitAndExecute({ map = [
+          {
+            owner = null;
+            inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
+            outflow = [(#vir(from), #ft(assetId, amount))];
+            mints = []; burns = []; memo = null;
+          }
+        ]});
+      } catch (err) {
+        #err(#CallHPLError);
+      };
+      switch (callResult) {
+        case (#ok _) {
+          journal.push((Time.now(), ownPrincipal, #deposit({ from = from; amount = amount; })));
+          #ok();
+        };
+        case (#err err) switch (err) {
+          case (#CallHPLError) #err(#CallHPLError);
+          case (#DeletedVirtualAccount) #err(#DeletedVirtualAccount);
+          case (#InsufficientFunds) #err(#InsufficientFunds);
+          case (#MismatchInAsset) #err(#MismatchInAsset);
+          case (#MismatchInRemotePrincipal) #err(#MismatchInRemotePrincipal);
+          case (#TooLargeFtQuantity) #err(#TooLargeFtQuantity);
+          case (#TooLargeVirtualAccountId) #err(#TooLargeVirtualAccountId);
+          case (#UnknownPrincipal) #err(#UnknownPrincipal);
+          case (#UnknownVirtualAccount) #err(#UnknownVirtualAccount);
+          case (_) {
+            let message = "Unexpected error during deposit";
+            journal.push((Time.now(), ownPrincipal, #error(message, from, err)));
+            freezeTokenHandler(message);
+            throw Error.reject(message);
+          };
         };
       };
     };
