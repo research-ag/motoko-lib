@@ -157,7 +157,7 @@ module HPLTokenHandler {
 
     /// Returns reference to registered virtual account for P.
     /// If not registered yet, registers it automatically
-    public func getAccountReferenceFor(p : Principal) : async* (Principal, HPL.VirtualAccountId) {
+    public func getAccountReferenceFor(p : Principal) : async* R.Result<(Principal, HPL.VirtualAccountId), { #NoSpaceForAccount; #CallHPLError; }> {
       let virtualAccountId : HPL.VirtualAccountId = switch (map.get(p)) {
         case (?info) info.virtualAccountId;
         case (null) {
@@ -175,14 +175,22 @@ module HPLTokenHandler {
               vid;
             };
             case (#err error) {
+              switch (error) {
+                case (#NoSpaceForAccount) return #err(#NoSpaceForAccount);
+                case (#CallHPLError) return #err(#CallHPLError);
+                case (#UnknownSubaccount) {}; // token handler subaccount not registered
+                case (#MismatchInAsset) {}; // backing subaccount has different assetId
+                case (#UnknownPrincipal) {}; // handler is not registered
+              };
               let message = "Opening virtual account problem";
               journal.push((Time.now(), p, #error(message, error)));
+              freezeTokenHandler(message);
               throw Error.reject(message);
             };
           };
         };
       };
-      (ownPrincipal, virtualAccountId);
+      #ok(ownPrincipal, virtualAccountId);
     };
 
     /// query the usable balance
