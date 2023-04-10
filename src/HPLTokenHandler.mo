@@ -23,7 +23,6 @@ module HPLTokenHandler {
     public type AssetId = Nat;
     public type SubaccountId = Nat;
     public type VirtualAccountId = Nat;
-    public type VirtualAccountUpdateObject = { backingSubaccountId: SubaccountId; assetBalance: Nat };
     public type Asset = {
       #ft : (id : AssetId, quantity : Nat);
     };
@@ -162,7 +161,11 @@ module HPLTokenHandler {
       let virtualAccountId : HPL.VirtualAccountId = switch (map.get(p)) {
         case (?info) info.virtualAccountId;
         case (null) {
-          let registerResult = await hpl.openVirtualAccount({ asset = #ft(assetId, 0); backingSubaccountId = backingSubaccountId; remotePrincipal = p });
+          let registerResult = try {
+            await hpl.openVirtualAccount({ asset = #ft(assetId, 0); backingSubaccountId = backingSubaccountId; remotePrincipal = p });
+          } catch (err) {
+            #err(#CallHPLError);
+          };
           switch (registerResult) {
             case (#ok vid) {
               map.put(p, {
@@ -237,7 +240,11 @@ module HPLTokenHandler {
     public func sweepIn(p : Principal) : async* ?(Nat, Nat) {
       if (isFrozen()) return null;
       let ?info = map.get(p) else return null;
-      let updateResult = await hpl.setVirtualBalance(info.virtualAccountId, 0);
+      let updateResult = try {
+        await hpl.setVirtualBalance(info.virtualAccountId, 0);
+      } catch (err) {
+        #err(#CallHPLError);
+      };
       switch (updateResult) {
         case (#ok delta) {
           if (delta == 0) {
@@ -263,7 +270,11 @@ module HPLTokenHandler {
     public func sweepOut(p : Principal) : async* ?Nat {
       if (isFrozen()) return null;
       let ?info = map.get(p) else return null;
-      let updateResult = await hpl.incVirtualBalance(info.virtualAccountId, info.credit);
+      let updateResult = try {
+        await hpl.incVirtualBalance(info.virtualAccountId, info.credit);
+      } catch (err) {
+        #err(#CallHPLError);
+      };
       switch (updateResult) {
         case (#ok newBalance) {
           journal.push((Time.now(), p, #sweepOut(info.credit)));
