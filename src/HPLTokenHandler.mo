@@ -100,31 +100,6 @@ module HPLTokenHandler {
     #deposit: { from: (Principal, HPL.VirtualAccountId); amount: Nat };
   });
 
-  public type DepositError = {
-    #CallHPLError;
-    #DeletedVirtualAccount;
-    #InsufficientFunds;
-    #MismatchInAsset;
-    #MismatchInRemotePrincipal; 
-    #TooLargeFtQuantity;
-    #TooLargeVirtualAccountId;
-    #UnknownPrincipal;
-    #UnknownVirtualAccount;
-  };
-
-  public type WithdrawError = {
-    #CallHPLError;
-    #DeletedVirtualAccount;
-    #MismatchInAsset;
-    #MismatchInRemotePrincipal; 
-    #TooLargeFtQuantity;
-    #TooLargeSubaccountId;
-    #TooLargeVirtualAccountId;
-    #UnknownPrincipal;
-    #UnknownSubaccount;
-    #UnknownVirtualAccount;
-  };
-
   public type StableData = (
     [(Principal, StableInfo)],        // map
     Nat,                              // consolidatedFunds
@@ -157,15 +132,12 @@ module HPLTokenHandler {
 
     /// Returns reference to registered virtual account for P.
     /// If not registered yet, registers it automatically
-    public func getAccountReferenceFor(p : Principal) : async* R.Result<(Principal, HPL.VirtualAccountId), { #NoSpaceForAccount; #CallHPLError; }> {
+    /// We pass through any call Error instead of catching it
+    public func getAccountReferenceFor(p : Principal) : async* (Principal, HPL.VirtualAccountId) {
       let virtualAccountId : HPL.VirtualAccountId = switch (map.get(p)) {
         case (?info) info.virtualAccountId;
         case (null) {
-          let registerResult = try {
-            await hpl.openVirtualAccount({ asset = #ft(assetId, 0); backingSubaccountId = backingSubaccountId; remotePrincipal = p });
-          } catch (err) {
-            #err(#CallHPLError);
-          };
+          let registerResult = await hpl.openVirtualAccount({ asset = #ft(assetId, 0); backingSubaccountId = backingSubaccountId; remotePrincipal = p });
           switch (registerResult) {
             case (#ok vid) {
               map.put(p, {
@@ -176,21 +148,19 @@ module HPLTokenHandler {
             };
             case (#err error) {
               switch (error) {
-                case (#NoSpaceForAccount) return #err(#NoSpaceForAccount);
-                case (#CallHPLError) return #err(#CallHPLError);
-                case (#UnknownSubaccount) {}; // token handler subaccount not registered
-                case (#MismatchInAsset) {}; // backing subaccount has different assetId
-                case (#UnknownPrincipal) {}; // handler is not registered
+                case (#NoSpaceForAccount) throw Error.reject("No space for account");
+                case (_) {
+                  let message = "Opening virtual account problem";
+                  journal.push((Time.now(), p, #error(message, error)));
+                  freezeTokenHandler(message);
+                  throw Error.reject(message);
+                };
               };
-              let message = "Opening virtual account problem";
-              journal.push((Time.now(), p, #error(message, error)));
-              freezeTokenHandler(message);
-              throw Error.reject(message);
             };
           };
         };
       };
-      #ok(ownPrincipal, virtualAccountId);
+      (ownPrincipal, virtualAccountId);
     };
 
     /// query the usable balance
@@ -245,14 +215,11 @@ module HPLTokenHandler {
     /// The handler will turn the balance of virtual account, previously opened for P, to zero.
     /// If there was non-zero amount (deposit), the handler will add the deposit to the credit of P. 
     /// Returns the newly detected deposit and total usable balance if success, otherwise null
+    /// We pass through any call Error instead of catching it
     public func sweepIn(p : Principal) : async* ?(Nat, Nat) {
       if (isFrozen()) return null;
       let ?info = map.get(p) else return null;
-      let updateResult = try {
-        await hpl.setVirtualBalance(info.virtualAccountId, 0);
-      } catch (err) {
-        #err(#CallHPLError);
-      };
+      let updateResult = await hpl.setVirtualBalance(info.virtualAccountId, 0);
       switch (updateResult) {
         case (#ok delta) {
           if (delta == 0) {
@@ -275,14 +242,11 @@ module HPLTokenHandler {
 
     /// The handler will increment the balance of virtual account, previously opened for P, with user credit.
     /// Returns total usable balance if success (available balance in the virtual account), otherwise null
+    /// We pass through any call Error instead of catching it
     public func sweepOut(p : Principal) : async* ?Nat {
       if (isFrozen()) return null;
       let ?info = map.get(p) else return null;
-      let updateResult = try {
-        await hpl.incVirtualBalance(info.virtualAccountId, info.credit);
-      } catch (err) {
-        #err(#CallHPLError);
-      };
+      let updateResult = await hpl.incVirtualBalance(info.virtualAccountId, info.credit);
       switch (updateResult) {
         case (#ok newBalance) {
           journal.push((Time.now(), p, #sweepOut(info.credit)));
@@ -300,34 +264,29 @@ module HPLTokenHandler {
     };
 
     /// receive tokens from user's virtual account, where remotePrincipal == ownPrincipal
-    public func deposit(from : (Principal, HPL.VirtualAccountId), amount: Nat): async* R.Result<(), DepositError> {
-      let callResult = try {
-        await hpl.submitAndExecute({ map = [
-          {
-            owner = null;
-            inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
-            outflow = [(#vir(from), #ft(assetId, amount))];
-            mints = []; burns = []; memo = null;
-          }
-        ]});
-      } catch (err) {
-        #err(#CallHPLError);
-      };
+    /// We pass through any call Error instead of catching it
+    public func deposit(from : (Principal, HPL.VirtualAccountId), amount: Nat): async* () {
+      let callResult = await hpl.submitAndExecute({ map = [
+        {
+          owner = null;
+          inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
+          outflow = [(#vir(from), #ft(assetId, amount))];
+          mints = []; burns = []; memo = null;
+        }
+      ]});
       switch (callResult) {
         case (#ok _) {
           journal.push((Time.now(), ownPrincipal, #deposit({ from = from; amount = amount; })));
-          #ok();
         };
         case (#err err) switch (err) {
-          case (#CallHPLError) #err(#CallHPLError);
-          case (#DeletedVirtualAccount) #err(#DeletedVirtualAccount);
-          case (#InsufficientFunds) #err(#InsufficientFunds);
-          case (#MismatchInAsset) #err(#MismatchInAsset);
-          case (#MismatchInRemotePrincipal) #err(#MismatchInRemotePrincipal);
-          case (#TooLargeFtQuantity) #err(#TooLargeFtQuantity);
-          case (#TooLargeVirtualAccountId) #err(#TooLargeVirtualAccountId);
-          case (#UnknownPrincipal) #err(#UnknownPrincipal);
-          case (#UnknownVirtualAccount) #err(#UnknownVirtualAccount);
+          case (#InsufficientFunds)         throw Error.reject("Insufficient funds");
+          case (#MismatchInAsset)           throw Error.reject("Mismatch in asset id");
+          case (#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
+          case (#TooLargeFtQuantity)        throw Error.reject("Too large quantity");
+          case (#DeletedVirtualAccount 
+            or #TooLargeVirtualAccountId 
+            or #UnknownPrincipal 
+            or #UnknownVirtualAccount)      throw Error.reject("Virtual account not registered");
           case (_) {
             let message = "Unexpected error during deposit";
             journal.push((Time.now(), ownPrincipal, #error(message, from, err)));
@@ -339,39 +298,32 @@ module HPLTokenHandler {
     };
 
     /// send tokens to another account
-    public func withdraw(to : (Principal, HPL.AccountReference), amount: Nat): async* R.Result<(), WithdrawError> {
-      let callResult = try {
-        await hpl.submitAndExecute({ map = [
-          {
-            owner = null;
-            outflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
-            inflow = []; mints = []; burns = []; memo = null;
-          },
-          {
-            owner = ?to.0;
-            inflow = [(to.1, #ft(assetId, amount))];
-            outflow = []; mints = []; burns = []; memo = null;
-          }
-        ]});
-      } catch (err) {
-        #err(#CallHPLError);
-      };
+    /// We pass through any call Error instead of catching it
+    public func withdraw(to : (Principal, HPL.AccountReference), amount: Nat): async* () {
+      let callResult = await hpl.submitAndExecute({ map = [
+        {
+          owner = null;
+          outflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
+          inflow = []; mints = []; burns = []; memo = null;
+        },
+        {
+          owner = ?to.0;
+          inflow = [(to.1, #ft(assetId, amount))];
+          outflow = []; mints = []; burns = []; memo = null;
+        }
+      ]});
       switch (callResult) {
         case (#ok _) {
           journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount; })));
-          #ok();
         };
         case (#err err) switch (err) {
-          case (#TooLargeFtQuantity) #err(#TooLargeFtQuantity);
-          case (#TooLargeSubaccountId) #err(#TooLargeSubaccountId);
-          case (#TooLargeVirtualAccountId) #err(#TooLargeVirtualAccountId);
-          case (#UnknownPrincipal) #err(#UnknownPrincipal);
-          case (#UnknownSubaccount) #err(#UnknownSubaccount);
-          case (#UnknownVirtualAccount) #err(#UnknownVirtualAccount);
-          case (#DeletedVirtualAccount) #err(#DeletedVirtualAccount);
-          case (#MismatchInAsset) #err(#MismatchInAsset);
-          case (#MismatchInRemotePrincipal) #err(#MismatchInRemotePrincipal);
-          case (#CallHPLError) #err(#CallHPLError);
+          case (#MismatchInAsset)           throw Error.reject("Mismatch in asset id");
+          case (#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
+          case (#TooLargeFtQuantity)        throw Error.reject("Too large quantity");
+          case (#DeletedVirtualAccount 
+            or #TooLargeVirtualAccountId 
+            or #UnknownPrincipal 
+            or #UnknownVirtualAccount)      throw Error.reject("Virtual account not registered");
           case (_) {
             let message = "Unexpected error during withdraw";
             journal.push((Time.now(), ownPrincipal, #error(message, to, err)));
