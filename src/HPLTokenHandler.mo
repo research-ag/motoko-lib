@@ -76,8 +76,7 @@ module HPLTokenHandler {
     public type Ledger = actor {
       openVirtualAccount : (state : VirtualAccountState) -> async R.Result<VirtualAccountId, { #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount }>;
       setVirtualBalance : (vid : VirtualAccountId, newBalance : Nat) -> async R.Result<Int, { #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
-      incVirtualBalance : (vid : VirtualAccountId, delta : Nat) -> async R.Result<Nat, { #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
-      decVirtualBalance : (vid : VirtualAccountId, delta : Nat) -> async R.Result<Nat, { #InsufficientFunds; #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
+      incVirtualBalance : (vid : VirtualAccountId, delta : Int) -> async R.Result<Nat, { #InsufficientFunds; #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
       virtualAccount : (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, { #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
       submitAndExecute : (tx : TxInput) -> async R.Result<GlobalId, SubmitAndExecuteError>;
     };
