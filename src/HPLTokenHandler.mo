@@ -268,6 +268,9 @@ module HPLTokenHandler {
     public func sweepOut(p : Principal) : async* ?Nat {
       if (isFrozen()) return null;
       let ?info = map.get(p) else return null;
+      if (info.credit == 0) {
+        return null;
+      };
       let updateResult = await hpl.incVirtualBalance(info.virtualAccountId, info.credit);
       switch (updateResult) {
         case (#ok newBalance) {
