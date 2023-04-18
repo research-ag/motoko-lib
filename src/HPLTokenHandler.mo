@@ -165,7 +165,7 @@ module HPLTokenHandler {
         case (?vid) vid;
         case (null) {
           let registerResult = await hpl.openVirtualAccount({
-            asset = #ft(assetId, info.credit);
+            asset = #ft(assetId, 0);
             backingSubaccountId = backingSubaccountId;
             remotePrincipal = p;
           });
@@ -338,10 +338,19 @@ module HPLTokenHandler {
     /// send tokens to another account
     /// "to" virtual account has to be opened by user, and handler principal has to be set as remotePrincipal in it
     /// We pass through any call Error instead of catching it
-    public func withdraw(to : (Principal, HPL.VirtualAccountId), amount : Nat) : async* () {
-      let info = mapGetOrCreate(to.0);
-      if (info.credit < amount) {
-        throw Error.reject("Insufficient funds");
+    public func withdraw(to : (Principal, HPL.VirtualAccountId), withdrawAmount : { #amount : Nat; #max }) : async* () {
+      let ?info = map.get(to.0) else throw Error.reject("Not registered");
+      let amount : Nat = switch (withdrawAmount) {
+        case (#amount requested) {
+          if (info.credit < requested) {
+            throw Error.reject("Insufficient funds");
+          };
+          requested;
+        };
+        case (#max) info.credit;
+      };
+      if (amount == 0) {
+        return ();
       };
       info.credit -= amount;
       let callResult = await hpl.submitAndExecute(
