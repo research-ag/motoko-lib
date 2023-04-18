@@ -14,25 +14,19 @@ func defaultHandlerStableData() : StableData
 
 ## Type `Info`
 ``` motoko
-type Info = { var credit : Nat; virtualAccountId : HPL.VirtualAccountId }
+type Info = { var credit : Nat; var virtualAccountId : ?HPL.VirtualAccountId }
 ```
 
 
 ## Type `StableInfo`
 ``` motoko
-type StableInfo = { credit : Nat; virtualAccountId : HPL.VirtualAccountId }
+type StableInfo = { credit : Nat; virtualAccountId : ?HPL.VirtualAccountId }
 ```
 
 
 ## Type `JournalRecord`
 ``` motoko
-type JournalRecord = (Time.Time, Principal, {#credited : Nat; #debited : Nat; #error : Any; #openAccountError : {#UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount}; #sweepIn : Nat; #sweepOut : Nat; #withdraw : { to : (Principal, HPL.AccountReference); amount : Nat }})
-```
-
-
-## Type `WithdrawError`
-``` motoko
-type WithdrawError = {#TooLargeFtQuantity; #TooLargeSubaccountId; #TooLargeVirtualAccountId; #UnknownPrincipal; #UnknownSubaccount; #UnknownVirtualAccount; #DeletedVirtualAccount; #MismatchInAsset; #MismatchInRemotePrincipal; #CallHPLError}
+type JournalRecord = (Time.Time, Principal, {#credited : Nat; #debited : Nat; #error : Any; #openAccountError : {#UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount}; #sweepIn : Nat; #sweepOut : Nat; #withdraw : { to : (Principal, HPL.VirtualAccountId); amount : Nat }; #deposit : { from : (Principal, HPL.VirtualAccountId); amount : Nat }})
 ```
 
 
@@ -56,6 +50,7 @@ func getAccountReferenceFor(p : Principal) : async* (Principal, HPL.VirtualAccou
 
 Returns reference to registered virtual account for P.
 If not registered yet, registers it automatically
+We pass through any call Error instead of catching it
 
 
 ### Function `balance`
@@ -114,8 +109,9 @@ func sweepIn(p : Principal) : async* ?(Nat, Nat)
 ```
 
 The handler will turn the balance of virtual account, previously opened for P, to zero.
-If there was non-zero amount (deposit), the handler will add the deposit to the credit of P. 
+If there was non-zero amount (deposit), the handler will add the deposit to the credit of P.
 Returns the newly detected deposit and total usable balance if success, otherwise null
+We pass through any call Error instead of catching it
 
 
 ### Function `sweepOut`
@@ -125,14 +121,26 @@ func sweepOut(p : Principal) : async* ?Nat
 
 The handler will increment the balance of virtual account, previously opened for P, with user credit.
 Returns total usable balance if success (available balance in the virtual account), otherwise null
+We pass through any call Error instead of catching it
+
+
+### Function `deposit`
+``` motoko
+func deposit(from : (Principal, HPL.VirtualAccountId), amount : Nat) : async* ()
+```
+
+receive tokens from user's virtual account, where remotePrincipal == ownPrincipal
+We pass through any call Error instead of catching it
 
 
 ### Function `withdraw`
 ``` motoko
-func withdraw(to : (Principal, HPL.AccountReference), amount : Nat) : async* R.Result<(), WithdrawError>
+func withdraw(to : (Principal, HPL.VirtualAccountId), amount : Nat) : async* ()
 ```
 
 send tokens to another account
+"to" virtual account has to be opened by user, and handler principal has to be set as remotePrincipal in it
+We pass through any call Error instead of catching it
 
 
 ### Function `share`
