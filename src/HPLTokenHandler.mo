@@ -287,7 +287,18 @@ module HPLTokenHandler {
     /// receive tokens from user's virtual account, where remotePrincipal == ownPrincipal
     /// We pass through any call Error instead of catching it
     public func deposit(from : (Principal, HPL.VirtualAccountId), amount : Nat) : async* () {
-      let callResult = await hpl.submitAndExecute(#v1({ map = [{ owner = null; inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))]; outflow = [(#vir(from), #ft(assetId, amount))]; mints = []; burns = []; memo = null }] }));
+      let callResult = await hpl.submitAndExecute(
+        #v1({
+          map = [{
+            owner = null;
+            inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
+            outflow = [(#vir(from), #ft(assetId, amount))];
+            mints = [];
+            burns = [];
+            memo = null;
+          }];
+        })
+      );
       switch (callResult) {
         case (#ok _) {
           journal.push((Time.now(), ownPrincipal, #deposit({ from = from; amount = amount })));
@@ -313,7 +324,28 @@ module HPLTokenHandler {
     /// send tokens to another account
     /// We pass through any call Error instead of catching it
     public func withdraw(to : (Principal, HPL.AccountReference), amount : Nat) : async* () {
-      let callResult = await hpl.submitAndExecute(#v1({ map = [{ owner = null; outflow = [(#sub(backingSubaccountId), #ft(assetId, amount))]; inflow = []; mints = []; burns = []; memo = null }, { owner = ?to.0; inflow = [(to.1, #ft(assetId, amount))]; outflow = []; mints = []; burns = []; memo = null }] }));
+      let callResult = await hpl.submitAndExecute(
+        #v1({
+          map = [
+            {
+              owner = null;
+              outflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
+              inflow = [];
+              mints = [];
+              burns = [];
+              memo = null;
+            },
+            {
+              owner = ?to.0;
+              inflow = [(to.1, #ft(assetId, amount))];
+              outflow = [];
+              mints = [];
+              burns = [];
+              memo = null;
+            },
+          ];
+        })
+      );
       switch (callResult) {
         case (#ok _) {
           journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
