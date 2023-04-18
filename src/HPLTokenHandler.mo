@@ -26,10 +26,16 @@ module HPLTokenHandler {
     public type Asset = {
       #ft : (id : AssetId, quantity : Nat);
     };
-    public type VirtualAccountState = { asset: Asset; backingSubaccountId: SubaccountId; remotePrincipal: Principal };
-    public type TxInput = {
+    public type VirtualAccountState = {
+      asset : Asset;
+      backingSubaccountId : SubaccountId;
+      remotePrincipal : Principal;
+    };
+    public type TxInputV1 = {
       map : [ContributionInput];
     };
+
+    public type TxInput = { #v1 : TxInputV1 };
     public type AccountReference = {
       #sub : SubaccountId;
       #vir : (Principal, VirtualAccountId);
@@ -66,7 +72,7 @@ module HPLTokenHandler {
       #InsufficientFunds;
       #NotAController;
     };
-    public type SubmitAndExecuteError = ProcessingError or { #NotApproved; };
+    public type SubmitAndExecuteError = ProcessingError or { #NotApproved };
     public type Ledger = actor {
       openVirtualAccount : (state : VirtualAccountState) -> async R.Result<VirtualAccountId, { #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount }>;
       setVirtualBalance : (vid : VirtualAccountId, newBalance : Nat) -> async R.Result<Int, { #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
@@ -77,7 +83,7 @@ module HPLTokenHandler {
     };
   };
 
-  public func defaultHandlerStableData(): StableData = ([], 0, (0, 0), ([var], 0, 0));
+  public func defaultHandlerStableData() : StableData = ([], 0, (0, 0), ([var], 0, 0));
 
   public type Info = {
     var credit : Nat;
@@ -89,36 +95,45 @@ module HPLTokenHandler {
     virtualAccountId : HPL.VirtualAccountId;
   };
 
-  public type JournalRecord = (Time.Time, Principal, {
-    #credited: Nat;
-    #debited: Nat;
-    #error: Any;
-    #openAccountError: { #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount };
-    #sweepIn: Nat;
-    #sweepOut: Nat;
-    #withdraw: { to: (Principal, HPL.AccountReference); amount: Nat };
-    #deposit: { from: (Principal, HPL.VirtualAccountId); amount: Nat };
-  });
+  public type JournalRecord = (
+    Time.Time,
+    Principal,
+    {
+      #credited : Nat;
+      #debited : Nat;
+      #error : Any;
+      #openAccountError : {
+        #UnknownPrincipal;
+        #UnknownSubaccount;
+        #MismatchInAsset;
+        #NoSpaceForAccount;
+      };
+      #sweepIn : Nat;
+      #sweepOut : Nat;
+      #withdraw : { to : (Principal, HPL.AccountReference); amount : Nat };
+      #deposit : { from : (Principal, HPL.VirtualAccountId); amount : Nat };
+    },
+  );
 
   public type StableData = (
-    [(Principal, StableInfo)],        // map
-    Nat,                              // consolidatedFunds
-    (Nat, Nat),                       // total debited/credited
-    ([var ?JournalRecord], Nat, Int)  // journal
+    [(Principal, StableInfo)], // map
+    Nat, // consolidatedFunds
+    (Nat, Nat), // total debited/credited
+    ([var ?JournalRecord], Nat, Int) // journal
   );
 
   public class TokenHandler(
     hplLedgerPrincipal : Principal,
-    assetId: HPL.AssetId, 
-    backingSubaccountId: HPL.SubaccountId,
+    assetId : HPL.AssetId,
+    backingSubaccountId : HPL.SubaccountId,
     ownPrincipal : Principal,
-    journalSize: Nat,
+    journalSize : Nat,
   ) {
     let hpl = actor (Principal.toText(hplLedgerPrincipal)) : HPL.Ledger;
 
     /// if some unexpected error happened, this flag turns true and handler stops doing anything until recreated
     var isFrozen_ : Bool = false;
-    func freezeTokenHandler(errorText: Text): () {
+    func freezeTokenHandler(errorText : Text) : () {
       isFrozen_ := true;
       journal.push((Time.now(), ownPrincipal, #error(errorText)));
     };
@@ -137,13 +152,20 @@ module HPLTokenHandler {
       let virtualAccountId : HPL.VirtualAccountId = switch (map.get(p)) {
         case (?info) info.virtualAccountId;
         case (null) {
-          let registerResult = await hpl.openVirtualAccount({ asset = #ft(assetId, 0); backingSubaccountId = backingSubaccountId; remotePrincipal = p });
+          let registerResult = await hpl.openVirtualAccount({
+            asset = #ft(assetId, 0);
+            backingSubaccountId = backingSubaccountId;
+            remotePrincipal = p;
+          });
           switch (registerResult) {
             case (#ok vid) {
-              map.put(p, {
-                virtualAccountId = vid;
-                var credit = 0;
-              });
+              map.put(
+                p,
+                {
+                  virtualAccountId = vid;
+                  var credit = 0;
+                },
+              );
               vid;
             };
             case (#err error) {
@@ -164,16 +186,16 @@ module HPLTokenHandler {
     };
 
     /// query the usable balance
-    public func balance(p : Principal) : ?Nat = Option.map<Info, Nat>(map.get(p), func (info: Info) : Nat = info.credit);
+    public func balance(p : Principal) : ?Nat = Option.map<Info, Nat>(map.get(p), func(info : Info) : Nat = info.credit);
 
     /// query journal for debug purposes. Returns:
     /// 1) array of all items in order, starting from the oldest record in journal, but no earlier than "startFrom" if provided
     /// 2) the index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
-    public func queryJournal(startFrom: ?Nat): ([JournalRecord], Nat) = (
+    public func queryJournal(startFrom : ?Nat) : ([JournalRecord], Nat) = (
       Iter.toArray(
         journal.slice(
           Int.abs(Int.max(Option.get(startFrom, 0), journal.pushesAmount() - journalSize)),
-          journal.pushesAmount()
+          journal.pushesAmount(),
         )
       ),
       journal.pushesAmount(),
@@ -213,7 +235,7 @@ module HPLTokenHandler {
     };
 
     /// The handler will turn the balance of virtual account, previously opened for P, to zero.
-    /// If there was non-zero amount (deposit), the handler will add the deposit to the credit of P. 
+    /// If there was non-zero amount (deposit), the handler will add the deposit to the credit of P.
     /// Returns the newly detected deposit and total usable balance if success, otherwise null
     /// We pass through any call Error instead of catching it
     public func sweepIn(p : Principal) : async* ?(Nat, Nat) {
@@ -226,7 +248,7 @@ module HPLTokenHandler {
             return ?(0, info.credit);
           };
           let deposit = Int.abs(delta); // expected delta here is always negative
-          info.credit += deposit; 
+          info.credit += deposit;
           journal.push((Time.now(), p, #sweepIn(deposit)));
           consolidatedFunds_ += deposit;
           ?(deposit, info.credit);
@@ -265,28 +287,20 @@ module HPLTokenHandler {
 
     /// receive tokens from user's virtual account, where remotePrincipal == ownPrincipal
     /// We pass through any call Error instead of catching it
-    public func deposit(from : (Principal, HPL.VirtualAccountId), amount: Nat): async* () {
-      let callResult = await hpl.submitAndExecute({ map = [
-        {
-          owner = null;
-          inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
-          outflow = [(#vir(from), #ft(assetId, amount))];
-          mints = []; burns = []; memo = null;
-        }
-      ]});
+    public func deposit(from : (Principal, HPL.VirtualAccountId), amount : Nat) : async* () {
+      let callResult = await hpl.submitAndExecute(#v1({ map = [{ owner = null; inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))]; outflow = [(#vir(from), #ft(assetId, amount))]; mints = []; burns = []; memo = null }] }));
       switch (callResult) {
         case (#ok _) {
-          journal.push((Time.now(), ownPrincipal, #deposit({ from = from; amount = amount; })));
+          journal.push((Time.now(), ownPrincipal, #deposit({ from = from; amount = amount })));
         };
         case (#err err) switch (err) {
-          case (#InsufficientFunds)         throw Error.reject("Insufficient funds");
-          case (#MismatchInAsset)           throw Error.reject("Mismatch in asset id");
+          case (#InsufficientFunds) throw Error.reject("Insufficient funds");
+          case (#MismatchInAsset) throw Error.reject("Mismatch in asset id");
           case (#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
-          case (#TooLargeFtQuantity)        throw Error.reject("Too large quantity");
-          case (#DeletedVirtualAccount 
-            or #TooLargeVirtualAccountId 
-            or #UnknownPrincipal 
-            or #UnknownVirtualAccount)      throw Error.reject("Virtual account not registered");
+          case (#TooLargeFtQuantity) throw Error.reject("Too large quantity");
+          case (
+            #DeletedVirtualAccount or #TooLargeVirtualAccountId or #UnknownPrincipal or #UnknownVirtualAccount
+          ) throw Error.reject("Virtual account not registered");
           case (_) {
             let message = "Unexpected error during deposit";
             journal.push((Time.now(), ownPrincipal, #error(message, from, err)));
@@ -299,31 +313,19 @@ module HPLTokenHandler {
 
     /// send tokens to another account
     /// We pass through any call Error instead of catching it
-    public func withdraw(to : (Principal, HPL.AccountReference), amount: Nat): async* () {
-      let callResult = await hpl.submitAndExecute({ map = [
-        {
-          owner = null;
-          outflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
-          inflow = []; mints = []; burns = []; memo = null;
-        },
-        {
-          owner = ?to.0;
-          inflow = [(to.1, #ft(assetId, amount))];
-          outflow = []; mints = []; burns = []; memo = null;
-        }
-      ]});
+    public func withdraw(to : (Principal, HPL.AccountReference), amount : Nat) : async* () {
+      let callResult = await hpl.submitAndExecute(#v1({ map = [{ owner = null; outflow = [(#sub(backingSubaccountId), #ft(assetId, amount))]; inflow = []; mints = []; burns = []; memo = null }, { owner = ?to.0; inflow = [(to.1, #ft(assetId, amount))]; outflow = []; mints = []; burns = []; memo = null }] }));
       switch (callResult) {
         case (#ok _) {
-          journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount; })));
+          journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
         };
         case (#err err) switch (err) {
-          case (#MismatchInAsset)           throw Error.reject("Mismatch in asset id");
+          case (#MismatchInAsset) throw Error.reject("Mismatch in asset id");
           case (#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
-          case (#TooLargeFtQuantity)        throw Error.reject("Too large quantity");
-          case (#DeletedVirtualAccount 
-            or #TooLargeVirtualAccountId 
-            or #UnknownPrincipal 
-            or #UnknownVirtualAccount)      throw Error.reject("Virtual account not registered");
+          case (#TooLargeFtQuantity) throw Error.reject("Too large quantity");
+          case (
+            #DeletedVirtualAccount or #TooLargeVirtualAccountId or #UnknownPrincipal or #UnknownVirtualAccount
+          ) throw Error.reject("Virtual account not registered");
           case (_) {
             let message = "Unexpected error during withdraw";
             journal.push((Time.now(), ownPrincipal, #error(message, to, err)));
@@ -338,20 +340,20 @@ module HPLTokenHandler {
     public func share() : StableData = (
       Iter.toArray(
         Iter.map<(Principal, Info), (Principal, StableInfo)>(
-          map.entries(), 
-          func (info: (Principal, Info)) : (Principal, StableInfo) = (info.0, { credit = info.1.credit; virtualAccountId = info.1.virtualAccountId })
+          map.entries(),
+          func(info : (Principal, Info)) : (Principal, StableInfo) = (info.0, { credit = info.1.credit; virtualAccountId = info.1.virtualAccountId }),
         )
-      ), 
-      consolidatedFunds_, 
-      (totalDebited, totalCredited), 
-      journal.share()
+      ),
+      consolidatedFunds_,
+      (totalDebited, totalCredited),
+      journal.share(),
     );
 
     /// deserialize tracking data
     public func unshare(values : StableData) {
       map := RBTree.RBTree<Principal, Info>(Principal.compare);
       for ((p, value) in values.0.vals()) {
-        map.put(p, { virtualAccountId = value.virtualAccountId; var credit = value.credit; });
+        map.put(p, { virtualAccountId = value.virtualAccountId; var credit = value.credit });
       };
       consolidatedFunds_ := values.1;
       totalDebited := values.2.0;
@@ -365,12 +367,15 @@ module HPLTokenHandler {
         usableSum += entry.1.credit;
       };
       if (usableSum + totalDebited != consolidatedFunds_ + totalCredited) {
-        let values: [Text] = [
-          "Balances integrity failed", Nat.toText(usableSum), Nat.toText(totalDebited),
-          Nat.toText(consolidatedFunds_), Nat.toText(totalCredited)
+        let values : [Text] = [
+          "Balances integrity failed",
+          Nat.toText(usableSum),
+          Nat.toText(totalDebited),
+          Nat.toText(consolidatedFunds_),
+          Nat.toText(totalCredited),
         ];
         freezeTokenHandler(Text.join("; ", Iter.fromArray(values)));
-      }
+      };
     };
   };
 };
