@@ -135,7 +135,7 @@ We pass through any call Error instead of catching it
 
 ### Function `withdraw`
 ``` motoko
-func withdraw(to : (Principal, HPL.VirtualAccountId), amount : Nat) : async* ()
+func withdraw(to : (Principal, HPL.VirtualAccountId), withdrawAmount : {#amount : Nat; #max}) : async* ()
 ```
 
 send tokens to another account
