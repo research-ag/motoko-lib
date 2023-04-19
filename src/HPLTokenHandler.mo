@@ -23,9 +23,7 @@ module HPLTokenHandler {
     public type AssetId = Nat;
     public type SubaccountId = Nat;
     public type VirtualAccountId = Nat;
-    public type Asset = {
-      #ft : (id : AssetId, quantity : Nat);
-    };
+    public type Asset = (id : AssetId, quantity : Nat);
     public type VirtualAccountState = {
       asset : Asset;
       backingSubaccountId : SubaccountId;
@@ -165,7 +163,7 @@ module HPLTokenHandler {
         case (?vid) vid;
         case (null) {
           let registerResult = await hpl.openVirtualAccount({
-            asset = #ft(assetId, 0);
+            asset = (assetId, 0);
             backingSubaccountId = backingSubaccountId;
             remotePrincipal = p;
           });
@@ -304,8 +302,8 @@ module HPLTokenHandler {
         #v1({
           map = [{
             owner = null;
-            inflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
-            outflow = [(#vir(from), #ft(assetId, amount))];
+            inflow = [(#sub(backingSubaccountId), (assetId, amount))];
+            outflow = [(#vir(from), (assetId, amount))];
             mints = [];
             burns = [];
             memo = null;
@@ -358,8 +356,8 @@ module HPLTokenHandler {
           map = [
             {
               owner = null;
-              outflow = [(#sub(backingSubaccountId), #ft(assetId, amount))];
-              inflow = [(#vir(to), #ft(assetId, amount))];
+              outflow = [(#sub(backingSubaccountId), (assetId, amount))];
+              inflow = [(#vir(to), (assetId, amount))];
               mints = [];
               burns = [];
               memo = null;
