@@ -74,11 +74,11 @@ module HPLTokenHandler {
     };
     public type SubmitAndExecuteError = ProcessingError or { #NotApproved };
     public type Ledger = actor {
-      openVirtualAccount : (state : VirtualAccountState) -> async R.Result<VirtualAccountId, { #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount }>;
-      setVirtualBalance : (vid : VirtualAccountId, newBalance : Nat) -> async R.Result<Int, { #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
-      incVirtualBalance : (vid : VirtualAccountId, delta : Int) -> async R.Result<Nat, { #InsufficientFunds; #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
-      virtualAccount : (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, { #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
-      submitAndExecute : (tx : TxInput) -> async R.Result<GlobalId, SubmitAndExecuteError>;
+      openVirtualAccount : (state : VirtualAccountState) -> async R.Result<VirtualAccountId, ?{ #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount }>;
+      setVirtualBalance : (vid : VirtualAccountId, newBalance : Nat) -> async R.Result<Int, ?{ #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
+      incVirtualBalance : (vid : VirtualAccountId, delta : Int) -> async R.Result<Nat, ?{ #InsufficientFunds; #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
+      virtualAccount : (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, ?{ #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
+      submitAndExecute : (tx : TxInput) -> async R.Result<GlobalId, ?SubmitAndExecuteError>;
     };
   };
 
@@ -176,7 +176,7 @@ module HPLTokenHandler {
             };
             case (#err error) {
               switch (error) {
-                case (#NoSpaceForAccount) throw Error.reject("No space for account");
+                case (? #NoSpaceForAccount) throw Error.reject("No space for account");
                 case (_) {
                   let message = "Opening virtual account problem";
                   journal.push((Time.now(), p, #error(message, error)));
@@ -318,12 +318,12 @@ module HPLTokenHandler {
           journal.push((Time.now(), ownPrincipal, #deposit({ from = from; amount = amount })));
         };
         case (#err err) switch (err) {
-          case (#InsufficientFunds) throw Error.reject("Insufficient funds");
-          case (#MismatchInAsset) throw Error.reject("Mismatch in asset id");
-          case (#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
-          case (#TooLargeFtQuantity) throw Error.reject("Too large quantity");
+          case (? #InsufficientFunds) throw Error.reject("Insufficient funds");
+          case (? #MismatchInAsset) throw Error.reject("Mismatch in asset id");
+          case (? #MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
+          case (? #TooLargeFtQuantity) throw Error.reject("Too large quantity");
           case (
-            #DeletedVirtualAccount or #TooLargeVirtualAccountId or #UnknownPrincipal or #UnknownVirtualAccount
+            ? #DeletedVirtualAccount or ? #TooLargeVirtualAccountId or ? #UnknownPrincipal or ? #UnknownVirtualAccount
           ) throw Error.reject("Virtual account not registered");
           case (_) {
             let message = "Unexpected error during deposit";
@@ -374,11 +374,11 @@ module HPLTokenHandler {
         case (#err err) {
           info.credit += amount;
           switch (err) {
-            case (#MismatchInAsset) throw Error.reject("Mismatch in asset id");
-            case (#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
-            case (#TooLargeFtQuantity) throw Error.reject("Too large quantity");
+            case (? #MismatchInAsset) throw Error.reject("Mismatch in asset id");
+            case (? #MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
+            case (? #TooLargeFtQuantity) throw Error.reject("Too large quantity");
             case (
-              #DeletedVirtualAccount or #TooLargeVirtualAccountId or #UnknownPrincipal or #UnknownVirtualAccount
+              ? #DeletedVirtualAccount or ? #TooLargeVirtualAccountId or ? #UnknownPrincipal or ? #UnknownVirtualAccount
             ) throw Error.reject("Virtual account not registered");
             case (_) {
               let message = "Unexpected error during withdraw";
