@@ -24,15 +24,29 @@ module HPLTokenHandler {
     public type SubaccountId = Nat;
     public type VirtualAccountId = Nat;
     public type Asset = (id : AssetId, quantity : Nat);
+    public type Expiration = {
+      #None;
+      #Timestamp : Nat64;
+    };
     public type VirtualAccountState = {
       asset : Asset;
       backingSubaccountId : SubaccountId;
       remotePrincipal : Principal;
+      expiration : Expiration;
+    };
+    public type BalanceUpdate = {
+      #Set : Nat;
+      #Increment : Nat;
+      #Decrement : Nat;
+    };
+    public type VirtualAccountUpdateObject = {
+      backingSubaccountId : ?SubaccountId;
+      balance : ?BalanceUpdate;
+      expiration : ?Expiration;
     };
     public type TxInputV1 = {
       map : [ContributionInput];
     };
-
     public type TxInput = { #v1 : TxInputV1 };
     public type AccountReference = {
       #sub : SubaccountId;
@@ -72,9 +86,8 @@ module HPLTokenHandler {
     };
     public type SubmitAndExecuteError = ProcessingError or { #NotApproved };
     public type Ledger = actor {
-      openVirtualAccount : (state : VirtualAccountState) -> async R.Result<VirtualAccountId, ?{ #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount }>;
-      setVirtualBalance : (vid : VirtualAccountId, newBalance : Nat) -> async R.Result<Int, ?{ #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
-      incVirtualBalance : (vid : VirtualAccountId, delta : Int) -> async R.Result<Nat, ?{ #InsufficientFunds; #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
+      openVirtualAccount : (state : VirtualAccountState) -> async R.Result<VirtualAccountId, ?{ #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount; #InvalidExpirationTime }>;
+      updateVirtualAccount : (vid : VirtualAccountId, updates : VirtualAccountUpdateObject) -> async R.Result<{ balance : Nat; delta : Int }, ?{ #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount; #UnknownSubaccount; #MismatchInAsset; #InsufficientFunds; #InvalidExpirationTime }>;
       virtualAccount : (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, ?{ #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
       submitAndExecute : (tx : TxInput) -> async R.Result<GlobalId, ?SubmitAndExecuteError>;
     };
@@ -166,6 +179,7 @@ module HPLTokenHandler {
             asset = (assetId, 0);
             backingSubaccountId = backingSubaccountId;
             remotePrincipal = p;
+            expiration = #None;
           });
           switch (registerResult) {
             case (#ok vid) {
@@ -246,9 +260,16 @@ module HPLTokenHandler {
       if (isFrozen()) return null;
       let ?info = map.get(p) else return null;
       let ?vid = info.virtualAccountId else return null;
-      let updateResult = await hpl.setVirtualBalance(vid, 0);
+      let updateResult = await hpl.updateVirtualAccount(
+        vid,
+        {
+          balance = ? #Set 0;
+          backingSubaccountId = null;
+          expiration = null;
+        },
+      );
       switch (updateResult) {
-        case (#ok delta) {
+        case (#ok { delta }) {
           if (delta == 0) {
             return ?(0, info.credit);
           };
@@ -277,13 +298,20 @@ module HPLTokenHandler {
         return null;
       };
       let ?vid = info.virtualAccountId else return null;
-      let updateResult = await hpl.incVirtualBalance(vid, info.credit);
+      let updateResult = await hpl.updateVirtualAccount(
+        vid,
+        {
+          balance = ? #Increment(info.credit);
+          backingSubaccountId = null;
+          expiration = null;
+        },
+      );
       switch (updateResult) {
-        case (#ok newBalance) {
+        case (#ok { balance }) {
           journal.push((Time.now(), p, #sweepOut(info.credit)));
           totalDebited += info.credit;
           info.credit := 0;
-          ?newBalance;
+          ?balance;
         };
         case (#err err) {
           let message = "Unexpected error during incrementing virtual account balance";
