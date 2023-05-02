@@ -244,7 +244,7 @@ module HPLTokenHandler {
       if (isFrozen()) {
         return false;
       };
-      let ?info = map.get(p) else return false;
+      let info = mapGetOrCreate(p);
       info.credit += amount;
       totalCredited += amount;
       journal.push((Time.now(), p, #credited(amount)));
