@@ -415,7 +415,7 @@ module TokenHandler {
     };
 
     /// process first account from backlog
-    public func processBacklog() : async* () {
+    public func processBacklog() : async () {
       func consolidate(p : Principal) : async* () {
         func processConsolidationTransfer() : async* ?{ #Ok : Nat; #Err : ICRC1.TransferError or { #CallIcrc1LedgerError }; } {
           if (latestBalance <= fee_) return null;
