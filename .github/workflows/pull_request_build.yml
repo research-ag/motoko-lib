@@ -4,10 +4,10 @@ on:
     types: [synchronize, opened, reopened, ready_for_review, unlabeled]
 
 env:
-  vessel_version: v0.6.4
-  moc_version: 0.8.3
-  dfx_version: 0.13.1
-  ic-repl_version: 0.3.12
+  vessel_version: v0.6.5
+  moc_version: 0.8.8
+  dfx_version: 0.14.0
+  ic-repl_version: 0.3.18
 
 jobs:
   build:
