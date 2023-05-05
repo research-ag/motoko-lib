@@ -5,6 +5,15 @@ See documentation here: https://research-ag.github.io/motoko-lib/
 
 ## Use this library
 
+### Mops
+mops.toml:
+```
+mrr = "https://github.com/research-ag/motoko-lib#main"
+```
+
+
+### Vessel
+
 vessel.dhall:
 ```
 {
