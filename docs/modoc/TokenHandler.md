@@ -47,7 +47,7 @@ type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, (Nat, Na
 ## Class `TokenHandler`
 
 ``` motoko
-class TokenHandler(icrc1LedgerPrincipal : Principal, ownPrincipal : Principal, journalSize : Nat)
+class TokenHandler(icrc1LedgerPrincipal_ : Principal, ownPrincipal : Principal, journalSize : Nat)
 ```
 
 
@@ -83,6 +83,14 @@ func queryJournal(startFrom : ?Nat) : ([JournalRecord], Nat)
 query journal for debug purposes. Returns:
 1) array of all items in order, starting from the oldest record in journal, but no earlier than "startFrom" if provided
 2) the index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
+
+
+### Function `icrc1LedgerPrincipal`
+``` motoko
+func icrc1LedgerPrincipal() : Principal
+```
+
+retrieve the ICRC1 ledger principal
 
 
 ### Function `isFrozen`
@@ -146,7 +154,7 @@ Returns the newly detected deposit and total usable balance if success, otherwis
 
 ### Function `processBacklog`
 ``` motoko
-func processBacklog() : async* ()
+func processBacklog() : async ()
 ```
 
 process first account from backlog
