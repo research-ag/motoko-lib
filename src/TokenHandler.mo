@@ -272,12 +272,12 @@ module TokenHandler {
   );
 
   public class TokenHandler(
-    icrc1LedgerPrincipal : Principal,
+    icrc1LedgerPrincipal_ : Principal,
     ownPrincipal : Principal,
     journalSize: Nat,
   ) {
 
-    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1.ICRC1Ledger;
+    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal_)) : ICRC1.ICRC1Ledger;
 
     /// if some unexpected error happened, this flag turns true and handler stops doing anything until recreated
     var isFrozen_ : Bool = false;
@@ -328,6 +328,9 @@ module TokenHandler {
       ),
       journal.pushesAmount(),
     );
+
+    /// retrieve the ICRC1 ledger principal
+    public func icrc1LedgerPrincipal() : Principal = icrc1LedgerPrincipal_;
 
     /// retrieve the current freeze state
     public func isFrozen() : Bool = isFrozen_;
