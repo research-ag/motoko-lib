@@ -15,7 +15,7 @@ while (i < n + n) {
 
 i := 0;
 while (i < n) {
-  assert (q.size() == n + n - i);
+  assert (q.size() == (n + n - i : Nat));
   assert (q.peek() == ?i);
   assert (q.pop() == ?i);
   i += 1;
