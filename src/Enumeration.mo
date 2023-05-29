@@ -7,7 +7,7 @@ module {
   /// Red-black tree of key `Nat`.
   public type Tree = ?({ #R; #B }, Tree, Nat, Tree);
 
-  /// Bidirectional enumeration of any `module { compare : (K, K) -> {#equal; #greater; #less} }`s in order they are added.
+  /// Bidirectional enumeration of any `K`s in order they are added.
   /// For map from that to index `Nat` it's implemented as red-black tree, for map from index `Nat` to it the implementation is an array.
   /// ```
   /// let e = Enumeration.Enumeration();
