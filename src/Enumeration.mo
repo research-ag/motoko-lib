@@ -7,13 +7,13 @@ module {
   /// Red-black tree of key `Nat`.
   public type Tree = ?({ #R; #B }, Tree, Nat, Tree);
 
-  /// Bidirectional enumeration of `Blob`s in order they are added.
-  /// For map from `Blob` to index `Nat` it's implemented as red-black tree, for map from index `Nat` to `Blob` the implementation is an array.
+  /// Bidirectional enumeration of any `module { compare : (K, K) -> {#equal; #greater; #less} }`s in order they are added.
+  /// For map from that to index `Nat` it's implemented as red-black tree, for map from index `Nat` to it the implementation is an array.
   /// ```
   /// let e = Enumeration.Enumeration();
   /// ```
-  public class Enumeration() {
-    private var array = ([var ""] : [var Blob]);
+  public class Enumeration<K>(K : module { compare : (K, K) -> {#equal; #greater; #less} }, empty : K) {
+    private var array : [var K] = [var empty];
     private var size_ = 0;
 
     private var tree = (null : Tree);
@@ -26,7 +26,7 @@ module {
     /// assert(e.add("abc") == 0);
     /// ```
     /// Runtime: O(log(n))
-    public func add(key : Blob) : Nat {
+    public func add(key : K) : Nat {
       var index = size_;
 
       func lbalance(left : Tree, y : Nat, right : Tree) : Tree {
@@ -48,7 +48,7 @@ module {
       func insert(tree : Tree) : Tree {
         switch tree {
           case (?(#B, left, y, right)) {
-            switch (Blob.compare(key, array[y])) {
+            switch (K.compare(key, array[y])) {
               case (#less) lbalance(insert(left), y, right);
               case (#greater) rbalance(left, y, insert(right));
               case (#equal) {
@@ -58,7 +58,7 @@ module {
             };
           };
           case (?(#R, left, y, right)) {
-            switch (Blob.compare(key, array[y])) {
+            switch (K.compare(key, array[y])) {
               case (#less) ?(#R, insert(left), y, right);
               case (#greater) ?(#R, left, y, insert(right));
               case (#equal) {
@@ -92,7 +92,7 @@ module {
 
       if (index == size_) {
         if (size_ == array.size()) {
-          array := Array.tabulateVar<Blob>(next_size(size_), func(i) = if (i < size_) { array[i] } else { "" });
+          array := Array.tabulateVar<K>(next_size(size_), func(i) = if (i < size_) { array[i] } else { empty });
         };
         array[size_] := key;
         size_ += 1;
@@ -111,11 +111,11 @@ module {
     /// assert(e.lookup("bbb") == null);
     /// ```
     /// Runtime: O(log(n))
-    public func lookup(key : Blob) : ?Nat {
-      func get_in_tree(x : Blob, t : Tree) : ?Nat {
+    public func lookup(key : K) : ?Nat {
+      func get_in_tree(x : K, t : Tree) : ?Nat {
         switch t {
           case (?(_, l, y, r)) {
-            switch (Blob.compare(x, array[y])) {
+            switch (K.compare(x, array[y])) {
               case (#less) get_in_tree(x, l);
               case (#equal) ?y;
               case (#greater) get_in_tree(x, r);
@@ -128,7 +128,7 @@ module {
       get_in_tree(key, tree);
     };
 
-    /// Returns `Blob` with index `index`. Traps it index is out of bounds.
+    /// Returns `K` with index `index`. Traps it index is out of bounds.
     /// ```
     /// let e = Enumeration.Enumeration();
     /// assert(e.add("abc") == 0);
@@ -137,7 +137,7 @@ module {
     /// assert(e.get(1) == "aaa");
     /// ```
     /// Runtime: O(1)
-    public func get(index : Nat) : Blob {
+    public func get(index : Nat) : K {
       if (index < size_) { array[index] } else {
         Prim.trap("Index out of bounds");
       };
@@ -153,7 +153,7 @@ module {
     /// Runtime: O(1)
     public func size() : Nat = size_;
 
-    /// Returns pair of red-black tree for map from `Blob` to `Nat` and array of `Blob` for map from `Nat` to `Blob`.
+    /// Returns pair of red-black tree for map from `K` to `Nat` and array of `K` for map from `Nat` to `K`.
     /// Returns number of unique keys added to enumration.
     /// ```
     /// let e = Enumeration.Enumeration();
@@ -162,9 +162,9 @@ module {
     /// e.unsafeUnshare(e.share()); // Nothing changed
     /// ```
     /// Runtime: O(1)
-    public func share() : (Tree, [var Blob], Nat) = (tree, array, size_);
+    public func share() : (Tree, [var K], Nat) = (tree, array, size_);
 
-    /// Sets internal content from red-black tree for map from `Blob` to `Nat` and array of `Blob` for map from `Nat` to `Blob`.
+    /// Sets internal content from red-black tree for map from `K` to `Nat` and array of `K` for map from `Nat` to `K`.
     /// `t` should be a valid red-black tree and correspond to array `a`. This function doesn't do validation.
     /// ```
     /// let e = Enumeration.Enumeration();
@@ -173,7 +173,7 @@ module {
     /// e.unsafeUnshare(e.share()); // Nothing changed
     /// ```
     /// Runtime: O(1)
-    public func unsafeUnshare(data : (Tree, [var Blob], Nat)) {
+    public func unsafeUnshare(data : (Tree, [var K], Nat)) {
       tree := data.0;
       array := data.1;
       size_ := data.2;
