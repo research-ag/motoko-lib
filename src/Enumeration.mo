@@ -12,7 +12,7 @@ module {
   /// ```
   /// let e = Enumeration.Enumeration();
   /// ```
-  public class Enumeration<K>(K : module { compare : (K, K) -> {#equal; #greater; #less} }, empty : K) {
+  public class Enumeration<K>(compare : (K, K) -> {#equal; #greater; #less}, empty : K) {
     private var array : [var K] = [var empty];
     private var size_ = 0;
 
@@ -48,7 +48,7 @@ module {
       func insert(tree : Tree) : Tree {
         switch tree {
           case (?(#B, left, y, right)) {
-            switch (K.compare(key, array[y])) {
+            switch (compare(key, array[y])) {
               case (#less) lbalance(insert(left), y, right);
               case (#greater) rbalance(left, y, insert(right));
               case (#equal) {
@@ -58,7 +58,7 @@ module {
             };
           };
           case (?(#R, left, y, right)) {
-            switch (K.compare(key, array[y])) {
+            switch (compare(key, array[y])) {
               case (#less) ?(#R, insert(left), y, right);
               case (#greater) ?(#R, left, y, insert(right));
               case (#equal) {
@@ -115,7 +115,7 @@ module {
       func get_in_tree(x : K, t : Tree) : ?Nat {
         switch t {
           case (?(_, l, y, r)) {
-            switch (K.compare(x, array[y])) {
+            switch (compare(x, array[y])) {
               case (#less) get_in_tree(x, l);
               case (#equal) ?y;
               case (#greater) get_in_tree(x, r);
