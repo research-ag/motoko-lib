@@ -1,5 +1,7 @@
 import Iter "mo:base/Iter";
 import Error "mo:base/Error";
+import Debug "mo:base/Debug";
+import Nat "mo:base/Nat";
 
 module {
 
@@ -21,21 +23,19 @@ module {
 
     public func size() : Nat = tailCnt_ - headCnt_;
     public func historySize() : Nat = headCnt_ - histCnt_;
-    public func fullSize() : Nat = headCnt_ - histCnt_;
+    public func fullSize() : Nat = tailCnt_ - histCnt_;
 
-    public func push(elements : [T]) {
-      for (el in elements.vals()) {
-        let oldTail = tail;
-        tail := ?{ e = el; var next = null };
-        switch (oldTail) {
-          case (?t) t.next := tail;
-          case (null) {
-            head := tail;
-            hist := tail;
-          };
+    public func push(element : T) {
+      let oldTail = tail;
+      tail := ?{ e = element; var next = null };
+      switch (oldTail) {
+        case (?t) t.next := tail;
+        case (null) {
+          head := tail;
+          hist := tail;
         };
       };
-      tailCnt_ += elements.size();
+      tailCnt_ += 1;
     };
 
     public func pop() : ?T {
@@ -72,47 +72,77 @@ module {
 
   };
 
-  public type StreamSub<T> = ([T], Nat) -> async ();
+  /// Usage:
+  ///
+  /// let receiver = StreamReceiver<Int>(
+  ///   func (element: Int, index: Nat): () {
+  ///     ... do your logic with item
+  ///   }
+  /// );
+  ///
+  /// Hook-up receive function in the actor class:
+  /// public shared func onStreamChunk(chunk: [Int], firstIndex: Nat) : async () = async receiver.onChunk(chunk, firstIndex);
+  class StreamReceiver<T>(
+    callback : (T, Nat) -> ()
+  ) {
 
+    var expectedNextIndex_ : Nat = 0;
 
-  /// usage:
-  /// let stream = SharedStream<Int>(10, 10, func (item) = 1);
-  /// stream.next([1, 2, 3, 4]);
-  /// stream.next([5, 6, 7, 8]);
-  /// stream.next([9, 10, 11, 12]);
-  /// stream.subscribe(func (elements: [Int]): async () {
-  ///   await anotherCanister.appendStream(elements); 
-  /// });
-  /// await* stream.emit(); // will send items 1..9 to `anotherCanister`
-  /// await* stream.emit(); // will send items 10..12 to `anotherCanister`
-  /// await* stream.emit(); // will do nothing, stream clear
-  class SharedStream<T>(
-    maxSize : Nat,
+    public func onChunk(chunk : [T], firstIndex : Nat) : () {
+      if (firstIndex != expectedNextIndex_) {
+        Debug.trap("Broken chunk index: " # Nat.toText(firstIndex) # "; expected: " # Nat.toText(expectedNextIndex_));
+      };
+      for (index in chunk.keys()) {
+        callback(chunk[index], index);
+      };
+      expectedNextIndex_ += chunk.size();
+    };
+
+  };
+
+  /// Usage:
+  ///
+  /// let sender = StreamSender<Int>(
+  ///   10,
+  ///   10,
+  ///   func (item) = 1,
+  ///   func (elements: [Int], firstIndex: Nat): async* () {
+  ///     await anotherCanister.appendStream(elements, firstIndex);
+  ///   }
+  /// );
+  /// sender.next([1, 2, 3, 4]);
+  /// sender.next([5, 6, 7, 8]);
+  /// sender.next([9, 10, 11, 12]);
+  /// await* sender.sendChunk(); // will send ([1..10], 0) to `anotherCanister`
+  /// await* sender.sendChunk(); // will send ([11..12], 10) to `anotherCanister`
+  /// await* sender.sendChunk(); // will do nothing, stream clean
+  class StreamSender<T>(
+    maxSize : ?Nat,
     weightLimit : Nat,
     weightFunc : (item : T) -> Nat,
+    callback : ([T], Nat) -> async* (),
   ) {
 
     let queue : TemporaryQueueImpl<T> = TemporaryQueueImpl<T>();
-    var subscribers : List<StreamSub<T>> = null;
 
-    public func subscribe(callback : StreamSub<T>) {
-      subscribers := ?{ e = callback; var next = subscribers };
-    };
-
-    public func unsubscribe(callback : StreamSub<T>) {
-      // stub
-    };
-
-    public func next(items : [T]): { #ok : Nat; #err : { #NoSpace } } {
+    public func next(items : [T]) : { #ok : Nat; #err : { #NoSpace } } {
       let finalSize = queue.size() + items.size();
-      if (finalSize > maxSize) {
-        return #err(#NoSpace);
+      switch (maxSize) {
+        case (?max) if (finalSize > max) {
+          return #err(#NoSpace);
+        };
+        case (_) {};
       };
-      queue.push(items);
+      for (item in items.vals()) {
+        queue.push(item);
+      };
       #ok(finalSize);
     };
 
-    public func emit() : async* { #ok : Nat; #err : { #HistoryDirty; #SubscribtionError: Text } } {
+    public func sendChunk() : async* {
+      #ok : Nat;
+      #err : { #HistoryDirty; #SubscribtionError : Text };
+    } {
       if (queue.historySize() > 0) {
         return #err(#HistoryDirty);
       };
@@ -122,19 +152,8 @@ module {
       if (elements.size() == 0) {
         return #ok(0);
       };
-      var subscription = subscribers;
       try {
-        label l while (true) {
-          switch (subscription) {
-            case (?sub) {
-              await sub.e(elements, headId);
-              subscription := sub.next;
-            };
-            case (_) {
-              break l;
-            };
-          };
-        };
+        await* callback(elements, headId);
         queue.pruneHist();
         #ok(elements.size());
       } catch (err : Error) {
