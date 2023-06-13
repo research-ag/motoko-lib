@@ -127,9 +127,10 @@ module {
   ///   func (item) = 1,
   ///   anotherCanister.appendStream,
   /// );
-  /// sender.next([1, 2, 3, 4]);
-  /// sender.next([5, 6, 7, 8]);
-  /// sender.next([9, 10, 11, 12]);
+  /// sender.next(1);
+  /// sender.next(2);
+  /// .....
+  /// sender.next(12);
   /// await* sender.sendChunk(); // will send (123, [1..10], 0) to `anotherCanister`
   /// await* sender.sendChunk(); // will send (123, [11..12], 10) to `anotherCanister`
   /// await* sender.sendChunk(); // will do nothing, stream clean
@@ -145,18 +146,28 @@ module {
     // a head of queue before submitting lately failed chunk. Used for error-handling
     var lowestError : { #Inf; #Val : Nat } = #Inf;
 
-    public func next(items : [T]) : { #ok : Nat; #err : { #NoSpace } } {
-      let finalSize = queue.size() + items.size();
+    public func next(item : T) : { #ok : Nat; #err : { #NoSpace } } {
       switch (maxSize) {
-        case (?max) if (finalSize > max) {
+        case (?max) if (queue.size() >= max) {
           return #err(#NoSpace);
         };
         case (_) {};
       };
-      for (item in items.vals()) {
-        queue.push(item);
+      queue.push(item);
+      #ok(queue.size());
+    };
+
+    private func restoreHistoryIfNeeded() {
+      switch (lowestError) {
+        case (#Inf) {};
+        case (#Val val) {
+          if (val < queue.histId()) { Debug.trap("cannot happen") };
+          if (val == queue.histId()) {
+            queue.restore();
+            lowestError := #Inf;
+          };
+        };
       };
-      #ok(finalSize);
     };
 
     public func sendChunk() : async* {
@@ -176,18 +187,11 @@ module {
       try {
         await callback(streamId, elements, headId);
         queue.pruneHist(headId + elements.size());
+        restoreHistoryIfNeeded();
         #ok(elements.size());
       } catch (err : Error) {
-        let lowestErr = switch (lowestError) {
-          case (#Inf) headId;
-          case (#Val val) Nat.min(val, headId);
-        };
-        lowestError := #Val(lowestErr);
-        if (lowestErr < queue.histId()) { Debug.trap("cannot happen") };
-        if (lowestErr == queue.histId()) {
-          queue.restore();
-          lowestError := #Inf;
-        };
+        lowestError := #Val(switch (lowestError) { case (#Inf) headId; case (#Val val) Nat.min(val, headId) });
+        restoreHistoryIfNeeded();
         #err(#SubscribtionError(Error.message(err)));
       };
     };
