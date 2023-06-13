@@ -19,7 +19,9 @@ module {
     var head : List<T> = null;
     var tail : List<T> = null;
 
+    public func histId() : Nat = histCnt_;
     public func headId() : Nat = headCnt_;
+    public func tailId() : Nat = tailCnt_;
 
     public func size() : Nat = tailCnt_ - headCnt_;
     public func historySize() : Nat = headCnt_ - histCnt_;
@@ -65,9 +67,21 @@ module {
       headCnt_ := histCnt_;
     };
 
-    public func pruneHist() {
-      hist := head;
-      histCnt_ := headCnt_;
+    // prune history to provided id exclusively
+    public func pruneHist(upToId : Nat) {
+      if (upToId > headCnt_) {
+        Debug.trap("Trying to prune main queue part");
+      };
+      var counter = upToId;
+      var newHist = hist;
+      for (i in Iter.range(0, upToId - histCnt_)) {
+        switch (newHist) {
+          case (?h) newHist := h.next;
+          case (null) Debug.trap("Can never happen, newHist is null");
+        };
+      };
+      hist := newHist;
+      histCnt_ := upToId;
     };
 
   };
@@ -128,6 +142,8 @@ module {
   ) {
 
     let queue : TemporaryQueueImpl<T> = TemporaryQueueImpl<T>();
+    // a head of queue before submitting lately failed chunk. Used for error-handling
+    var lowestError : { #Inf; #Val : Nat } = #Inf;
 
     public func next(items : [T]) : { #ok : Nat; #err : { #NoSpace } } {
       let finalSize = queue.size() + items.size();
@@ -145,10 +161,11 @@ module {
 
     public func sendChunk() : async* {
       #ok : Nat;
-      #err : { #HistoryDirty; #SubscribtionError : Text };
+      #err : { #Paused; #SubscribtionError : Text };
     } {
-      if (queue.historySize() > 0) {
-        return #err(#HistoryDirty);
+      switch (lowestError) {
+        case (#Inf) {};
+        case (#Val _) { return #err(#Paused) };
       };
       let headId = queue.headId();
       streamIter.reset();
@@ -158,9 +175,19 @@ module {
       };
       try {
         await callback(streamId, elements, headId);
-        queue.pruneHist();
+        queue.pruneHist(headId + elements.size());
         #ok(elements.size());
       } catch (err : Error) {
+        let lowestErr = switch (lowestError) {
+          case (#Inf) headId;
+          case (#Val val) Nat.min(val, headId);
+        };
+        lowestError := #Val(lowestErr);
+        if (lowestErr < queue.histId()) { Debug.trap("cannot happen") };
+        if (lowestErr == queue.histId()) {
+          queue.restore();
+          lowestError := #Inf;
+        };
         #err(#SubscribtionError(Error.message(err)));
       };
     };
