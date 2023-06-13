@@ -75,25 +75,29 @@ module {
   /// Usage:
   ///
   /// let receiver = StreamReceiver<Int>(
-  ///   func (element: Int, index: Nat): () {
-  ///     ... do your logic with item
+  ///   123
+  ///   func (streamId : Nat, element: Int, index: Nat): () {
+  ///     ... do your logic with incoming item
   ///   }
   /// );
   ///
   /// Hook-up receive function in the actor class:
-  /// public shared func onStreamChunk(chunk: [Int], firstIndex: Nat) : async () = async receiver.onChunk(chunk, firstIndex);
+  /// public shared func onStreamChunk(streamId : Nat, chunk: [Int], firstIndex: Nat) : async () {
+  ///   switch (streamId) case (123) { await receiver.onChunk(chunk, firstIndex); }; case (_) { Error.reject("Unknown stream"); }; };
+  /// };
   class StreamReceiver<T>(
-    callback : (T, Nat) -> ()
+    streamId : Nat,
+    callback : (streamId : Nat, item : T, index : Nat) -> (),
   ) {
 
     var expectedNextIndex_ : Nat = 0;
 
-    public func onChunk(chunk : [T], firstIndex : Nat) : () {
+    public func onChunk(chunk : [T], firstIndex : Nat) : async () {
       if (firstIndex != expectedNextIndex_) {
-        Debug.trap("Broken chunk index: " # Nat.toText(firstIndex) # "; expected: " # Nat.toText(expectedNextIndex_));
+        throw Error.reject("Broken chunk index: " # Nat.toText(firstIndex) # "; expected: " # Nat.toText(expectedNextIndex_));
       };
       for (index in chunk.keys()) {
-        callback(chunk[index], index);
+        callback(streamId, chunk[index], firstIndex + index);
       };
       expectedNextIndex_ += chunk.size();
     };
@@ -103,24 +107,24 @@ module {
   /// Usage:
   ///
   /// let sender = StreamSender<Int>(
+  ///   123,
   ///   10,
   ///   10,
   ///   func (item) = 1,
-  ///   func (elements: [Int], firstIndex: Nat): async* () {
-  ///     await anotherCanister.appendStream(elements, firstIndex);
-  ///   }
+  ///   anotherCanister.appendStream,
   /// );
   /// sender.next([1, 2, 3, 4]);
   /// sender.next([5, 6, 7, 8]);
   /// sender.next([9, 10, 11, 12]);
-  /// await* sender.sendChunk(); // will send ([1..10], 0) to `anotherCanister`
-  /// await* sender.sendChunk(); // will send ([11..12], 10) to `anotherCanister`
+  /// await* sender.sendChunk(); // will send (123, [1..10], 0) to `anotherCanister`
+  /// await* sender.sendChunk(); // will send (123, [11..12], 10) to `anotherCanister`
   /// await* sender.sendChunk(); // will do nothing, stream clean
   class StreamSender<T>(
+    streamId : Nat,
     maxSize : ?Nat,
     weightLimit : Nat,
     weightFunc : (item : T) -> Nat,
-    callback : ([T], Nat) -> async* (),
+    callback : (streamId : Nat, items : [T], firstIndex : Nat) -> async (),
   ) {
 
     let queue : TemporaryQueueImpl<T> = TemporaryQueueImpl<T>();
@@ -153,7 +157,7 @@ module {
         return #ok(0);
       };
       try {
-        await* callback(elements, headId);
+        await callback(streamId, elements, headId);
         queue.pruneHist();
         #ok(elements.size());
       } catch (err : Error) {
