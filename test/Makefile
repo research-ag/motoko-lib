@@ -11,5 +11,8 @@ enumeration:
 queue:
 	moc $(MOPS_PKGS) -wasi-system-api queue.mo && wasmtime queue.wasm
 
+queue_buffer:
+	moc $(MOPS_PKGS) -wasi-system-api queue_buffer.mo && wasmtime queue_buffer.wasm
+
 circular_buffer:
 	moc $(MOPS_PKGS) -wasi-system-api circular_buffer.mo && wasmtime circular_buffer.wasm

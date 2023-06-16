@@ -30,7 +30,7 @@ import Int "mo:base/Int";
 
 module {
 
-  class Idx<A, X>(value : X, add : (X, X) -> X) = self {
+  public class Idx<A, X>(value : X, add : (X, X) -> X) = self {
     public func abstract(a : A) : A = a;
     public let val = value;
 
@@ -41,11 +41,13 @@ module {
       ) self x;
   };
 
-  type Status<X> = { #Prun; #Buf : X; #Que : X };
+  public type Status<X> = { #Prun; #Buf : X; #Que : X };
 
   type Id<A> = Idx<A, Nat>;
 
   type BufferedQueue_<A, X> = {
+    bufferedQueue : BufferedQueueRepr<A, X>;
+
     toIter : Queue<X> -> Iter.Iter<X>;
     get : Id<A> -> ?Status<X>;
     indexOf : Id<A> -> ?Status<Nat>;
@@ -61,17 +63,17 @@ module {
     pushValues : Iter.Iter<X> -> Id<A>;
     putValues : Iter.Iter<X> -> ();
 
-    prune: () -> ();
+    prune: () -> Bool;
     pruneAll: () -> ();
     pruneTo: Id<A> -> ();
   };
 
   type Node<X> = { value : X; next : Queue<X> };
-  type Queue<X> = { var node : ?Node<X> };
+  type Queue<X> = { var node : ?Node<X> };  // { node: ?Node<X>; setLast: Node<X> -> () }
 
   type BufferedQueueRepr<A, X> = {
-    queue : Queue<X>;
-    buffer : Queue<X>;
+    var queue : Queue<X>;
+    var buffer : Queue<X>;
 
     var first : Id<A>;
 
@@ -88,11 +90,11 @@ module {
     ( func <A, X>(first : Id<A>) : BufferedQueue_<A, X> = object {
       func empty() : Queue<X> = { var node = null };
 
-      var bufferedQueue : BufferedQueueRepr<A, X> = do {
+      public let bufferedQueue : BufferedQueueRepr<A, X> = do {
         let queue = empty();
 
-        { queue;
-          buffer = empty();
+        { var queue;
+          var buffer = queue;
 
           var first;
 
@@ -110,49 +112,48 @@ module {
           func ({ value; next }) { state := next; value } ) }
       };
 
-      public func get(id : Id<A>) : ?Status<X> =
-        Option.chain<Status<Nat>, Status<X>>(indexOf id, func index {
-        func get(queue : Queue<X>) : Nat -> ?X = func (index : Nat) : ?X =
-          ( func get_(queue : Queue<X>, step : Nat) : ?X =
-            Option.chain<Node<X>, X>(queue.node,
-              func ({ value; next }) = if (step == index) ?value
-                else get_(next, step + 1))
-          )(queue, 0);
-        switch index {
-          case (#Que index) Option.map<X, Status<X>>(
-            get(bufferedQueue.queue) index, func idx = #Que idx);
-          case (#Buf index) Option.map<X, Status<X>>(
-            get(bufferedQueue.buffer) index, func idx = #Buf idx);
-          case (#Prun) ?#Prun;
+      func getFrom(queue : Queue<X>, id : Nat) : ?X = do ? {
+        var queue_ = queue;
+        var id_ = 0;
+
+        while (id_ < id) {
+          queue_ := queue_.node!.next;
+          id_ += 1;
         };
-      });
+        queue_.node!.value;
+      };
 
-      public func indexOf(id : Id<A>) : ?Status<Nat> =
-        if (id.val >= bufferedQueue.first.val + bufferedQueue.cache.size) null
-        else {
-          let index : Int = id.val - bufferedQueue.first.val;
-          if (index > 0) ?#Que(Int.abs index) else {
-            let index_ : Int = bufferedQueue.cache.bufferSize + index;
-            if (index_ > 0) ?#Buf(Int.abs index) else ?#Prun
-          }
+      public func get(id : Id<A>) : ?Status<X> = do ? {
+        switch (indexOf(id)!) {
+          case (#Que index_) #Que(getFrom(bufferedQueue.queue, index_)!);
+          case (#Buf index_) #Buf(getFrom(bufferedQueue.buffer, index_)!);
+          case (#Prun) #Prun;
         };
+      };
+
+      public func indexOf(id : Id<A>) : ?Status<Nat> = do ? {
+        if (id.val >= bufferedQueue.first.val + bufferedQueue.cache.size) null!;
+        let index : Int = id.val - bufferedQueue.first.val;
+
+        if (index >= 0) #Que(Int.abs index) else {
+          let index_ : Int = bufferedQueue.cache.bufferSize + index;
+          if (index_ >= 0) #Buf(Int.abs index_) else #Prun
+        }
+      };
 
 
-      public func peek() : ?X = Option.map<Node<X>, X>(
-        bufferedQueue.queue.node,
-        func ({ value }) = value );
+      public func peek() : ?X = do ? { bufferedQueue.queue.node!.value };
 
-      public func pop() : ?X = Option.map<Node<X>, X>(
-        bufferedQueue.queue.node,
-        func ({ value; next }) {
-          bufferedQueue.queue.node := next.node;
-          bufferedQueue.cache.size -= 1;
-          bufferedQueue.cache.bufferSize += 1;
-          bufferedQueue.first := bufferedQueue.first.inc 1;
-          value;
-        } );
+      public func pop() : ?X = do ? {
+        let { value; next } = bufferedQueue.queue.node!;
+        bufferedQueue.queue := next;
+        bufferedQueue.cache.size -= 1;
+        bufferedQueue.cache.bufferSize += 1;
+        bufferedQueue.first := bufferedQueue.first.inc 1;
+        value;
+      };
 
-      public func push(value : X) : Id<A> = do {
+      public func push(value : X) : Id<A> {
         let node = { value; next = empty() };
         bufferedQueue.cache.last.node := ?node;
         bufferedQueue.cache.last := node.next;
@@ -170,11 +171,11 @@ module {
       public func putValues(values : Iter.Iter<X>) = xxx();
 
 
-      public func prune() = if (bufferedQueue.cache.bufferSize > 0) {
-        bufferedQueue.buffer.node := Option.chain<Node<X>, Node<X>>(
-          bufferedQueue.buffer.node, func node = node.next.node);
-        bufferedQueue.cache.bufferSize -= 1;
-      };
+      public func prune() : Bool =
+        bufferedQueue.cache.bufferSize > 0 and Option.isSome(do ? {
+          bufferedQueue.buffer := bufferedQueue.buffer.node!.next;
+          bufferedQueue.cache.bufferSize -= 1;
+        });
 
       public func pruneAll() = xxx();
       public func pruneTo(id : Id<A>) = xxx();
