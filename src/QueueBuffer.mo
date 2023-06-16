@@ -7,33 +7,12 @@ import List "mo:base/List";
 import Int "mo:base/Int";
 
 
-// why (?!!) the Id (the `pushes`) is the part of Queue state, not an `X`
-// field??? How queue id state consintency supposed to be handled on queue
-// re-creation or in case of several queues?
-
-// Should Id be just a Nat, or some ordered salted randomized UUID?
-
-// What in general is the common approach to mutability, state and consistency
-// management, and values passing around (composing)?
-
-//
-// - - - -
-//
-
-// Actually, we can't make the `BufferedQueue` a static module with static
-// functions that passes a `BufferedQueueRepr` representation instance value
-// around.  Because it countain mutable fields, and Motoko have no other
-// abstract types except objects.  So we supposed to pass those functions with
-// data as a dynamic binded methods to avoid breaking encapsulation (providing
-// an access to an instance of the representation itself allow leaking the
-// representation, and so ability to broke it's state).
-
 module {
 
   public class Id(value : Nat) { public let val = value };
 
   type Node<X> = { value : X; next : Queue<X> };
-  type Queue<X> = { var node : ?Node<X> };  // { node: ?Node<X>; setLast: Node<X> -> () }
+  type Queue<X> = { var node : ?Node<X> };  // { node: ?Node<X>; add: Node<X> -> () }
 
   type BufferedQueueRepr<X> = {
     var queue : Queue<X>;
@@ -67,8 +46,8 @@ module {
     putValues : Iter.Iter<X> -> ();
 
     prune: () -> Bool;
+    pruneTo: Id -> Bool;
     pruneAll: () -> ();
-    pruneTo: Id -> ();
   };
 
   public func bufferedQueueFrom<X>(first : Id) : BufferedQueue<X> = object {
@@ -98,19 +77,14 @@ module {
 
       func getFrom(queue : Queue<X>, id : Nat) : ?X = do ? {
         var queue_ = queue;
-        var id_ = 0;
-
-        while (id_ < id) {
-          queue_ := queue_.node!.next;
-          id_ += 1;
-        };
+        for (_ in Iter.range(1, id)) queue_ := queue_.node!.next;
         queue_.node!.value;
       };
 
       public func get(id : Id) : ?Status<X> = do ? {
         switch (indexOf(id)!) {
-          case (#Que index_) #Que(getFrom(bufferedQueue.queue, index_)!);
-          case (#Buf index_) #Buf(getFrom(bufferedQueue.buffer, index_)!);
+          case (#Que id_) #Que(getFrom(bufferedQueue.queue, id_)!);
+          case (#Buf id_) #Buf(getFrom(bufferedQueue.buffer, id_)!);
           case (#Prun) #Prun;
         };
       };
@@ -161,9 +135,22 @@ module {
           bufferedQueue.cache.bufferSize -= 1;
         });
 
-      public func pruneAll() = xxx();
-      public func pruneTo(id : Id) = xxx();
+      public func pruneTo(id : Id) : Bool {
+        let ?#Buf(id_) = indexOf id else return false;
+
+        bufferedQueue.cache.bufferSize -= id_ + 1;
+
+        Option.isSome(do ? {
+          for (_ in Iter.range(0, id_))
+            bufferedQueue.buffer := bufferedQueue.buffer.node!.next;
+        });
+      };
+
+      public func pruneAll() {
+        bufferedQueue.buffer := bufferedQueue.queue;
+        bufferedQueue.cache.bufferSize := 0;
+      };
   };
 
-  public func BufferedQueue<X>() : BufferedQueue<X> = bufferedQueueFrom<X>(Id 0);
+  public func BufferedQueue<X>() : BufferedQueue<X> = bufferedQueueFrom(Id 0);
 }

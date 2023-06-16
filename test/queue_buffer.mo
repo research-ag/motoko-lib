@@ -73,10 +73,17 @@ q := Queue.BufferedQueue<Nat>();
 assert q.size() == 0;
 i := 0;
 
-label iter while (i < 5) {
+while (i < 5) {
   q.put(i);
   assert q.size() == 1;
   ignore q.pop();
   assert q.size() == 0;
   i += 1;
 };
+
+assert q.get(Id 3) == ?#Buf(3);
+assert q.pruneTo(Id 3);
+assert q.get(Id 3) == ?#Prun;
+assert q.get(Id 4) == ?#Buf(4);
+q.pruneAll();
+assert q.get(Id 4) == ?#Prun;
