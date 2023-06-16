@@ -118,13 +118,14 @@ module {
   public class StreamReceiver<T>(
     streamId : Nat,
     callback : (streamId : Nat, item : T, index : Nat) -> (),
+    startFromIndex : Nat,
   ) {
 
-    var expectedNextIndex_ : Nat = 0;
+    var expectedNextIndex_ : Nat = startFromIndex;
 
-    public func onChunk(chunk : [T], firstIndex : Nat) : async () {
+    public func onChunk(chunk : [T], firstIndex : Nat) {
       if (firstIndex != expectedNextIndex_) {
-        throw Error.reject("Broken chunk index: " # Nat.toText(firstIndex) # "; expected: " # Nat.toText(expectedNextIndex_));
+        Debug.trap("Broken chunk index: " # Nat.toText(firstIndex) # "; expected: " # Nat.toText(expectedNextIndex_));
       };
       for (index in chunk.keys()) {
         callback(streamId, chunk[index], firstIndex + index);
