@@ -1,6 +1,5 @@
 import { xxx } "mo:base/Prelude";
 
-import Order "mo:base/Order";
 import Option "mo:base/Option";
 import Iter "mo:base/Iter";
 import List "mo:base/List";
@@ -12,15 +11,17 @@ module {
   public class Id(value : Nat) { public let val = value };
 
   type Node<X> = { value : X; next : Queue<X> };
-  type Queue_<X> = { node : () -> ?Node<X>; add : X -> () };
+  type Queue<X> = { node : () -> ?Node<X> };
 
-  class Queue<X>() : Queue_<X> {
+  type QueueMutable<X> = { node : () -> ?Node<X>; add : X -> () };
+
+  func Queue<X>() : QueueMutable<X> = object {
     var node_ : ?Node<X> = null;
 
     var add_ : X -> () = func value {
-      let next = Queue<X>();
-      node_ := ?{ value; next };
-      add_ := next.add;
+      let { node; add } = Queue<X>();
+      node_ := ?{ value; next = { node } };
+      add_ := add;
     };
 
     public let node : () -> ?Node<X> = func () = node_;
@@ -28,7 +29,7 @@ module {
   };
 
   type BufferedQueueRepr<X> = {
-    var queue : Queue<X>;
+    var queue : QueueMutable<X>;
     var buffer : Queue<X>;
 
     var first : Id;
@@ -80,8 +81,14 @@ module {
 
       public func toIter(queue : Queue<X>) : Iter.Iter<X> {
         var state = queue;
-        { next = func () : ?X = Option.map<Node<X>, X>(state.node(),
-          func ({ value; next }) { state := next; value } ) }
+
+        { next =
+          func () : ?X = do ? {
+            let { value; next } = state.node()!;
+            state := next;
+            value;
+          }
+        };
       };
 
       func getFrom(queue : Queue<X>, id : Nat) : ?X = do ? {
@@ -113,7 +120,7 @@ module {
 
       public func pop() : ?X = do ? {
         let { value; next } = bufferedQueue.queue.node()!;
-        bufferedQueue.queue := next;
+        bufferedQueue.queue := { next with add = bufferedQueue.queue.add };
         bufferedQueue.cache.size -= 1;
         bufferedQueue.cache.bufferSize += 1;
         bufferedQueue.first := Id(bufferedQueue.first.val + 1);
