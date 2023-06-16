@@ -1,22 +1,19 @@
 import Queue "../src/QueueBuffer";
-import { Idx } "../src/QueueBuffer";
-
-import { print } "mo:base/Debug";
-import { toText } "mo:base/Nat";
+import { Id } "../src/QueueBuffer";
 
 
 var q = Queue.BufferedQueue<Nat>();
 let n = 100;
 
-assert (q.peek() == null);
+assert q.peek() == null;
 
 
 var i = 0;
 
 while (i < n + n) {
-  assert (q.size() == i);
-  assert (q.push(i).val == i);
-  assert (q.peek() == ?0);
+  assert q.size() == i;
+  assert q.push(i).val == i;
+  assert q.peek() == ?0;
   i += 1;
 };
 
@@ -25,23 +22,23 @@ assert not q.prune();
 i := 0;
 
 while (i < n) {
-  assert (q.size() == (n + n - i : Nat));
-  assert (q.peek() == ?i);
-  assert (q.pop() == ?i);
+  assert q.size() == (n + n - i : Nat);
+  assert q.peek() == ?i;
+  assert q.pop() == ?i;
   i += 1;
 };
 
 
 assert (q.size() == n);
 
-assert q.indexOf(Idx<None, Nat>(0, func (x, y) = x + y)) == ?#Buf(0);
-assert q.indexOf(Idx<None, Nat>(n, func (x, y) = x + y)) == ?#Que(0);
-assert q.indexOf(Idx<None, Nat>(n * 2,  func (x, y) = x + y)) == null;
+assert q.indexOf(Id 0) == ?#Buf(0);
+assert q.indexOf(Id n) == ?#Que(0);
+assert q.indexOf(Id(n * 2)) == null;
 
 i := 0;
 
 while (i < n) {
-  assert (q.get(Idx<None, Nat>(i, func (x, y) = x + y)) == ?#Buf(i));
+  assert q.get(Id i) == ?#Buf(i);
   i += 1;
 };
 
@@ -53,22 +50,22 @@ while (i < n) {
   i += 1;
 };
 
-assert q.indexOf(Idx<None, Nat>(0, func (x, y) = x + y)) == ?#Prun;
+assert q.indexOf(Id 0) == ?#Prun;
 
 i := 0;
 
 while (i < n) {
-  assert (q.get(Idx<None, Nat>(i, func (x, y) = x + y)) == ?#Prun);
+  assert q.get(Id i) == ?#Prun;
   i += 1;
 };
 
-assert (q.get(Idx<None, Nat>(n * 2, func (x, y) = x + y)) == null);
+assert q.get(Id(n * 2)) == null;
 
 
 i := n;
 
 while (i < n + n) {
-  assert (q.get(Idx<None, Nat>(i, func (x, y) = x + y)) == ?#Que(i));
+  assert q.get(Id i) == ?#Que(i);
   i += 1;
 };
 

@@ -30,52 +30,16 @@ import Int "mo:base/Int";
 
 module {
 
-  public class Idx<A, X>(value : X, add : (X, X) -> X) = self {
-    public func abstract(a : A) : A = a;
-    public let val = value;
-
-    public func inc(x : X) : Idx<A, X> =
-      ( func incOf(this : Idx<A, X>) : X -> Idx<A, X> = func (x : X) = let self =
-        { this with val = add(this.val, x)
-        ; inc = func (x : X) : Idx<A, X> = (incOf self) x }
-      ) self x;
-  };
-
-  public type Status<X> = { #Prun; #Buf : X; #Que : X };
-
-  type Id<A> = Idx<A, Nat>;
-
-  type BufferedQueue_<A, X> = {
-    bufferedQueue : BufferedQueueRepr<A, X>;
-
-    toIter : Queue<X> -> Iter.Iter<X>;
-    get : Id<A> -> ?Status<X>;
-    indexOf : Id<A> -> ?Status<Nat>;
-
-    peek : () -> ?X;
-    pop : () -> ?X;
-    push : X -> Id<A>;
-    put : X -> ();
-    size : () -> Nat;
-
-    peekValues : Nat -> ?List.List<X>;
-    popValues : Nat -> ?List.List<X>;
-    pushValues : Iter.Iter<X> -> Id<A>;
-    putValues : Iter.Iter<X> -> ();
-
-    prune: () -> Bool;
-    pruneAll: () -> ();
-    pruneTo: Id<A> -> ();
-  };
+  public class Id(value : Nat) { public let val = value };
 
   type Node<X> = { value : X; next : Queue<X> };
   type Queue<X> = { var node : ?Node<X> };  // { node: ?Node<X>; setLast: Node<X> -> () }
 
-  type BufferedQueueRepr<A, X> = {
+  type BufferedQueueRepr<X> = {
     var queue : Queue<X>;
     var buffer : Queue<X>;
 
-    var first : Id<A>;
+    var first : Id;
 
     cache : {
       var last : Queue<X>;
@@ -84,13 +48,33 @@ module {
     }
   };
 
-  public type BufferedQueue<X> = BufferedQueue_<None, X>;
+  public type Status<X> = { #Prun; #Buf : X; #Que : X };
 
-  public func BufferedQueue<X>() : BufferedQueue<X> =
-    ( func <A, X>(first : Id<A>) : BufferedQueue_<A, X> = object {
+  type BufferedQueue<X> = {
+    toIter : Queue<X> -> Iter.Iter<X>;
+    get : Id -> ?Status<X>;
+    indexOf : Id -> ?Status<Nat>;
+
+    peek : () -> ?X;
+    pop : () -> ?X;
+    push : X -> Id;
+    put : X -> ();
+    size : () -> Nat;
+
+    peekValues : Nat -> ?List.List<X>;
+    popValues : Nat -> ?List.List<X>;
+    pushValues : Iter.Iter<X> -> Id;
+    putValues : Iter.Iter<X> -> ();
+
+    prune: () -> Bool;
+    pruneAll: () -> ();
+    pruneTo: Id -> ();
+  };
+
+  public func bufferedQueueFrom<X>(first : Id) : BufferedQueue<X> = object {
       func empty() : Queue<X> = { var node = null };
 
-      public let bufferedQueue : BufferedQueueRepr<A, X> = do {
+      let bufferedQueue : BufferedQueueRepr<X> = do {
         let queue = empty();
 
         { var queue;
@@ -123,7 +107,7 @@ module {
         queue_.node!.value;
       };
 
-      public func get(id : Id<A>) : ?Status<X> = do ? {
+      public func get(id : Id) : ?Status<X> = do ? {
         switch (indexOf(id)!) {
           case (#Que index_) #Que(getFrom(bufferedQueue.queue, index_)!);
           case (#Buf index_) #Buf(getFrom(bufferedQueue.buffer, index_)!);
@@ -131,7 +115,7 @@ module {
         };
       };
 
-      public func indexOf(id : Id<A>) : ?Status<Nat> = do ? {
+      public func indexOf(id : Id) : ?Status<Nat> = do ? {
         if (id.val >= bufferedQueue.first.val + bufferedQueue.cache.size) null!;
         let index : Int = id.val - bufferedQueue.first.val;
 
@@ -149,16 +133,16 @@ module {
         bufferedQueue.queue := next;
         bufferedQueue.cache.size -= 1;
         bufferedQueue.cache.bufferSize += 1;
-        bufferedQueue.first := bufferedQueue.first.inc 1;
+        bufferedQueue.first := Id(bufferedQueue.first.val + 1);
         value;
       };
 
-      public func push(value : X) : Id<A> {
+      public func push(value : X) : Id {
         let node = { value; next = empty() };
         bufferedQueue.cache.last.node := ?node;
         bufferedQueue.cache.last := node.next;
         bufferedQueue.cache.size += 1;
-        bufferedQueue.first.inc(bufferedQueue.cache.size - 1);
+        Id(bufferedQueue.first.val + bufferedQueue.cache.size - 1);
       };
 
       public func put(value : X) = ignore push value;
@@ -167,7 +151,7 @@ module {
 
       public func peekValues(size : Nat) : ?List.List<X> = xxx();
       public func popValues(size : Nat) : ?List.List<X> = xxx();
-      public func pushValues(values : Iter.Iter<X>) : Id<A> = xxx();
+      public func pushValues(values : Iter.Iter<X>) : Id = xxx();
       public func putValues(values : Iter.Iter<X>) = xxx();
 
 
@@ -178,6 +162,8 @@ module {
         });
 
       public func pruneAll() = xxx();
-      public func pruneTo(id : Id<A>) = xxx();
-  } )(Idx<None, Nat>(0, func (x : Nat, y : Nat) : Nat = x + y));
+      public func pruneTo(id : Id) = xxx();
+  };
+
+  public func BufferedQueue<X>() : BufferedQueue<X> = bufferedQueueFrom<X>(Id 0);
 }
