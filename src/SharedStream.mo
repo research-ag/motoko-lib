@@ -2,6 +2,8 @@ import Iter "mo:base/Iter";
 import Error "mo:base/Error";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
+import Option "mo:base/Option";
+import Int "mo:base/Int";
 
 module {
 
@@ -21,7 +23,7 @@ module {
 
     public func histId() : Nat = histCnt_;
     public func headId() : Nat = headCnt_;
-    public func tailId() : Nat = tailCnt_;
+    public func nextId() : Nat = tailCnt_;
 
     public func size() : Nat = tailCnt_ - headCnt_;
     public func historySize() : Nat = headCnt_ - histCnt_;
@@ -62,6 +64,20 @@ module {
       };
     };
 
+    public func get(index : Nat) : ?T {
+      if (index < histCnt_) return null;
+      var counter = Int.abs(index - histCnt_);
+      var item : List<T> = hist;
+      while (counter > 0) {
+        switch (item) {
+          case (?it) item := it.next;
+          case (null) return null;
+        };
+        counter -= 1;
+      };
+      Option.map<{ e : T; var next : List<T> }, T>(item, func(it) = it.e);
+    };
+
     public func restore() {
       head := hist;
       headCnt_ := histCnt_;
@@ -99,7 +115,7 @@ module {
   /// public shared func onStreamChunk(streamId : Nat, chunk: [Int], firstIndex: Nat) : async () {
   ///   switch (streamId) case (123) { await receiver.onChunk(chunk, firstIndex); }; case (_) { Error.reject("Unknown stream"); }; };
   /// };
-  class StreamReceiver<T>(
+  public class StreamReceiver<T>(
     streamId : Nat,
     callback : (streamId : Nat, item : T, index : Nat) -> (),
   ) {
@@ -134,7 +150,7 @@ module {
   /// await* sender.sendChunk(); // will send (123, [1..10], 0) to `anotherCanister`
   /// await* sender.sendChunk(); // will send (123, [11..12], 10) to `anotherCanister`
   /// await* sender.sendChunk(); // will do nothing, stream clean
-  class StreamSender<T>(
+  public class StreamSender<T>(
     streamId : Nat,
     maxSize : ?Nat,
     weightLimit : Nat,
@@ -146,6 +162,12 @@ module {
     // a head of queue before submitting lately failed chunk. Used for error-handling
     var lowestError : { #Inf; #Val : Nat } = #Inf;
 
+    public func fullAmount() : Nat = queue.fullSize();
+    public func queuedAmount() : Nat = queue.size();
+    public func nextId() : Nat = queue.nextId();
+
+    public func get(index : Nat) : ?T = queue.get(index);
+
     public func next(item : T) : { #ok : Nat; #err : { #NoSpace } } {
       switch (maxSize) {
         case (?max) if (queue.size() >= max) {
@@ -153,26 +175,14 @@ module {
         };
         case (_) {};
       };
+      let id = nextId();
       queue.push(item);
-      #ok(queue.size());
-    };
-
-    private func restoreHistoryIfNeeded() {
-      switch (lowestError) {
-        case (#Inf) {};
-        case (#Val val) {
-          if (val < queue.histId()) { Debug.trap("cannot happen") };
-          if (val == queue.histId()) {
-            queue.restore();
-            lowestError := #Inf;
-          };
-        };
-      };
+      #ok(id);
     };
 
     public func sendChunk() : async* {
       #ok : Nat;
-      #err : { #Paused; #SubscribtionError : Text };
+      #err : { #Paused; #SendChunkError : Text };
     } {
       switch (lowestError) {
         case (#Inf) {};
@@ -192,7 +202,20 @@ module {
       } catch (err : Error) {
         lowestError := #Val(switch (lowestError) { case (#Inf) headId; case (#Val val) Nat.min(val, headId) });
         restoreHistoryIfNeeded();
-        #err(#SubscribtionError(Error.message(err)));
+        #err(#SendChunkError(Error.message(err)));
+      };
+    };
+
+    private func restoreHistoryIfNeeded() {
+      switch (lowestError) {
+        case (#Inf) {};
+        case (#Val val) {
+          if (val < queue.histId()) { Debug.trap("cannot happen") };
+          if (val == queue.histId()) {
+            queue.restore();
+            lowestError := #Inf;
+          };
+        };
       };
     };
 
