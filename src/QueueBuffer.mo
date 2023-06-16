@@ -12,7 +12,20 @@ module {
   public class Id(value : Nat) { public let val = value };
 
   type Node<X> = { value : X; next : Queue<X> };
-  type Queue<X> = { var node : ?Node<X> };  // { node: ?Node<X>; add: Node<X> -> () }
+  type Queue_<X> = { node : () -> ?Node<X>; add : X -> () };
+
+  class Queue<X>() : Queue_<X> {
+    var node_ : ?Node<X> = null;
+
+    var add_ : X -> () = func value {
+      let next = Queue<X>();
+      node_ := ?{ value; next };
+      add_ := next.add;
+    };
+
+    public let node : () -> ?Node<X> = func () = node_;
+    public let add : X -> () = func value { add_ value };
+  };
 
   type BufferedQueueRepr<X> = {
     var queue : Queue<X>;
@@ -21,7 +34,6 @@ module {
     var first : Id;
 
     cache : {
-      var last : Queue<X>;
       var size : Nat;
       var bufferSize : Nat;
     }
@@ -51,10 +63,8 @@ module {
   };
 
   public func bufferedQueueFrom<X>(first : Id) : BufferedQueue<X> = object {
-      func empty() : Queue<X> = { var node = null };
-
       let bufferedQueue : BufferedQueueRepr<X> = do {
-        let queue = empty();
+        let queue = Queue<X>();
 
         { var queue;
           var buffer = queue;
@@ -62,7 +72,6 @@ module {
           var first;
 
           cache = {
-            var last = queue;
             var size = 0;
             var bufferSize = 0;
           }
@@ -71,14 +80,14 @@ module {
 
       public func toIter(queue : Queue<X>) : Iter.Iter<X> {
         var state = queue;
-        { next = func () : ?X = Option.map<Node<X>, X>(state.node,
+        { next = func () : ?X = Option.map<Node<X>, X>(state.node(),
           func ({ value; next }) { state := next; value } ) }
       };
 
       func getFrom(queue : Queue<X>, id : Nat) : ?X = do ? {
         var queue_ = queue;
-        for (_ in Iter.range(1, id)) queue_ := queue_.node!.next;
-        queue_.node!.value;
+        for (_ in Iter.range(1, id)) queue_ := queue_.node()!.next;
+        queue_.node()!.value;
       };
 
       public func get(id : Id) : ?Status<X> = do ? {
@@ -100,10 +109,10 @@ module {
       };
 
 
-      public func peek() : ?X = do ? { bufferedQueue.queue.node!.value };
+      public func peek() : ?X = do ? { bufferedQueue.queue.node()!.value };
 
       public func pop() : ?X = do ? {
-        let { value; next } = bufferedQueue.queue.node!;
+        let { value; next } = bufferedQueue.queue.node()!;
         bufferedQueue.queue := next;
         bufferedQueue.cache.size -= 1;
         bufferedQueue.cache.bufferSize += 1;
@@ -112,9 +121,7 @@ module {
       };
 
       public func push(value : X) : Id {
-        let node = { value; next = empty() };
-        bufferedQueue.cache.last.node := ?node;
-        bufferedQueue.cache.last := node.next;
+        bufferedQueue.queue.add value;
         bufferedQueue.cache.size += 1;
         Id(bufferedQueue.first.val + bufferedQueue.cache.size - 1);
       };
@@ -131,7 +138,7 @@ module {
 
       public func prune() : Bool =
         bufferedQueue.cache.bufferSize > 0 and Option.isSome(do ? {
-          bufferedQueue.buffer := bufferedQueue.buffer.node!.next;
+          bufferedQueue.buffer := bufferedQueue.buffer.node()!.next;
           bufferedQueue.cache.bufferSize -= 1;
         });
 
@@ -142,7 +149,7 @@ module {
 
         Option.isSome(do ? {
           for (_ in Iter.range(0, id_))
-            bufferedQueue.buffer := bufferedQueue.buffer.node!.next;
+            bufferedQueue.buffer := bufferedQueue.buffer.node()!.next;
         });
       };
 
