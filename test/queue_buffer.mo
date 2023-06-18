@@ -1,3 +1,5 @@
+import Array "mo:base/Array";
+import List "mo:base/List";
 import { range } "mo:base/Iter";
 
 import Queue "../src/QueueBuffer";
@@ -69,3 +71,15 @@ assert q.get(Id 3) == ?#Prun;
 assert q.get(Id 4) == ?#Buf(4);
 q.pruneAll();
 assert q.get(Id 4) == ?#Prun;
+
+
+q := Queue.BufferedQueue<Nat>();
+
+var values : List.List<Nat> = null;
+for (value in range(0, n)) values := ?(value, values);
+
+assert q.pushValues(List.toIter values) ==  List.map(values, Id);
+assert q.popValues 5 == ?List.fromArray([96, 97, 98, 99, 100]);
+q.putValues(Array.vals([1, 2, 3, 4, 5]));
+ignore q.popValues 90;
+assert q.peekValues 11 == ?List.fromArray([5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5]);
