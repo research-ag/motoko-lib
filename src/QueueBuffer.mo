@@ -1,5 +1,3 @@
-import { xxx } "mo:base/Prelude";
-
 import Option "mo:base/Option";
 import Iter "mo:base/Iter";
 import List "mo:base/List";
@@ -79,7 +77,7 @@ module {
 
     peekValues : Nat -> ?List.List<X>;
     popValues : Nat -> ?List.List<X>;
-    pushValues : Iter.Iter<X> -> Id;
+    pushValues : Iter.Iter<X> -> List.List<Id>;
     putValues : Iter.Iter<X> -> ();
 
     prune: () -> Bool;
@@ -161,10 +159,34 @@ module {
       public func size() : Nat = bufferedQueue.cache.size;
 
 
-      public func peekValues(size : Nat) : ?List.List<X> = xxx();
-      public func popValues(size : Nat) : ?List.List<X> = xxx();
-      public func pushValues(values : Iter.Iter<X>) : Id = xxx();
-      public func putValues(values : Iter.Iter<X>) = xxx();
+      public func peekValues(size : Nat) : ?List.List<X> = do ? {
+        var values : List.List<X> = null;
+        if (size == 0) return ?values;
+        var node = bufferedQueue.queue.queue().node()!;
+        func peekValue() { values := ?(node.value, values) };
+        peekValue();
+        if (size == 1) return ?values;
+
+        for (_ in Iter.range(2, size)) {
+          node := node.next.node()!;
+          peekValue();
+        };
+        values;
+      };
+
+      public func popValues(size : Nat) : ?List.List<X> = do ? {
+        var values : List.List<X> = null;
+        for (_ in Iter.range(1, size)) values := ?(pop()!, values);
+        values;
+      };
+
+      public func pushValues(values : Iter.Iter<X>) : List.List<Id> {
+        var ids : List.List<Id> = null;
+        for (value in values) ids := ?(push value, ids);
+        ids;
+      };
+
+      public func putValues(values : Iter.Iter<X>) = for (value in values) put value;
 
 
       public func prune() : Bool =
