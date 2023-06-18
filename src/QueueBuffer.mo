@@ -7,29 +7,53 @@ import Int "mo:base/Int";
 
 
 module {
-
   public class Id(value : Nat) { public let val = value };
 
   type Node<X> = { value : X; next : Queue<X> };
   type Queue<X> = { node : () -> ?Node<X> };
 
-  type QueueMutable<X> = { node : () -> ?Node<X>; add : X -> () };
+  type QueueMutable<X> = {
+    queue : () -> Queue<X>;
+    push : X -> ();
+    pop : () -> Bool
+  };
 
-  func Queue<X>() : QueueMutable<X> = object {
-    var node_ : ?Node<X> = null;
+  func QueueMutable<X>() : QueueMutable<X> = do {
+    var push_ : X -> () = func _ = ();
 
-    var add_ : X -> () = func value {
-      let { node; add } = Queue<X>();
-      node_ := ?{ value; next = { node } };
-      add_ := add;
+    type QueuePush<X> = {
+      queue : Queue<X>;
+      push : X -> ();
     };
 
-    public let node : () -> ?Node<X> = func () = node_;
-    public let add : X -> () = func value { add_ value };
+    func newQueue() : QueuePush<X> = do {
+      var node_ : ?Node<X> = null;
+
+      { queue = { node = func () : ?Node<X> = node_ };
+
+        push = func (value : X) {
+          let { queue; push } = newQueue();
+          node_ := ?{ value; next = queue };
+          push_ := push;
+        };
+      }
+    };
+
+    let { queue; push } = newQueue();
+    push_ := push;
+    var queue_ : Queue<X> = queue;
+
+    let self = {
+      queue : () -> Queue<X> = func () = queue_;
+      push : X -> () = func value { push_ value };
+
+      pop : () -> Bool = func () =
+        Option.isSome(do ? { queue_ := self.queue().node()!.next });
+    };
   };
 
   type BufferedQueueRepr<X> = {
-    var queue : QueueMutable<X>;
+    queue : QueueMutable<X>;
     var buffer : Queue<X>;
 
     var first : Id;
@@ -65,10 +89,10 @@ module {
 
   public func bufferedQueueFrom<X>(first : Id) : BufferedQueue<X> = object {
       let bufferedQueue : BufferedQueueRepr<X> = do {
-        let queue = Queue<X>();
+        let queue = QueueMutable<X>();
 
-        { var queue;
-          var buffer = queue;
+        { queue;
+          var buffer = queue.queue();
 
           var first;
 
@@ -99,7 +123,7 @@ module {
 
       public func get(id : Id) : ?Status<X> = do ? {
         switch (indexOf(id)!) {
-          case (#Que id_) #Que(getFrom(bufferedQueue.queue, id_)!);
+          case (#Que id_) #Que(getFrom(bufferedQueue.queue.queue(), id_)!);
           case (#Buf id_) #Buf(getFrom(bufferedQueue.buffer, id_)!);
           case (#Prun) #Prun;
         };
@@ -116,11 +140,11 @@ module {
       };
 
 
-      public func peek() : ?X = do ? { bufferedQueue.queue.node()!.value };
+      public func peek() : ?X = do ? { bufferedQueue.queue.queue().node()!.value };
 
       public func pop() : ?X = do ? {
-        let { value; next } = bufferedQueue.queue.node()!;
-        bufferedQueue.queue := { next with add = bufferedQueue.queue.add };
+        let { value } = bufferedQueue.queue.queue().node()!;
+        if (not bufferedQueue.queue.pop()) null!;
         bufferedQueue.cache.size -= 1;
         bufferedQueue.cache.bufferSize += 1;
         bufferedQueue.first := Id(bufferedQueue.first.val + 1);
@@ -128,7 +152,7 @@ module {
       };
 
       public func push(value : X) : Id {
-        bufferedQueue.queue.add value;
+        bufferedQueue.queue.push value;
         bufferedQueue.cache.size += 1;
         Id(bufferedQueue.first.val + bufferedQueue.cache.size - 1);
       };
@@ -161,7 +185,7 @@ module {
       };
 
       public func pruneAll() {
-        bufferedQueue.buffer := bufferedQueue.queue;
+        bufferedQueue.buffer := bufferedQueue.queue.queue();
         bufferedQueue.cache.bufferSize := 0;
       };
   };
