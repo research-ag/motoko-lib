@@ -5,7 +5,7 @@ import Int "mo:base/Int";
 
 
 module {
-  public class Id(value : Nat) { public let val = value };
+  type Id = Nat;
 
   type Node<X> = { value : X; next : Queue<X> };
   type Queue<X> = { node : () -> ?Node<X> };
@@ -131,8 +131,8 @@ module {
       };
 
       public func indexOf(id : Id) : ?Status<Nat> = do ? {
-        if (id.val >= bufferedQueue.first.val + bufferedQueue.cache.size) null!;
-        let index : Int = id.val - bufferedQueue.first.val;
+        if (id >= bufferedQueue.first + bufferedQueue.cache.size) null!;
+        let index : Int = id - bufferedQueue.first;
 
         if (index >= 0) #Que(Int.abs index) else {
           let index_ : Int = bufferedQueue.cache.bufferSize + index;
@@ -148,14 +148,14 @@ module {
         if (not bufferedQueue.queue.pop()) null!;
         bufferedQueue.cache.size -= 1;
         bufferedQueue.cache.bufferSize += 1;
-        bufferedQueue.first := Id(bufferedQueue.first.val + 1);
+        bufferedQueue.first := bufferedQueue.first + 1;
         value;
       };
 
       public func push(value : X) : Id {
         bufferedQueue.queue.push value;
         bufferedQueue.cache.size += 1;
-        Id(bufferedQueue.first.val + bufferedQueue.cache.size - 1);
+        bufferedQueue.first + bufferedQueue.cache.size - 1;
       };
 
       public func put(value : X) = ignore push value;
@@ -219,5 +219,5 @@ module {
       };
   };
 
-  public func BufferedQueue<X>() : BufferedQueue<X> = bufferedQueueFrom(Id 0);
+  public func BufferedQueue<X>() : BufferedQueue<X> = bufferedQueueFrom 0;
 }
