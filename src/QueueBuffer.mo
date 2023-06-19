@@ -11,7 +11,8 @@ module {
   type Queue<X> = { node : () -> ?Node<X> };
 
   type QueueMutable<X> = {
-    queue : () -> Queue<X>;
+    head : () -> Queue<X>;
+    node : () -> ?Node<X>;
     push : X -> ();
     pop : () -> Bool
   };
@@ -42,11 +43,12 @@ module {
     var queue_ : Queue<X> = queue;
 
     let self = {
-      queue : () -> Queue<X> = func () = queue_;
+      head : () -> Queue<X> = func () = queue_;
+      node : () -> ?Node<X> = func () = self.head().node();
       push : X -> () = func value { push_ value };
 
       pop : () -> Bool = func () =
-        Option.isSome(do ? { queue_ := self.queue().node()!.next });
+        Option.isSome(do ? { queue_ := self.node()!.next });
     };
   };
 
@@ -90,7 +92,7 @@ module {
         let queue = QueueMutable<X>();
 
         { queue;
-          var buffer = queue.queue();
+          var buffer = queue.head();
 
           var first;
 
@@ -121,7 +123,7 @@ module {
 
       public func get(id : Id) : ?Status<X> = do ? {
         switch (indexOf(id)!) {
-          case (#Que id_) #Que(getFrom(bufferedQueue.queue.queue(), id_)!);
+          case (#Que id_) #Que(getFrom(bufferedQueue.queue.head(), id_)!);
           case (#Buf id_) #Buf(getFrom(bufferedQueue.buffer, id_)!);
           case (#Prun) #Prun;
         };
@@ -138,10 +140,10 @@ module {
       };
 
 
-      public func peek() : ?X = do ? { bufferedQueue.queue.queue().node()!.value };
+      public func peek() : ?X = do ? { bufferedQueue.queue.node()!.value };
 
       public func pop() : ?X = do ? {
-        let { value } = bufferedQueue.queue.queue().node()!;
+        let { value } = bufferedQueue.queue.node()!;
         if (not bufferedQueue.queue.pop()) null!;
         bufferedQueue.cache.size -= 1;
         bufferedQueue.cache.bufferSize += 1;
@@ -162,7 +164,7 @@ module {
       public func peekValues(size : Nat) : ?List.List<X> = do ? {
         var values : List.List<X> = null;
         if (size == 0) return ?values;
-        var node = bufferedQueue.queue.queue().node()!;
+        var node = bufferedQueue.queue.node()!;
         func peekValue() { values := ?(node.value, values) };
         peekValue();
         if (size == 1) return ?values;
@@ -207,7 +209,7 @@ module {
       };
 
       public func pruneAll() {
-        bufferedQueue.buffer := bufferedQueue.queue.queue();
+        bufferedQueue.buffer := bufferedQueue.queue.head();
         bufferedQueue.cache.bufferSize := 0;
       };
   };
