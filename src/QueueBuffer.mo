@@ -75,7 +75,8 @@ module {
     pop : () -> ?X;
     push : X -> Id;
     put : X -> ();
-    size : () -> Nat;
+    totalSize : () -> Nat;
+    queueSize : () -> Nat;
 
     peekValues : Nat -> ?List.List<X>;
     popValues : Nat -> ?List.List<X>;
@@ -158,7 +159,11 @@ module {
       };
 
       public func put(value : X) = ignore push value;
-      public func size() : Nat = bufferedQueue.cache.size;
+
+      public func totalSize() : Nat = bufferedQueue.cache.size +
+        bufferedQueue.cache.bufferSize;
+
+      public func queueSize() : Nat = bufferedQueue.cache.size;
 
 
       public func peekValues(size : Nat) : ?List.List<X> = do ? {

@@ -13,7 +13,7 @@ assert q.peek() == null;
 
 
 for (i in range(0, n * 2 - 1)) {
-  assert q.size() == i;
+  assert q.queueSize() == i;
   assert q.push(i).val == i;
   assert q.peek() == ?0;
 };
@@ -21,13 +21,13 @@ for (i in range(0, n * 2 - 1)) {
 assert not q.prune();
 
 for (i in range(0, n - 1)) {
-  assert q.size() == (n + n - i : Nat);
+  assert q.queueSize() == (n + n - i : Nat);
   assert q.peek() == ?i;
   assert q.pop() == ?i;
 };
 
 
-assert (q.size() == n);
+assert (q.queueSize() == n);
 
 assert q.indexOf(Id 0) == ?#Buf(0);
 assert q.indexOf(Id n) == ?#Que(0);
@@ -56,13 +56,13 @@ for (i in range(n, n * 2 - 1)) {
 };
 
 q := Queue.BufferedQueue<Nat>();
-assert q.size() == 0;
+assert q.queueSize() == 0;
 
 for (i in range(0, 4)) {
   q.put(i);
-  assert q.size() == 1;
+  assert q.queueSize() == 1;
   ignore q.pop();
-  assert q.size() == 0;
+  assert q.queueSize() == 0;
 };
 
 assert q.get(Id 3) == ?#Buf(3);
