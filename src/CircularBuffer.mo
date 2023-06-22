@@ -1,74 +1,74 @@
 import Array "mo:base/Array";
 import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
-import Int "mo:base/Int";
 
-module CircularBuffer {
-  /// Circular buffer, which preserves amount of pushed values
+import { Option = { guard }; Num = { Mod } } "Prelude";
+import { Num } "Prelude";
+
+module {
   public class CircularBuffer<T>(capacity : Nat) {
-    assert capacity != 0;
-    
     var array : [var ?T] = Array.init(capacity, null);
-    var last : Nat = 0;
-    var pushes : Int = 0;
+    var pushes : Nat = 0;
 
-    /// Number of items that were ever pushed to the buffer
-    public func pushesAmount() : Nat = Int.abs(pushes);
+    type Index = Num.Mod;
+    let { mod; add } = Mod(capacity);
 
-    /// Insert value into the buffer
-    public func push(item : T) {
-      array[last] := ?item;
+    public func least() : ?Index = if (pushes <= capacity) ?0 else mod pushes;
+
+    public func compare(x : Index, y : Index) : { #less; #equal; #greater } {
+      let ?least_ = least() else return #equal;
+
+      if (
+        x < y and (least_ <= x or least_ > y) or
+          x > y and least_ <= x and least_ > y
+      ) #less else if (x == y) #equal else #greater
+    };
+
+
+    type Id = Nat;
+
+    public func first() : ?Id = if (pushes <= capacity)
+      do ? { guard(pushes >= 1)!; 0 } else ?(pushes - capacity);
+
+    public func last() : ?Id = do ? { guard(pushes >= 1)!; pushes - 1 : Nat };
+
+    public func indexOf(id : Id) : ?Index = do ? {
+      guard(
+        id < pushes and (pushes <= capacity or id >= (pushes - capacity : Nat))
+      )!;
+      mod(id)!;
+    };
+
+
+    public func pushesAmount() : Nat = pushes;
+
+    public func push(item : T) = ignore do ? {
+      array[mod(pushes)!] := ?item;
       pushes += 1;
-      last += 1;
-      if (last == capacity) last := 0;
     };
 
-    /// Return interval `[start, end)` of indices of elements available.
-    public func available() : (Nat, Nat) {
-      (Int.abs(Int.max(0, pushes - capacity)), Int.abs(pushes));
+    public func available() : ?(Id, Id) = do ? { (first()!, last()!) };
+
+    public func get(id : Id) : ?T = do ? { array[indexOf(id)!]! };
+
+    public func range(from : Id, to : Id) : Iter.Iter<T> = object {
+      let to_ : ?Index = indexOf to;
+
+      var from_ : ?Index = indexOf from;
+
+      public func next() : ?T = do ? {
+        let i = from_!;
+        guard(compare(i, to_!) != #greater)!;
+        from_ := if (i == to_!) null else add(i, 1);
+        array[i]!;
+      }
     };
 
-    /// Returns single element added with number `index` or null if element is not available or index out of bounds.
-    public func get(index : Nat) : ?T {
-      let (l, r) = available();
-      if (l <= index and index < r) { array[index % capacity] } else { null };
-    };
+    public func share() : ([var ?T], Nat) = (array, pushes);
 
-    /// Return iterator to values added with numbers in interval `[from; to)`.
-    /// `from` should be not more then `to`. Both should be not more then `pushes`.
-    public func slice(from : Nat, to : Nat) : Iter.Iter<T> {
-      assert from <= to;
-      let interval = available();
-
-      assert interval.0 <= from and from <= interval.1 and interval.0 <= to and to <= interval.1;
-
-      let count : Int = to - from;
-
-      object {
-        var start = from % capacity;
-
-        var i = 0;
-
-        public func next() : ?T {
-          if (i == count) return null;
-          let ret = array[start];
-          start += 1;
-          if (start == capacity) start := 0;
-          i += 1;
-          ret;
-        };
-      };
-    };
-
-    /// Share stable content
-    public func share() : ([var ?T], Nat, Int) = (array, last, pushes);
-
-    /// Unshare from stable content
-    public func unshare(data : ([var ?T], Nat, Int)) {
+    public func unshare(data : ([var ?T], Nat, Nat)) {
       array := data.0;
-      last := data.1;
-      pushes := data.2;
+      pushes := data.1;
     };
   };
 };
