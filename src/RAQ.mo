@@ -5,20 +5,19 @@ import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:
 import Array "mo:base/Array";
 
 module {
-// Deletable vector
-//
-// This data structure starts with a small subset of Vector.
-// Only the code for add, getOpt, size is here.
-//
-// Then we add deletion from the beginning. Not by shrinking the Vector, but simply
-// by overwriting the entry with null. We rename add -> push and call the new function
-// that deletes from the beginning pop. We track the position used pop with the new
-// variable head.
-//
-// This is of course wasteful. But we not use this data structure as-is. We wrap it
-// inside another one (see Queue<X> below).
-module Vector {
-  public class Vector<X>() {
+  // Deletable vector
+  //
+  // This data structure starts with a small subset of Vector.
+  // Only the code for add, getOpt, size is here.
+  //
+  // Then we add deletion from the beginning. Not by shrinking the Vector, but simply
+  // by overwriting the entry with null. We rename add -> push and call the new function
+  // that deletes from the beginning pop. We track the position used pop with the new
+  // variable head.
+  //
+  // This is of course wasteful. But we not use this data structure as-is. We wrap it
+  // inside another one (see Queue<X> below).
+  class Vector<X>() {
     var data_blocks : [var [var ?X]] = [var [var]];
     var i_block : Nat = 1;
     var i_element : Nat = 0;
@@ -117,7 +116,6 @@ module Vector {
     public func len<X>() : Nat = size() - start; // number of non-deleted entries
     public func deleted<X>() : Nat = start; // number of deleted entries
   };
-};
 
   // Buffer
   //
@@ -133,10 +131,10 @@ module Vector {
   //
   // Only the waste in `new` is limited to sqrt(n). The waste in `old` is not limited.
   // Hence, the largest waste occurs if we do n additions first, then n deletions.
-  class Buffer<X>() {
+  public class Buffer<X>() {
 
-    var old : ?Vector.Vector<X> = null;
-    var new : Vector.Vector<X> = Vector.Vector<X>();
+    var old : ?Vector<X> = null;
+    var new : Vector<X> = Vector<X>();
     var n = 0; // offset of old
     var m = 0; // offset of new
 
@@ -162,7 +160,7 @@ module Vector {
       if (d > limit) {
         old := ?new;
         n := m;
-        new := Vector.Vector<X>();
+        new := Vector<X>();
         m := n + size;
       };
     };
@@ -196,20 +194,25 @@ module Vector {
     public func len() : Nat = size() - deleted();
   };
 
-  class QueueBuffer<X>() {
+  public class QueueBuffer<X>() {
     var buf : Buffer<X> = Buffer<X>();
     var head : Nat = 0;
 
     public func push(x : X) : Nat = buf.add(x);
-    public func pop(x : X) : ?(Nat, X) = do ? {
-      let x = buf.getOpt(head)!;
-      (head, x);
+    public func pop() : ?(Nat, X) = do ? {
+      let ret = (head, buf.getOpt(head)!);
+      head += 1;
+      ret;
+    };
+    public func peek() : ?(Nat, X) = do ? {
+      let ret = (head, buf.getOpt(head)!);
+      ret;
     };
     public func pruneAll() {
-      // queue.popMany(pos - queue.headPos());
+      buf.delete(head - buf.deleted());
     };
     public func pruneTo(n : Nat) {
-      // queue.popMany(n - queue.headPos());
+      buf.delete(n - buf.deleted());
     };
     public func rewind() {
       head := buf.deleted();
