@@ -131,7 +131,7 @@ module {
   //
   // Only the waste in `new` is limited to sqrt(n). The waste in `old` is not limited.
   // Hence, the largest waste occurs if we do n additions first, then n deletions.
-  public class Buffer<X>() {
+  class Buffer<X>() {
 
     var old : ?Vector<X> = null;
     var new : Vector<X> = Vector<X>();
@@ -194,26 +194,47 @@ module {
     public func len() : Nat = size() - deleted();
   };
 
+  /// A queue with fast random access, which preserves history of popped values
   public class QueueBuffer<X>() {
     var buf : Buffer<X> = Buffer<X>();
     var head : Nat = 0;
 
+    /// get id of oldest item in queue history
+    public func histId() : Nat = buf.deleted();
+    /// get id of oldest item in queue
+    public func headId() : Nat = head;
+    /// get next id which will be issued
+    public func nextId() : Nat = buf.size();
+
+    /// amount of items in the queue
+    public func size() : Nat = buf.size() - head;
+    /// total amount of items in the queue and history
+    public func fullSize() : Nat = buf.len();
+
+    /// append item to queue tail
     public func push(x : X) : Nat = buf.add(x);
+    /// pop item from queue head
     public func pop() : ?(Nat, X) = do ? {
       let ret = (head, buf.getOpt(head)!);
       head += 1;
       ret;
     };
+    /// get item from queue head
     public func peek() : ?(Nat, X) = do ? {
       let ret = (head, buf.getOpt(head)!);
       ret;
     };
+    /// get item by id
+    public func get(index : Nat) : ?X = buf.getOpt(index);
+    /// clear history
     public func pruneAll() {
       buf.delete(head - buf.deleted());
     };
+    /// clear history up to provided item id
     public func pruneTo(n : Nat) {
       buf.delete(n - buf.deleted());
     };
+    /// restore whole history in the queue
     public func rewind() {
       head := buf.deleted();
     };
