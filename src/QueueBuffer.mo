@@ -1,4 +1,4 @@
-// Random access queue
+// QueueBuffer
 //
 import Prim "mo:⛔";
 import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:base/Nat32";
