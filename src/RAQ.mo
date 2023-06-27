@@ -5,36 +5,28 @@ import { bitcountLeadingZero = leadingZeros; fromNat = Nat32; toNat = Nat } "mo:
 import Array "mo:base/Array";
 
 module {
-  // Deletable vector
-  //
-  // This data structure starts with a small subset of Vector.
-  // Only the code for add, getOpt, put, size is here (put is only for internal use).
-  //
-  // Then we add deletion from the beginning. Not by shrinking the Vector, but simply
-  // by overwriting the entry with null. We rename add -> push and call the new function
-  // that deletes from the beginning pop. We track the position used pop with the new 
-  // variable head.
-  // 
-  // This is of course wasteful. But we not use this data structure as-is. We wrap it 
-  // inside another one (see Queue<X> below).
-  module VectorQueue {
-    public type Queue<X> = {
-      var data_blocks : [var [var ?X]];
-      var i_block : Nat;
-      var i_element : Nat;
-      var head : Nat;
-    };
+// Deletable vector
+//
+// This data structure starts with a small subset of Vector.
+// Only the code for add, getOpt, size is here.
+//
+// Then we add deletion from the beginning. Not by shrinking the Vector, but simply
+// by overwriting the entry with null. We rename add -> push and call the new function
+// that deletes from the beginning pop. We track the position used pop with the new
+// variable head.
+//
+// This is of course wasteful. But we not use this data structure as-is. We wrap it
+// inside another one (see Queue<X> below).
+module Vector {
+  public class Vector<X>() {
+    var data_blocks : [var [var ?X]] = [var [var]];
+    var i_block : Nat = 1;
+    var i_element : Nat = 0;
+    var start : Nat = 0;
 
-    public func new<X>() : Queue<X> = {
-      var data_blocks = [var [var]];
-      var i_block = 1;
-      var i_element = 0;
-      var head = 0;
-    };
-
-    public func size<X>(vec : Queue<X>) : Nat {
-      let d = Nat32(vec.i_block);
-      let i = Nat32(vec.i_element);
+    public func size<X>() : Nat {
+      let d = Nat32(i_block);
+      let i = Nat32(i_element);
       let lz = leadingZeros(d / 3);
       Nat((d -% (1 <>> lz)) <>> lz +% i);
     };
@@ -50,44 +42,41 @@ module {
       };
     };
 
-    func grow_index_block_if_needed<X>(vec : Queue<X>) {
-      if (vec.data_blocks.size() == vec.i_block) {
-        let new_blocks = Array.init<[var ?X]>(new_index_block_length(Nat32(vec.i_block)), [var]);
+    func grow_index_block_if_needed() {
+      if (data_blocks.size() == i_block) {
+        let new_blocks = Array.init<[var ?X]>(new_index_block_length(Nat32(i_block)), [var]);
         var i = 0;
-        while (i < vec.i_block) {
-          new_blocks[i] := vec.data_blocks[i];
+        while (i < i_block) {
+          new_blocks[i] := data_blocks[i];
           i += 1;
         };
-        vec.data_blocks := new_blocks;
+        data_blocks := new_blocks;
       };
     };
 
-    public func push<X>(vec : Queue<X>, element : X) : Nat {
-      var i_element = vec.i_element;
+    public func add(element : X) : Nat {
       if (i_element == 0) {
-        grow_index_block_if_needed(vec);
-        let i_block = vec.i_block;
+        grow_index_block_if_needed();
 
-        if (vec.data_blocks[i_block].size() == 0) {
-          vec.data_blocks[i_block] := Array.init<?X>(
+        if (data_blocks[i_block].size() == 0) {
+          data_blocks[i_block] := Array.init<?X>(
             data_block_size(i_block),
             null,
           );
         };
       };
 
-      let last_data_block = vec.data_blocks[vec.i_block];
+      let last_data_block = data_blocks[i_block];
 
       last_data_block[i_element] := ?element;
 
       i_element += 1;
       if (i_element == last_data_block.size()) {
         i_element := 0;
-        vec.i_block += 1;
+        i_block += 1;
       };
-      vec.i_element := i_element;
 
-      return size(vec) - 1;
+      return size() - 1;
     };
 
     func locate(index : Nat) : (Nat, Nat) {
@@ -101,90 +90,129 @@ module {
       };
     };
 
-    public func getOpt<X>(vec : Queue<X>, index : Nat) : ?X {
+    public func getOpt(index : Nat) : ?X {
       let (a, b) = locate(index);
-      if (a < vec.i_block or vec.i_element != 0 and a == vec.i_block) {
-        vec.data_blocks[a][b];
+      if (a < i_block or i_element != 0 and a == i_block) {
+        data_blocks[a][b];
       } else {
         null;
       };
     };
 
-    public func peek<X>(vec : Queue<X>) : ?(Nat, X) = do ? {
-      let v = getOpt(vec, vec.head)!;
-      (vec.head, v);
+    // TODO: This can be made more sophisticated
+    // * We can count in (block, element) and avoid calling locate every time
+    // * We can delete the datablocks that have become empty
+    public func delete<X>(n : Nat) {
+      let end = start + n;
+      if (end > size()) Prim.trap("index out of bounds in delete");
+      var pos = start;
+      while (pos < end) {
+        let (a, b) = locate(pos);
+        data_blocks[a][b] := null;
+        pos += 1;
+      };
+      start := end;
     };
 
-    func del<X>(vec : Queue<X>, index : Nat) {
-      let (a, b) = locate(index);
-      if (a < vec.i_block or a == vec.i_block and b < vec.i_element) {
-        vec.data_blocks[a][b] := null;
-      } else Prim.trap "Vector index out of bounds in put";
-    };
-
-    public func pop<X>(vec : Queue<X>) : ?(Nat, X) = do ? {
-      let v = getOpt(vec, vec.head)!;
-      let ret = (vec.head, v);
-      del(vec, vec.head);
-      vec.head += 1;
-      ret;
-    };
-
-    public func len<X>(vec : Queue<X>) : Nat = size(vec) - vec.head;
-    // public func head<X>(vec : Queue<X>) : Nat = vec.head;
-    public func pushCtr<X>(vec : Queue<X>) : Nat = size(vec);
-    public func popCtr<X>(vec : Queue<X>) : Nat = vec.head;
+    public func len<X>() : Nat = size() - start; // number of non-deleted entries
+    public func deleted<X>() : Nat = start; // number of deleted entries
   };
+};
 
-  let VQ = VectorQueue;
-
-  // Random access queue
+  // Buffer
   //
-  // This data structure consists of a pair of QueueVectors called old and new.
-  // We start pushing to new and also pop from new but only until the waste in new
-  // exceed sqrt(n). When new has >sqrt(n) waste then we rename new to old and create
-  // a fresh empty new. Now pushes happen to new and pops happen from old, until old 
-  // is empty. Then pops happen from new until the waste in new exceeds sqrt(n). Then
-  // the shift starts all over again. Etc.
-  class Queue<X>() {
+  // A linear buffer where we can add at end and delete from the beginning.
+  //
+  // This data structure consists of a pair of Vectors called `old` and `new`.
+  // We always add to `new`.  While `old` is empty we delete from `new` but only
+  // until the waste in `new` exceeds sqrt(n). When `new` has >sqrt(n) waste
+  // then we rename `new` to `old` and create a fresh empty `new`. Now deletions
+  // happen from old, until old is empty. Then `old` is discarded and deletions
+  // happen from `new` again until the waste in `new` exceeds sqrt(n). Then the
+  // shift starts all over again. Etc.
+  //
+  // Only the waste in `new` is limited to sqrt(n). The waste in `old` is not limited.
+  // Hence, the largest waste occurs if we do n additions first, then n deletions.
+  class Buffer<X>() {
 
-    var old : VQ.Queue<X> = VectorQueue.new<X>();
-    var new : VQ.Queue<X> = VectorQueue.new<X>();
+    var old : ?Vector.Vector<X> = null;
+    var new : Vector.Vector<X> = Vector.Vector<X>();
     var n = 0; // offset of old
     var m = 0; // offset of new
 
-    public func push(x : X) : Nat {
-      VQ.push(new, x) + m;
+    public func add(x : X) : Nat {
+      new.add(x) + m;
     };
 
     public func getOpt(i : Nat) : ?X {
       if (i >= m) {
-        VQ.getOpt(new, i - m : Nat);
+        new.getOpt(i - m : Nat);
       } else if (i >= n) {
-        VQ.getOpt(old, i - n : Nat);
+        let ?vec = old else Prim.trap("old is null in Buffer");
+        vec.getOpt(i - n : Nat);
       } else null;
     };
 
     func rotateIfNeeded() {
-      let l = VQ.pushCtr(new);
-      if (VQ.popCtr(new)**2 > VQ.pushCtr(new)) {
-        old := new;
+      let size = new.size();
+      let s = Nat32(size);
+      let d = Nat32(new.deleted());
+      let bits = 32 - leadingZeros(s);
+      let limit = s >> (bits >> 1);
+      if (d > limit) {
+        old := ?new;
         n := m;
-        new := VQ.new<X>(); 
-        m := n + VQ.pushCtr(old);
-      }
+        new := Vector.Vector<X>();
+        m := n + size;
+      };
     };
 
-    public func pop() : ?(Nat, X) = do ? {
-      if (VQ.len(old) == 0) {
-        let (i, x) = VQ.pop(new)!;
-        let m_ = m;
-        rotateIfNeeded();
-        (i + m_, x)
-      } else {
-        let (i, x) = VQ.pop(old)!;
-        (i + n, x);
+    public func delete(n_ : Nat) {
+      var ctr = n_;
+      let end = deleted() + ctr;
+      if (end > size()) Prim.trap("index out of bounds in Buffer.delete");
+      switch (old) {
+        case (?vec) {
+          if (vec.size() > ctr) {
+            vec.delete(ctr);
+            return;
+          } else {
+            ctr := ctr - vec.size();
+            old := null;
+          };
+        };
+        case (null) {};
       };
+      new.delete(ctr);
+      rotateIfNeeded();
+    };
+
+    public func deleted() : Nat = switch (old) {
+      case (?vec) { n + vec.deleted() };
+      case (null) { m + new.deleted() };
+    };
+
+    public func size() : Nat = m + new.size();
+    public func len() : Nat = size() - deleted();
+  };
+
+  class QueueBuffer<X>() {
+    var buf : Buffer<X> = Buffer<X>();
+    var head : Nat = 0;
+
+    public func push(x : X) : Nat = buf.add(x);
+    public func pop(x : X) : ?(Nat, X) = do ? {
+      let x = buf.getOpt(head)!;
+      (head, x);
+    };
+    public func pruneAll() {
+      // queue.popMany(pos - queue.headPos());
+    };
+    public func pruneTo(n : Nat) {
+      // queue.popMany(n - queue.headPos());
+    };
+    public func rewind() {
+      head := buf.deleted();
     };
   };
 };
