@@ -21,6 +21,7 @@ nav:
     - PRNG: modoc/Prng.md
     - TokenHandler: modoc/TokenHandler.md
     - HPLTokenHandler: modoc/HPLTokenHandler.md
+    - QueueBuffer: modoc/QueueBuffer.md
   - Setup: setup.md
   - Benchmarks: benches.md
   - Contribute: contribute.md
