@@ -8,33 +8,33 @@ class QueueBuffer<X>()
 
 A queue with fast random access, which preserves history of popped values
 
-### Function `histId`
+### Function `rewindIndex`
 ``` motoko
-func histId() : Nat
+func rewindIndex() : Nat
 ```
 
-get id of oldest item in queue history
+get index of oldest item in queue history
 
 
-### Function `headId`
+### Function `headIndex`
 ``` motoko
-func headId() : Nat
+func headIndex() : Nat
 ```
 
-get id of oldest item in queue
+get index of oldest item in queue
 
 
-### Function `nextId`
+### Function `nextIndex`
 ``` motoko
-func nextId() : Nat
+func nextIndex() : Nat
 ```
 
-get next id which will be issued
+get next index which will be issued
 
 
-### Function `size`
+### Function `queueSize`
 ``` motoko
-func size() : Nat
+func queueSize() : Nat
 ```
 
 amount of items in the queue

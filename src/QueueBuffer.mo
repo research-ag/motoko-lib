@@ -199,15 +199,15 @@ module {
     var buf : Buffer<X> = Buffer<X>();
     var head : Nat = 0;
 
-    /// get id of oldest item in queue history
-    public func histId() : Nat = buf.deleted();
-    /// get id of oldest item in queue
-    public func headId() : Nat = head;
-    /// get next id which will be issued
-    public func nextId() : Nat = buf.size();
+    /// get index of oldest item in queue history
+    public func rewindIndex() : Nat = buf.deleted();
+    /// get index of oldest item in queue
+    public func headIndex() : Nat = head;
+    /// get next index which will be issued
+    public func nextIndex() : Nat = buf.size();
 
     /// amount of items in the queue
-    public func size() : Nat = buf.size() - head;
+    public func queueSize() : Nat = buf.size() - head;
     /// total amount of items in the queue and history
     public func fullSize() : Nat = buf.len();
 
