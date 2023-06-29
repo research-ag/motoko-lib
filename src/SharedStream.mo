@@ -48,8 +48,10 @@ module {
 
     let timeout = closeStreamTimeoutSeconds * 1_000_000_000;
 
+    /// returns flag is receiver closed stream with timeout
     public func isStreamClosed() : Bool = (Time.now() - lastChunkTimestamp) > timeout;
 
+    /// a function, should be called by shared function or stream manager
     public func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), ChunkError> {
       if (isStreamClosed()) {
         return #err(#StreamClosed(expectedNextIndex_));
@@ -97,21 +99,28 @@ module {
     var lowestError : ?Nat = null;
     var lastChunkTimestamp : Time.Time = Time.now();
 
+    /// full amount of items which weren't sent yet or sender waits for response from receiver
     public func fullAmount() : Nat = queue.fullSize();
+    /// amount of scheduled items
     public func queuedAmount() : Nat = queue.queueSize();
+    /// index, which will be assigned to next item
     public func nextIndex() : Nat = queue.nextIndex();
+    /// get item from queue by index
     public func get(index : Nat) : ?T = queue.get(index);
 
     var weightLimit_ : Nat = weightLimit;
+    /// update weight limit
     public func setWeightLimit(value : Nat) {
       weightLimit_ := value;
     };
 
     var maxConcurrentChunks_ : Nat = maxConcurrentChunks;
+    /// update max amount of concurrent outgoing requests
     public func setMaxConcurrentChunks(value : Nat) {
       maxConcurrentChunks_ := value;
     };
 
+    /// add item to the stream
     public func next(item : T) : { #ok : Nat; #err : { #NoSpace } } {
       switch (maxQueueSize) {
         case (?max) if (queue.queueSize() >= max) {
@@ -123,6 +132,7 @@ module {
     };
 
     var concurrentChunksCounter : Nat = 0;
+    /// send chunk to the receiver
     public func sendChunk() : async* {
       #ok : Nat;
       #err : ChunkError or { #Paused; #Busy; #SendChunkError : Text };
@@ -242,12 +252,27 @@ module {
     // a mapping of canister principal to stream id
     var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = null;
 
+    /// principals of registered cross-canister stream sources
     public func sourceCanisters() : Vec.Vector<Principal> = Vec.fromIter(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
 
+    /// get stream info by id
     public func getStream(id : Nat) : ?StreamInfo<T> = Vec.getOpt(streams_, id);
 
+    /// get id, which will be assigned to next registered stream
     public func getNextStreamId() : Nat = Vec.size(streams_);
 
+    /// get principal of stream source by stream id
+    public func sourceCanisterPrincipal(streamId : Nat) : ?Principal {
+      switch (Vec.getOpt(streams_, streamId)) {
+        case (null) null;
+        case (?info) switch (info.source) {
+          case (#canister p) ?p;
+          case (_) null;
+        };
+      };
+    };
+
+    /// register new stream
     public func issueStreamId(source : StreamSource) : R.Result<Nat, { #NotRegistered }> {
       let id = Vec.size(streams_);
       switch (source) {
@@ -282,8 +307,10 @@ module {
       Debug.trap("Broken chunk index: " # Nat.toText(receivedIndex) # "; expected: " # Nat.toText(expectedIndex));
     };
 
+    /// register new internal stream
     public func issueInternalStreamId() : Nat = requireOk(issueStreamId(#internal));
 
+    /// register new cross-canister stream
     public func registerSourceCanister(p : Principal) : () {
       switch (AssocList.find(sourceCanistersStreamMap, p, Principal.equal)) {
         case (?entry) {};
@@ -294,17 +321,7 @@ module {
       };
     };
 
-    public func sourceCanisterPrincipal(streamId : Nat) : ?Principal {
-      switch (Vec.getOpt(streams_, streamId)) {
-        case (null) null;
-        case (?info) switch (info.source) {
-          case (#canister p) ?p;
-          case (_) null;
-        };
-      };
-    };
-
-    // handle chunk from incoming request
+    /// handle chunk from incoming request
     public func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : Nat) : R.Result<(), ResponseError> {
       let stream = Vec.get(streams_, streamId);
       let callerOk = switch (stream.source) {
@@ -320,6 +337,7 @@ module {
       };
     };
 
+    /// append item to internal stream
     public func pushInternalItem(streamId : Nat, item : T) : (Nat, Nat) {
       let stream = Vec.get(streams_, streamId);
       switch (stream.source) {

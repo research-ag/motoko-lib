@@ -1,9 +1,21 @@
 # SharedStream
 
+## Type `ChunkError`
+``` motoko
+type ChunkError = {#BrokenPipe : (expectedIndex : Nat, receivedIndex : Nat); #StreamClosed : Nat}
+```
+
+
+## Type `ResponseError`
+``` motoko
+type ResponseError = ChunkError or {#NotRegistered}
+```
+
+
 ## Class `StreamReceiver<T>`
 
 ``` motoko
-class StreamReceiver<T>(streamId : Nat, callback : (streamId : Nat, item : T, index : Nat) -> (), startFromIndex : Nat)
+class StreamReceiver<T>(streamId : Nat, startFromIndex : Nat, closeStreamTimeoutSeconds : Nat, itemCallback : (streamId : Nat, item : T, index : Nat) -> (), chunkErrorCallback : (expectedIndex : Nat, receivedIndex : Nat) -> ())
 ```
 
 Usage:
@@ -25,18 +37,20 @@ public shared func onStreamChunk(streamId : Nat, chunk: [Int], firstIndex: Nat) 
 func isStreamClosed() : Bool
 ```
 
+returns flag is receiver closed stream with timeout
 
 
 ### Function `onChunk`
 ``` motoko
-func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), {#StreamClosed}>
+func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), ChunkError>
 ```
 
+a function, should be called by shared function or stream manager
 
 ## Class `StreamSender<T>`
 
 ``` motoko
-class StreamSender<T>(streamId : Nat, maxSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, callback : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), StreamError>)
+class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>)
 ```
 
 Usage:
@@ -46,6 +60,7 @@ let sender = StreamSender<Int>(
   10,
   10,
   func (item) = 1,
+  5,
   anotherCanister.appendStream,
 );
 sender.next(1);
@@ -61,6 +76,7 @@ await* sender.sendChunk(); // will do nothing, stream clean
 func fullAmount() : Nat
 ```
 
+full amount of items which weren't sent yet or sender waits for response from receiver
 
 
 ### Function `queuedAmount`
@@ -68,6 +84,7 @@ func fullAmount() : Nat
 func queuedAmount() : Nat
 ```
 
+amount of scheduled items
 
 
 ### Function `nextIndex`
@@ -75,6 +92,7 @@ func queuedAmount() : Nat
 func nextIndex() : Nat
 ```
 
+index, which will be assigned to next item
 
 
 ### Function `get`
@@ -82,6 +100,23 @@ func nextIndex() : Nat
 func get(index : Nat) : ?T
 ```
 
+get item from queue by index
+
+
+### Function `setWeightLimit`
+``` motoko
+func setWeightLimit(value : Nat)
+```
+
+update weight limit
+
+
+### Function `setMaxConcurrentChunks`
+``` motoko
+func setMaxConcurrentChunks(value : Nat)
+```
+
+update max amount of concurrent outgoing requests
 
 
 ### Function `next`
@@ -89,13 +124,15 @@ func get(index : Nat) : ?T
 func next(item : T) : {#ok : Nat; #err : {#NoSpace}}
 ```
 
+add item to the stream
 
 
 ### Function `sendChunk`
 ``` motoko
-func sendChunk() : async* {#ok : Nat; #err : {#Paused; #Busy; #SendChunkError : Text; #StreamClosed}}
+func sendChunk() : async* {#ok : Nat; #err : ChunkError or {#Paused; #Busy; #SendChunkError : Text}}
 ```
 
+send chunk to the receiver
 
 ## Type `StreamSource`
 ``` motoko
@@ -111,7 +148,7 @@ type StreamInfo<T> = { source : StreamSource; var nextItemId : Nat; var receiver
 
 ## Type `ManagerStableData`
 ``` motoko
-type ManagerStableData = (Vec.Vector<StableStreamInfo>, Vec.Vector<(Principal, ?Nat)>)
+type ManagerStableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>)
 ```
 
 
@@ -124,7 +161,7 @@ func defaultManagerStableData() : ManagerStableData
 ## Class `StreamsManager<T>`
 
 ``` motoko
-class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (streamId : Nat, sourceCanisterIndex : ?Nat, item : T, index : Nat) -> Any)
+class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (streamId : Nat, item : T, index : Nat) -> Any)
 ```
 
 
@@ -133,6 +170,7 @@ class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (st
 func sourceCanisters() : Vec.Vector<Principal>
 ```
 
+principals of registered cross-canister stream sources
 
 
 ### Function `getStream`
@@ -140,6 +178,7 @@ func sourceCanisters() : Vec.Vector<Principal>
 func getStream(id : Nat) : ?StreamInfo<T>
 ```
 
+get stream info by id
 
 
 ### Function `getNextStreamId`
@@ -147,27 +186,7 @@ func getStream(id : Nat) : ?StreamInfo<T>
 func getNextStreamId() : Nat
 ```
 
-
-
-### Function `issueStreamId`
-``` motoko
-func issueStreamId(source : StreamSource) : R.Result<Nat, {#NotRegistered}>
-```
-
-
-
-### Function `issueInternalStreamId`
-``` motoko
-func issueInternalStreamId() : Nat
-```
-
-
-
-### Function `registerSourceCanister`
-``` motoko
-func registerSourceCanister(p : Principal) : ()
-```
-
+get id, which will be assigned to next registered stream
 
 
 ### Function `sourceCanisterPrincipal`
@@ -175,13 +194,39 @@ func registerSourceCanister(p : Principal) : ()
 func sourceCanisterPrincipal(streamId : Nat) : ?Principal
 ```
 
+get principal of stream source by stream id
+
+
+### Function `issueStreamId`
+``` motoko
+func issueStreamId(source : StreamSource) : R.Result<Nat, {#NotRegistered}>
+```
+
+register new stream
+
+
+### Function `issueInternalStreamId`
+``` motoko
+func issueInternalStreamId() : Nat
+```
+
+register new internal stream
+
+
+### Function `registerSourceCanister`
+``` motoko
+func registerSourceCanister(p : Principal) : ()
+```
+
+register new cross-canister stream
 
 
 ### Function `processBatch`
 ``` motoko
-func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : Nat) : R.Result<(), {#NotRegistered; #StreamClosed}>
+func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : Nat) : R.Result<(), ResponseError>
 ```
 
+handle chunk from incoming request
 
 
 ### Function `pushInternalItem`
@@ -189,6 +234,7 @@ func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : 
 func pushInternalItem(streamId : Nat, item : T) : (Nat, Nat)
 ```
 
+append item to internal stream
 
 
 ### Function `share`
