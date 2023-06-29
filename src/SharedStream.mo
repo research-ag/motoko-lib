@@ -4,6 +4,7 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import R "mo:base/Result";
 import Time "mo:base/Time";
+import Array "mo:base/Array";
 
 import QueueBuffer "QueueBuffer";
 
@@ -15,6 +16,13 @@ module {
   };
 
   public type ResponseError = ChunkError or { #NotRegistered };
+
+  func require<T>(opt : ?T) : T {
+    switch (opt) {
+      case (?o) o;
+      case (null) Debug.trap("Required value is null");
+    };
+  };
 
   /// Usage:
   ///
@@ -138,15 +146,30 @@ module {
         case (null) {};
         case (?le) { return #err(#Paused) };
       };
-      let headId = queue.headIndex();
-      streamIter.reset();
-      let elements = Iter.toArray(streamIter);
+      let headIndex = queue.headIndex();
+      var remainingWeight = weightLimit_;
+      var index = headIndex;
+      label peekLoop while (true) {
+        switch (queue.get(index)) {
+          case (null) break peekLoop;
+          case (?it) {
+            let weight = weightFunc(it);
+            if (remainingWeight < weight) {
+              break peekLoop;
+            } else {
+              remainingWeight -= weight;
+              index += 1;
+            };
+          };
+        };
+      };
+      let elements = Array.tabulate<T>(index - headIndex, func(n) = require(queue.pop()).1);
       try {
         // if last call was more than 20 seconds ago, send anyway (keep-alive)
         if (elements.size() > 0 or (Time.now() - lastChunkTimestamp) > 20_000_000_000) {
           concurrentChunksCounter += 1;
           lastChunkTimestamp := Time.now();
-          let resp = await sendFunc(streamId, elements, headId);
+          let resp = await sendFunc(streamId, elements, headIndex);
           concurrentChunksCounter -= 1;
           switch (resp) {
             case (#err err) switch (err) {
@@ -159,7 +182,7 @@ module {
               case (#BrokenPipe _) return #err(#SendChunkError("Wrong index"));
             };
             case (#ok) {
-              queue.pruneTo(headId + elements.size());
+              queue.pruneTo(headIndex + elements.size());
               restoreHistoryIfNeeded();
             };
           };
@@ -167,7 +190,7 @@ module {
         #ok(elements.size());
       } catch (err : Error) {
         concurrentChunksCounter -= 1;
-        lowestError := ?(switch (lowestError) { case (null) headId; case (?val) Nat.min(val, headId) });
+        lowestError := ?(switch (lowestError) { case (null) headIndex; case (?val) Nat.min(val, headIndex) });
         restoreHistoryIfNeeded();
         #err(#SendChunkError(Error.message(err)));
       };
@@ -186,29 +209,6 @@ module {
       };
     };
 
-    class StreamIter<T>(queue : QueueBuffer.QueueBuffer<T>, weightFunc : (item : T) -> Nat) {
-      var remainingWeight = 0;
-      public func reset() : () {
-        remainingWeight := weightLimit_;
-      };
-      public func next() : ?T {
-        if (remainingWeight == 0) { return null };
-        switch (queue.peek()) {
-          case (?(_, el)) {
-            let weight = weightFunc(el);
-            if (remainingWeight < weight) {
-              return null;
-            } else {
-              ignore queue.pop();
-              remainingWeight -= weight;
-              return ?el;
-            };
-          };
-          case _ {} // queue was empty: stop iteration
-        };
-        return null;
-      };
-    };
-    let streamIter = StreamIter<T>(queue, weightFunc);
   };
+
 };
