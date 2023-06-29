@@ -7,14 +7,20 @@ import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import R "mo:base/Result";
 import Time "mo:base/Time";
-import Timer "mo:base/Timer";
+import AssocList "mo:base/AssocList";
+import List "mo:base/List";
 
 import Vec "mo:vector";
 import QueueBuffer "QueueBuffer";
 
 module {
 
-  type StreamError = { #NotRegistered; #StreamClosed };
+  public type ChunkError = {
+    #BrokenPipe : (expectedIndex : Nat, receivedIndex : Nat);
+    #StreamClosed : Nat; // key is a stream length
+  };
+
+  public type ResponseError = ChunkError or { #NotRegistered };
 
   /// Usage:
   ///
@@ -31,25 +37,29 @@ module {
   /// };
   public class StreamReceiver<T>(
     streamId : Nat,
-    callback : (streamId : Nat, item : T, index : Nat) -> (),
     startFromIndex : Nat,
+    closeStreamTimeoutSeconds : Nat,
+    itemCallback : (streamId : Nat, item : T, index : Nat) -> (),
+    chunkErrorCallback : (expectedIndex : Nat, receivedIndex : Nat) -> (),
   ) {
 
     var expectedNextIndex_ : Nat = startFromIndex;
-
     var lastChunkTimestamp : Time.Time = Time.now();
 
-    public func isStreamClosed() : Bool = (Time.now() - lastChunkTimestamp) > 120_000_000_000; // 2 minutes
+    let timeout = closeStreamTimeoutSeconds * 1_000_000_000;
 
-    public func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), { #StreamClosed }> {
+    public func isStreamClosed() : Bool = (Time.now() - lastChunkTimestamp) > timeout;
+
+    public func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), ChunkError> {
       if (isStreamClosed()) {
-        return #err(#StreamClosed);
+        return #err(#StreamClosed(expectedNextIndex_));
       };
       if (firstIndex != expectedNextIndex_) {
-        Debug.trap("Broken chunk index: " # Nat.toText(firstIndex) # "; expected: " # Nat.toText(expectedNextIndex_));
+        chunkErrorCallback(expectedNextIndex_, firstIndex);
+        return #err(#BrokenPipe(expectedNextIndex_, firstIndex));
       };
       for (index in chunk.keys()) {
-        callback(streamId, chunk[index], firstIndex + index);
+        itemCallback(streamId, chunk[index], firstIndex + index);
       };
       expectedNextIndex_ += chunk.size();
       #ok();
@@ -64,6 +74,7 @@ module {
   ///   10,
   ///   10,
   ///   func (item) = 1,
+  ///   5,
   ///   anotherCanister.appendStream,
   /// );
   /// sender.next(1);
@@ -75,43 +86,34 @@ module {
   /// await* sender.sendChunk(); // will do nothing, stream clean
   public class StreamSender<T>(
     streamId : Nat,
-    maxSize : ?Nat,
+    maxQueueSize : ?Nat,
     weightLimit : Nat,
     weightFunc : (item : T) -> Nat,
-    callback : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), StreamError>,
+    maxConcurrentChunks : Nat,
+    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>,
   ) {
-
     let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
-    // a head of queue before submitting lately failed chunk. Used for error-handling
-    var lowestError : { #Inf; #Val : Nat } = #Inf;
+    // a head of queue before submitting lately failed chunk. Used for error-handling. Null behaves like infinity in calculations
+    var lowestError : ?Nat = null;
+    var lastChunkTimestamp : Time.Time = Time.now();
 
     public func fullAmount() : Nat = queue.fullSize();
     public func queuedAmount() : Nat = queue.queueSize();
     public func nextIndex() : Nat = queue.nextIndex();
-
     public func get(index : Nat) : ?T = queue.get(index);
 
-    var lastChunkTimestamp : Time.Time = Time.now();
-    var heartbeatTimer : Nat = 0;
-    heartbeatTimer := Timer.recurringTimer(
-      #seconds 30,
-      func() : async () {
-        // if last call was more than 20 seconds ago, send empty chunk
-        if ((Time.now() - lastChunkTimestamp) > 20_000_000_000) {
-          try {
-            switch (await callback(streamId, [], queue.headIndex())) {
-              case (#ok) lastChunkTimestamp := Time.now();
-              case (#err err) Timer.cancelTimer(heartbeatTimer);
-            };
-          } catch (err) {
-            // pass
-          };
-        };
-      },
-    );
+    var weightLimit_ : Nat = weightLimit;
+    public func setWeightLimit(value : Nat) {
+      weightLimit_ := value;
+    };
+
+    var maxConcurrentChunks_ : Nat = maxConcurrentChunks;
+    public func setMaxConcurrentChunks(value : Nat) {
+      maxConcurrentChunks_ := value;
+    };
 
     public func next(item : T) : { #ok : Nat; #err : { #NoSpace } } {
-      switch (maxSize) {
+      switch (maxQueueSize) {
         case (?max) if (queue.queueSize() >= max) {
           return #err(#NoSpace);
         };
@@ -123,43 +125,45 @@ module {
     var concurrentChunksCounter : Nat = 0;
     public func sendChunk() : async* {
       #ok : Nat;
-      #err : { #Paused; #Busy; #SendChunkError : Text; #StreamClosed };
+      #err : ChunkError or { #Paused; #Busy; #SendChunkError : Text };
     } {
-      if (concurrentChunksCounter >= 5) {
+      if (concurrentChunksCounter >= maxConcurrentChunks_) {
         return #err(#Busy);
       };
       switch (lowestError) {
-        case (#Inf) {};
-        case (#Val _) { return #err(#Paused) };
+        case (null) {};
+        case (?le) { return #err(#Paused) };
       };
       let headId = queue.headIndex();
       streamIter.reset();
       let elements = Iter.toArray(streamIter);
-      if (elements.size() == 0) {
-        return #ok(0);
-      };
       try {
-        concurrentChunksCounter += 1;
-        let resp = await callback(streamId, elements, headId);
-        concurrentChunksCounter -= 1;
-        switch (resp) {
-          case (#err err) {
-            Timer.cancelTimer(heartbeatTimer);
-            return #err(
-              switch (err) {
-                case (#StreamClosed) #StreamClosed;
-                case (#NotRegistered) #SendChunkError("Not registered");
-              }
-            );
+        // if last call was more than 20 seconds ago, send anyway (keep-alive)
+        if (elements.size() > 0 or (Time.now() - lastChunkTimestamp) > 20_000_000_000) {
+          concurrentChunksCounter += 1;
+          lastChunkTimestamp := Time.now();
+          let resp = await sendFunc(streamId, elements, headId);
+          concurrentChunksCounter -= 1;
+          switch (resp) {
+            case (#err err) switch (err) {
+              case (#StreamClosed len) {
+                queue.pruneTo(len);
+                restoreHistoryIfNeeded();
+                return #err(#StreamClosed(len));
+              };
+              case (#NotRegistered) return #err(#SendChunkError("Not registered"));
+              case (#BrokenPipe _) return #err(#SendChunkError("Wrong index"));
+            };
+            case (#ok) {
+              queue.pruneTo(headId + elements.size());
+              restoreHistoryIfNeeded();
+            };
           };
-          case (#ok) lastChunkTimestamp := Time.now();
         };
-        queue.pruneTo(headId + elements.size());
-        restoreHistoryIfNeeded();
         #ok(elements.size());
       } catch (err : Error) {
         concurrentChunksCounter -= 1;
-        lowestError := #Val(switch (lowestError) { case (#Inf) headId; case (#Val val) Nat.min(val, headId) });
+        lowestError := ?(switch (lowestError) { case (null) headId; case (?val) Nat.min(val, headId) });
         restoreHistoryIfNeeded();
         #err(#SendChunkError(Error.message(err)));
       };
@@ -167,12 +171,12 @@ module {
 
     private func restoreHistoryIfNeeded() {
       switch (lowestError) {
-        case (#Inf) {};
-        case (#Val val) {
+        case (null) {};
+        case (?val) {
           if (val < queue.rewindIndex()) { Debug.trap("cannot happen") };
           if (val == queue.rewindIndex()) {
             queue.rewind();
-            lowestError := #Inf;
+            lowestError := null;
           };
         };
       };
@@ -181,7 +185,7 @@ module {
     class StreamIter<T>(queue : QueueBuffer.QueueBuffer<T>, weightFunc : (item : T) -> Nat) {
       var remainingWeight = 0;
       public func reset() : () {
-        remainingWeight := weightLimit;
+        remainingWeight := weightLimit_;
       };
       public func next() : ?T {
         if (remainingWeight == 0) { return null };
@@ -218,8 +222,8 @@ module {
     active : Bool;
   };
 
-  public type ManagerStableData = (Vec.Vector<StableStreamInfo>, Vec.Vector<(Principal, ?Nat)>);
-  public func defaultManagerStableData() : ManagerStableData = (Vec.new(), Vec.new());
+  public type ManagerStableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
+  public func defaultManagerStableData() : ManagerStableData = (Vec.new(), null);
 
   func requireOk<T>(res : R.Result<T, Any>) : T {
     switch (res) {
@@ -230,17 +234,15 @@ module {
 
   public class StreamsManager<T>(
     initialSourceCanisters : [Principal],
-    itemCallback : (streamId : Nat, sourceCanisterIndex : ?Nat, item : T, index : Nat) -> Any,
+    itemCallback : (streamId : Nat, item : T, index : Nat) -> Any,
   ) {
 
     // info about each issued stream id is preserved here forever. Index is a stream ID
     let streams_ : Vec.Vector<StreamInfo<T>> = Vec.new();
-    // a list of registered source canister principals
-    let sourceCanisters_ : Vec.Vector<Principal> = Vec.fromArray(initialSourceCanisters);
-    // a list of source canister current stream id-s, can be mapped to 'sourceCanisters' by indices
-    let sourceCanisterStreamIds_ : Vec.Vector<?Nat> = Vec.init<?Nat>(initialSourceCanisters.size(), null);
+    // a mapping of canister principal to stream id
+    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = null;
 
-    public func sourceCanisters() : Vec.Vector<Principal> = sourceCanisters_;
+    public func sourceCanisters() : Vec.Vector<Principal> = Vec.fromIter(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
 
     public func getStream(id : Nat) : ?StreamInfo<T> = Vec.getOpt(streams_, id);
 
@@ -249,14 +251,12 @@ module {
     public func issueStreamId(source : StreamSource) : R.Result<Nat, { #NotRegistered }> {
       let id = Vec.size(streams_);
       switch (source) {
-        case (#canister p) switch (Vec.indexOf(p, sourceCanisters_, Principal.equal)) {
-          case (null) return #err(#NotRegistered);
-          case (?srcIndex) {
-            switch (Vec.get(sourceCanisterStreamIds_, srcIndex)) {
-              case (?oldStreamId) Vec.get(streams_, oldStreamId).receiver := null;
-              case (_) {};
-            };
-            Vec.put(sourceCanisterStreamIds_, srcIndex, ?id);
+        case (#canister p) {
+          let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ??id);
+          sourceCanistersStreamMap := map;
+          switch (oldValue) {
+            case (??sid) Vec.get(streams_, sid).receiver := null;
+            case (_) {};
           };
         };
         case (#internal) {};
@@ -266,27 +266,32 @@ module {
         {
           source = source;
           var nextItemId = 0;
-          var receiver = ?StreamReceiver<T>(id, streamCallback, 0);
+          var receiver = ?StreamReceiver<T>(id, 0, 120, streamItemCallback, chunkErrorCallback);
         },
       );
       #ok id;
     };
 
-    func streamCallback(streamId : Nat, item : T, index : Nat) {
+    func streamItemCallback(streamId : Nat, item : T, index : Nat) {
       let stream = Vec.get(streams_, streamId);
-      let sourceIndex : ?Nat = switch (stream.source) {
-        case (#canister p) Vec.indexOf(p, sourceCanisters_, Principal.equal);
-        case (_) null;
-      };
       stream.nextItemId += 1;
-      ignore itemCallback(streamId, sourceIndex, item, index);
+      ignore itemCallback(streamId, item, index);
+    };
+
+    func chunkErrorCallback(expectedIndex : Nat, receivedIndex : Nat) {
+      Debug.trap("Broken chunk index: " # Nat.toText(receivedIndex) # "; expected: " # Nat.toText(expectedIndex));
     };
 
     public func issueInternalStreamId() : Nat = requireOk(issueStreamId(#internal));
 
     public func registerSourceCanister(p : Principal) : () {
-      Vec.add(sourceCanisters_, p);
-      Vec.add(sourceCanisterStreamIds_, null);
+      switch (AssocList.find(sourceCanistersStreamMap, p, Principal.equal)) {
+        case (?entry) {};
+        case (_) {
+          let (map, _) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, null);
+          sourceCanistersStreamMap := map;
+        };
+      };
     };
 
     public func sourceCanisterPrincipal(streamId : Nat) : ?Principal {
@@ -300,7 +305,7 @@ module {
     };
 
     // handle chunk from incoming request
-    public func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : Nat) : R.Result<(), { #NotRegistered; #StreamClosed }> {
+    public func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : Nat) : R.Result<(), ResponseError> {
       let stream = Vec.get(streams_, streamId);
       let callerOk = switch (stream.source) {
         case (#canister p) Principal.equal(source, p);
@@ -332,10 +337,6 @@ module {
     };
 
     public func share() : ManagerStableData {
-      let vec : Vec.Vector<(Principal, ?Nat)> = Vec.new();
-      for (i in Vec.keys(sourceCanisters_)) {
-        Vec.add(vec, (Vec.get(sourceCanisters_, i), Vec.get(sourceCanisterStreamIds_, i)));
-      };
       let streamsVec : Vec.Vector<StableStreamInfo> = Vec.new();
       for (info in Vec.vals(streams_)) {
         Vec.add(
@@ -350,13 +351,10 @@ module {
           },
         );
       };
-      (streamsVec, vec);
+      (streamsVec, sourceCanistersStreamMap);
     };
 
     public func unshare(d : ManagerStableData) {
-      Vec.clear(streams_);
-      Vec.clear(sourceCanisters_);
-      Vec.clear(sourceCanisterStreamIds_);
       for ((info, id) in Vec.items(d.0)) {
         Vec.add(
           streams_,
@@ -364,16 +362,13 @@ module {
             source = info.source;
             var nextItemId = info.nextItemId;
             var receiver = switch (info.active) {
-              case (true) ?StreamReceiver<T>(id, streamCallback, info.nextItemId);
+              case (true) ?StreamReceiver<T>(id, info.nextItemId, 120, streamItemCallback, chunkErrorCallback);
               case (false) null;
             };
           },
         );
       };
-      for ((p, id) in Vec.vals(d.1)) {
-        Vec.add(sourceCanisters_, p);
-        Vec.add(sourceCanisterStreamIds_, id);
-      };
+      sourceCanistersStreamMap := d.1;
     };
   };
 
