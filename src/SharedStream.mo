@@ -11,8 +11,8 @@ import QueueBuffer "QueueBuffer";
 module {
 
   public type ChunkError = {
-    #BrokenPipe : (expectedIndex : Nat, receivedIndex : Nat);
-    #StreamClosed : Nat; // key is a stream length
+    #BrokenPipe : Nat; // value is the expected first index in chunk
+    #StreamClosed : Nat; // value is a stream length
   };
 
   public type ResponseError = ChunkError or { #NotRegistered };
@@ -42,7 +42,6 @@ module {
     startFromIndex : Nat,
     closeStreamTimeoutSeconds : Nat,
     itemCallback : (streamId : Nat, item : T, index : Nat) -> (),
-    chunkErrorCallback : (expectedIndex : Nat, receivedIndex : Nat) -> (),
   ) {
 
     var expectedNextIndex_ : Nat = startFromIndex;
@@ -59,8 +58,7 @@ module {
         return #err(#StreamClosed(expectedNextIndex_));
       };
       if (firstIndex != expectedNextIndex_) {
-        chunkErrorCallback(expectedNextIndex_, firstIndex);
-        return #err(#BrokenPipe(expectedNextIndex_, firstIndex));
+        return #err(#BrokenPipe(expectedNextIndex_));
       };
       for (index in chunk.keys()) {
         itemCallback(streamId, chunk[index], firstIndex + index);
@@ -94,6 +92,7 @@ module {
     weightLimit : Nat,
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
+    heartbeatIntervalSeconds : Nat,
     sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>,
   ) {
     let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
@@ -110,6 +109,15 @@ module {
     /// get item from queue by index
     public func get(index : Nat) : ?T = queue.get(index);
 
+    /// check busy status of sender
+    public func isBusy() : Bool = concurrentChunksCounter >= maxConcurrentChunks_;
+
+    /// check paused status of sender
+    public func isPaused() : Bool = switch (lowestError) {
+      case (null) false;
+      case (?le) true;
+    };
+
     var weightLimit_ : Nat = weightLimit;
     /// update weight limit
     public func setWeightLimit(value : Nat) {
@@ -120,6 +128,12 @@ module {
     /// update max amount of concurrent outgoing requests
     public func setMaxConcurrentChunks(value : Nat) {
       maxConcurrentChunks_ := value;
+    };
+
+    var heartbeatInterval_ : Nat = heartbeatIntervalSeconds * 1_000_000_000;
+    /// update max interval between stream calls
+    public func setHeartbeatIntervalSeconds(value : Nat) {
+      heartbeatInterval_ := value * 1_000_000_000;
     };
 
     /// add item to the stream
@@ -163,40 +177,42 @@ module {
           };
         };
       };
+      // skip sending if found 0 elements, unless sending keep-alive heartbeat call
+      if (index == headIndex and (Time.now() - lastChunkTimestamp) < heartbeatInterval_) {
+        return #ok(0);
+      };
       let elements = Array.tabulate<T>(index - headIndex, func(n) = require(queue.pop()).1);
+      concurrentChunksCounter += 1;
+      lastChunkTimestamp := Time.now();
       try {
-        // if last call was more than 20 seconds ago, send anyway (keep-alive)
-        if (elements.size() > 0 or (Time.now() - lastChunkTimestamp) > 20_000_000_000) {
-          concurrentChunksCounter += 1;
-          lastChunkTimestamp := Time.now();
-          let resp = await sendFunc(streamId, elements, headIndex);
-          concurrentChunksCounter -= 1;
-          switch (resp) {
-            case (#err err) switch (err) {
-              case (#StreamClosed len) {
-                queue.pruneTo(len);
-                restoreHistoryIfNeeded();
-                return #err(#StreamClosed(len));
-              };
-              case (#NotRegistered) return #err(#SendChunkError("Not registered"));
-              case (#BrokenPipe _) return #err(#SendChunkError("Wrong index"));
+        let resp = await sendFunc(streamId, elements, headIndex);
+        concurrentChunksCounter -= 1;
+        switch (resp) {
+          case (#err err) switch (err) {
+            case (#StreamClosed len) {
+              queue.pruneTo(len);
+              lowestError := ?len;
+              rewindIfNeeded();
+              #err(#StreamClosed(len));
             };
-            case (#ok) {
-              queue.pruneTo(headIndex + elements.size());
-              restoreHistoryIfNeeded();
-            };
+            case (#NotRegistered) #err(#SendChunkError("Not registered"));
+            case (#BrokenPipe _) #err(#SendChunkError("Wrong index"));
+          };
+          case (#ok) {
+            queue.pruneTo(index);
+            rewindIfNeeded();
+            #ok(elements.size());
           };
         };
-        #ok(elements.size());
       } catch (err : Error) {
         concurrentChunksCounter -= 1;
         lowestError := ?(switch (lowestError) { case (null) headIndex; case (?val) Nat.min(val, headIndex) });
-        restoreHistoryIfNeeded();
+        rewindIfNeeded();
         #err(#SendChunkError(Error.message(err)));
       };
     };
 
-    private func restoreHistoryIfNeeded() {
+    private func rewindIfNeeded() {
       switch (lowestError) {
         case (null) {};
         case (?val) {

@@ -38,7 +38,6 @@ module {
   public class StreamsManager<T>(
     initialSourceCanisters : [Principal],
     itemCallback : (streamId : Nat, item : T, index : Nat) -> Any,
-    chunkErrorCallback : (streamId : Nat, expectedIndex : Nat, receivedIndex : Nat) -> (),
   ) {
 
     // info about each issued stream id is preserved here forever. Index is a stream ID
@@ -85,7 +84,7 @@ module {
         {
           source = source;
           var nextItemId = 0;
-          var receiver = ?SharedStream.StreamReceiver<T>(id, 0, 120, streamItemCallback, func(e, r) = chunkErrorCallback(id, e, r));
+          var receiver = ?SharedStream.StreamReceiver<T>(id, 0, 120, streamItemCallback);
         },
       );
       #ok id;
@@ -170,7 +169,7 @@ module {
             source = info.source;
             var nextItemId = info.nextItemId;
             var receiver = switch (info.active) {
-              case (true) ?SharedStream.StreamReceiver<T>(id, info.nextItemId, 120, streamItemCallback, func(e, r) = chunkErrorCallback(id, e, r));
+              case (true) ?SharedStream.StreamReceiver<T>(id, info.nextItemId, 120, streamItemCallback);
               case (false) null;
             };
           },
