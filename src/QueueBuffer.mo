@@ -171,11 +171,11 @@ module {
       if (end > size()) Prim.trap("index out of bounds in Buffer.delete");
       switch (old) {
         case (?vec) {
-          if (vec.size() > ctr) {
+          if (vec.len() > ctr) {
             vec.delete(ctr);
             return;
           } else {
-            ctr := ctr - vec.size();
+            ctr := ctr - vec.len();
             old := null;
           };
         };
