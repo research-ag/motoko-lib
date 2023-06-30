@@ -147,6 +147,11 @@ module {
       #ok(queue.push(item));
     };
 
+    func min(x : ?Nat, y : Nat) : Nat = switch (x) {
+      case (?val) Nat.min(val, y);
+      case (null) y;
+    };
+
     var concurrentChunksCounter : Nat = 0;
     /// send chunk to the receiver
     public func sendChunk() : async* () {
@@ -196,7 +201,7 @@ module {
         };
       } catch (err : Error) {
         concurrentChunksCounter -= 1;
-        lowestError := ?(switch (lowestError) { case (null) headIndex; case (?val) Nat.min(val, headIndex) });
+        lowestError := ?min(lowestError, headIndex);
         rewindIfNeeded();
       };
     };
