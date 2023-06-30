@@ -161,10 +161,12 @@ module {
         rewindIfNeeded();
       };
       public func nak(n : Nat) {
-        lowestError := ?(switch (lowestError) {
-          case (?val) Nat.min(val, n);
-          case (null) n;
-        });
+        lowestError := ?(
+          switch (lowestError) {
+            case (?val) Nat.min(val, n);
+            case (null) n;
+          }
+        );
         rewindIfNeeded();
       };
     };
@@ -197,30 +199,23 @@ module {
       // skip sending if found 0 elements, unless sending keep-alive heartbeat call
       if (index == headIndex and (Time.now() - lastChunkTimestamp) < heartbeatInterval_) return;
       let elements = Array.tabulate<T>(index - headIndex, func(n) = require(queue.pop()).1);
-      concurrentChunksCounter += 1;
       lastChunkTimestamp := Time.now();
-      try {
-        let resp = await sendFunc(streamId, elements, headIndex);
-        concurrentChunksCounter -= 1;
-        switch (resp) {
-          case (#err err) switch (err) {
-            case (#NotRegistered) {};
-            case (#BrokenPipe(pos)) {
-              window.nak(pos);
-            };
-            case (#StreamClosed len) {
-              window.ack(len);
-              window.nak(len);
-            };
-          };
-          case (#ok) window.ack(index);
+      concurrentChunksCounter += 1;
+      let result = try {
+        await sendFunc(streamId, elements, headIndex);
+      } catch (e) {
+        #err(#SendError);
+      };
+      concurrentChunksCounter -= 1;
+      switch (result) {
+        case (#ok) window.ack(index);
+        case (#err err) switch (err) {
+          case (#NotRegistered) {};
+          case (#BrokenPipe pos) window.nak(pos);
+          case (#StreamClosed pos) { window.nak(pos); window.ack(pos) };
+          case (#SendError) window.nak(headIndex);
         };
-      } catch (err : Error) {
-        concurrentChunksCounter -= 1;
-        window.nak(headIndex);
       };
     };
-
   };
-
 };
