@@ -202,15 +202,9 @@ module {
     };
 
     private func rewindIfNeeded() {
-      switch (lowestError) {
-        case (null) {};
-        case (?val) {
-          if (val < queue.rewindIndex()) { Debug.trap("cannot happen") };
-          if (val == queue.rewindIndex()) {
-            queue.rewind();
-            lowestError := null;
-          };
-        };
+      if (lowestError == ?queue.rewindIndex()) {
+        queue.rewind();
+        lowestError := null;
       };
     };
 
