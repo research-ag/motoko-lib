@@ -31,8 +31,8 @@ module {
     };
   };
 
-  public type ManagerStableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
-  public func defaultManagerStableData() : ManagerStableData = (Vec.new(), null);
+  public type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
+  public func defaultStableData() : StableData = (Vec.new(), null);
 
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
   public class StreamsManager<T>(
@@ -143,7 +143,7 @@ module {
       };
     };
 
-    public func share() : ManagerStableData {
+    public func share() : StableData {
       let streamsVec : Vec.Vector<StableStreamInfo> = Vec.new();
       for (info in Vec.vals(streams_)) {
         Vec.add(
@@ -161,7 +161,7 @@ module {
       (streamsVec, sourceCanistersStreamMap);
     };
 
-    public func unshare(d : ManagerStableData) {
+    public func unshare(d : StableData) {
       for ((info, id) in Vec.items(d.0)) {
         Vec.add(
           streams_,
