@@ -44,7 +44,9 @@ module {
     };
     /// clear history up to provided item id
     public func pruneTo(n : Nat) {
-      buf.delete(n - buf.offset());
+      if (buf.offset() <= n and n <= head) {
+        buf.delete(n - buf.offset());
+      };
     };
     /// restore whole history in the queue
     public func rewind() {
