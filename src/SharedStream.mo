@@ -149,16 +149,11 @@ module {
 
     var concurrentChunksCounter : Nat = 0;
     /// send chunk to the receiver
-    public func sendChunk() : async* {
-      #ok : Nat;
-      #err : ChunkError or { #Paused; #Busy; #SendChunkError : Text };
-    } {
-      if (concurrentChunksCounter >= maxConcurrentChunks_) {
-        return #err(#Busy);
-      };
+    public func sendChunk() : async* () {
+      if (isBusy()) Debug.trap("Stream sender is busy");
       switch (lowestError) {
         case (null) {};
-        case (?le) { return #err(#Paused) };
+        case (?le) Debug.trap("Stream sender is paused");
       };
       let headIndex = queue.headIndex();
       var remainingWeight = weightLimit_;
@@ -178,9 +173,7 @@ module {
         };
       };
       // skip sending if found 0 elements, unless sending keep-alive heartbeat call
-      if (index == headIndex and (Time.now() - lastChunkTimestamp) < heartbeatInterval_) {
-        return #ok(0);
-      };
+      if (index == headIndex and (Time.now() - lastChunkTimestamp) < heartbeatInterval_) return;
       let elements = Array.tabulate<T>(index - headIndex, func(n) = require(queue.pop()).1);
       concurrentChunksCounter += 1;
       lastChunkTimestamp := Time.now();
@@ -193,22 +186,18 @@ module {
               queue.pruneTo(len);
               lowestError := ?len;
               rewindIfNeeded();
-              #err(#StreamClosed(len));
             };
-            case (#NotRegistered) #err(#SendChunkError("Not registered"));
-            case (#BrokenPipe _) #err(#SendChunkError("Wrong index"));
+            case (_) {};
           };
           case (#ok) {
             queue.pruneTo(index);
             rewindIfNeeded();
-            #ok(elements.size());
           };
         };
       } catch (err : Error) {
         concurrentChunksCounter -= 1;
         lowestError := ?(switch (lowestError) { case (null) headIndex; case (?val) Nat.min(val, headIndex) });
         rewindIfNeeded();
-        #err(#SendChunkError(Error.message(err)));
       };
     };
 

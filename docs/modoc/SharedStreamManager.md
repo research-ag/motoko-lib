@@ -27,7 +27,7 @@ func defaultManagerStableData() : ManagerStableData
 ## Class `StreamsManager<T>`
 
 ``` motoko
-class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (streamId : Nat, item : T, index : Nat) -> Any, chunkErrorCallback : (streamId : Nat, expectedIndex : Nat, receivedIndex : Nat) -> ())
+class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (streamId : Nat, item : T, index : Nat) -> Any)
 ```
 
 A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers

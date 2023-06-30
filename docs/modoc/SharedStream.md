@@ -2,7 +2,7 @@
 
 ## Type `ChunkError`
 ``` motoko
-type ChunkError = {#BrokenPipe : (expectedIndex : Nat, receivedIndex : Nat); #StreamClosed : Nat}
+type ChunkError = {#BrokenPipe : Nat; #StreamClosed : Nat}
 ```
 
 
@@ -15,7 +15,7 @@ type ResponseError = ChunkError or {#NotRegistered}
 ## Class `StreamReceiver<T>`
 
 ``` motoko
-class StreamReceiver<T>(streamId : Nat, startFromIndex : Nat, closeStreamTimeoutSeconds : Nat, itemCallback : (streamId : Nat, item : T, index : Nat) -> (), chunkErrorCallback : (expectedIndex : Nat, receivedIndex : Nat) -> ())
+class StreamReceiver<T>(streamId : Nat, startFromIndex : Nat, closeStreamTimeoutSeconds : Nat, itemCallback : (streamId : Nat, item : T, index : Nat) -> ())
 ```
 
 Usage:
@@ -50,7 +50,7 @@ a function, should be called by shared function or stream manager
 ## Class `StreamSender<T>`
 
 ``` motoko
-class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>)
+class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, heartbeatIntervalSeconds : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>)
 ```
 
 Usage:
@@ -103,6 +103,22 @@ func get(index : Nat) : ?T
 get item from queue by index
 
 
+### Function `isBusy`
+``` motoko
+func isBusy() : Bool
+```
+
+check busy status of sender
+
+
+### Function `isPaused`
+``` motoko
+func isPaused() : Bool
+```
+
+check paused status of sender
+
+
 ### Function `setWeightLimit`
 ``` motoko
 func setWeightLimit(value : Nat)
@@ -119,6 +135,14 @@ func setMaxConcurrentChunks(value : Nat)
 update max amount of concurrent outgoing requests
 
 
+### Function `setHeartbeatIntervalSeconds`
+``` motoko
+func setHeartbeatIntervalSeconds(value : Nat)
+```
+
+update max interval between stream calls
+
+
 ### Function `next`
 ``` motoko
 func next(item : T) : {#ok : Nat; #err : {#NoSpace}}
@@ -129,7 +153,7 @@ add item to the stream
 
 ### Function `sendChunk`
 ``` motoko
-func sendChunk() : async* {#ok : Nat; #err : ChunkError or {#Paused; #Busy; #SendChunkError : Text}}
+func sendChunk() : async* ()
 ```
 
 send chunk to the receiver
