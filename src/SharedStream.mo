@@ -5,6 +5,7 @@ import Nat "mo:base/Nat";
 import R "mo:base/Result";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
+import Option "mo:base/Option";
 
 import QueueBuffer "QueueBuffer";
 
@@ -97,7 +98,6 @@ module {
   ) {
     let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
     // a head of queue before submitting lately failed chunk. Used for error-handling. Null behaves like infinity in calculations
-    var lowestError : ?Nat = null;
     var lastChunkTimestamp : Time.Time = Time.now();
 
     /// full amount of items which weren't sent yet or sender waits for response from receiver
@@ -113,10 +113,7 @@ module {
     public func isBusy() : Bool = concurrentChunksCounter >= maxConcurrentChunks_;
 
     /// check paused status of sender
-    public func isPaused() : Bool = switch (lowestError) {
-      case (null) false;
-      case (?le) true;
-    };
+    public func isPaused() : Bool = window.hasError();
 
     var weightLimit_ : Nat = weightLimit;
     /// update weight limit
@@ -169,16 +166,16 @@ module {
         );
         rewindIfNeeded();
       };
+      public func hasError() : Bool = Option.isSome(lowestError);
     };
 
     var concurrentChunksCounter : Nat = 0;
+
     /// send chunk to the receiver
     public func sendChunk() : async* () {
       if (isBusy()) Debug.trap("Stream sender is busy");
-      switch (lowestError) {
-        case (null) {};
-        case (?le) Debug.trap("Stream sender is paused");
-      };
+      if (isPaused()) Debug.trap("Stream sender is paused");
+
       let headIndex = queue.headIndex();
       var remainingWeight = weightLimit_;
       var index = headIndex;
@@ -203,7 +200,7 @@ module {
       concurrentChunksCounter += 1;
       let result = try {
         await sendFunc(streamId, elements, headIndex);
-      } catch (e) {
+      } catch (_) {
         #err(#SendError);
       };
       concurrentChunksCounter -= 1;
