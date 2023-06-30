@@ -147,9 +147,26 @@ module {
       #ok(queue.push(item));
     };
 
-    func min(x : ?Nat, y : Nat) : Nat = switch (x) {
-      case (?val) Nat.min(val, y);
-      case (null) y;
+    // The receive window of the sliding window protocol
+    let window = object {
+      var lowestError : ?Nat = null;
+      func rewindIfNeeded() {
+        if (lowestError == ?queue.rewindIndex()) {
+          queue.rewind();
+          lowestError := null;
+        };
+      };
+      public func ack(n : Nat) {
+        queue.pruneTo(n);
+        rewindIfNeeded();
+      };
+      public func nak(n : Nat) {
+        lowestError := ?(switch (lowestError) {
+          case (?val) Nat.min(val, n);
+          case (null) n;
+        });
+        rewindIfNeeded();
+      };
     };
 
     var concurrentChunksCounter : Nat = 0;
@@ -187,29 +204,20 @@ module {
         concurrentChunksCounter -= 1;
         switch (resp) {
           case (#err err) switch (err) {
-            case (#StreamClosed len) {
-              queue.pruneTo(len);
-              lowestError := ?len;
-              rewindIfNeeded();
+            case (#NotRegistered) {};
+            case (#BrokenPipe(pos)) {
+              window.nak(pos);
             };
-            case (_) {};
+            case (#StreamClosed len) {
+              window.ack(len);
+              window.nak(len);
+            };
           };
-          case (#ok) {
-            queue.pruneTo(index);
-            rewindIfNeeded();
-          };
+          case (#ok) window.ack(index);
         };
       } catch (err : Error) {
         concurrentChunksCounter -= 1;
-        lowestError := ?min(lowestError, headIndex);
-        rewindIfNeeded();
-      };
-    };
-
-    private func rewindIfNeeded() {
-      if (lowestError == ?queue.rewindIndex()) {
-        queue.rewind();
-        lowestError := null;
+        window.nak(headIndex);
       };
     };
 
