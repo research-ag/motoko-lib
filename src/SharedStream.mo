@@ -12,7 +12,6 @@ import QueueBuffer "QueueBuffer";
 module {
 
   public type ChunkError = {
-    #BrokenPipe : Nat; // value is the expected first index in chunk
     #StreamClosed : Nat; // value is a stream length
   };
 
@@ -52,12 +51,12 @@ module {
     public func isStreamClosed() : Bool = (Time.now() - lastChunkReceived) > timeout;
 
     /// a function, should be called by shared function or stream manager
-    public func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), ChunkError> {
+    public func onChunk(chunk : [T], firstIndex : Nat) : async* R.Result<(), ChunkError> {
       if (isStreamClosed()) {
         return #err(#StreamClosed(expectedNextIndex_));
       };
       if (firstIndex != expectedNextIndex_) {
-        return #err(#BrokenPipe(expectedNextIndex_));
+        throw Error.reject("Broken pipe in StreamReceiver");
       };
       for (index in chunk.keys()) {
         itemCallback(streamId, chunk[index], firstIndex + index);
@@ -210,11 +209,8 @@ module {
       switch (result) {
         case (#ok) window.receive(#ok(to));
         case (#err err) switch (err) {
-          case (#BrokenPipe _) window.receive(#err);
           case (#StreamClosed _) { window.receive(#err); closed := true };
           case (#SendError) window.receive(#err);
-          // optional: we could call pruneTo(pos) with the value pos returned by #BrokenPipe, #StreamClosed
-          // This would accelerate the transition from pending to settled for some items
         };
       };
     };
