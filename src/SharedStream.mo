@@ -35,6 +35,10 @@ module {
   /// public shared func onStreamChunk(streamId : Nat, chunk: [Int], firstIndex: Nat) : async () {
   ///   switch (streamId) case (123) { await receiver.onChunk(chunk, firstIndex); }; case (_) { Error.reject("Unknown stream"); }; };
   /// };
+  ///
+  /// The function `onChunk` throws in case of a gap (= broken pipe). The
+  /// calling code should not catch the throw so that it gets passed through to
+  /// the enclosing async expression of the calling code.
   public class StreamReceiver<T>(
     streamId : Nat,
     startFromIndex : Nat,
