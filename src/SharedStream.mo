@@ -11,10 +11,6 @@ import QueueBuffer "QueueBuffer";
 
 module {
 
-  public type ChunkError = {
-    #StreamClosed : Nat; // value is a stream length
-  };
-
   func require<T>(opt : ?T) : T {
     switch (opt) {
       case (?o) o;
@@ -55,18 +51,18 @@ module {
     public func isStreamClosed() : Bool = (Time.now() - lastChunkReceived) > timeout;
 
     /// a function, should be called by shared function or stream manager
-    public func onChunk(chunk : [T], firstIndex : Nat) : async* R.Result<(), ChunkError> {
-      if (isStreamClosed()) {
-        return #err(#StreamClosed(expectedNextIndex_));
-      };
+    public func onChunk(chunk : [T], firstIndex : Nat) : async* R.Result<(), ()> {
       if (firstIndex != expectedNextIndex_) {
         throw Error.reject("Broken pipe in StreamReceiver");
+      };
+      if (isStreamClosed()) {
+        return #err;
       };
       for (index in chunk.keys()) {
         itemCallback(streamId, chunk[index], firstIndex + index);
       };
       expectedNextIndex_ += chunk.size();
-      #ok();
+      #ok;
     };
 
   };
@@ -95,7 +91,7 @@ module {
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
     keepAliveSeconds : Nat,
-    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ChunkError>,
+    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ()>,
   ) {
     var closed : Bool = false;
 
@@ -205,17 +201,19 @@ module {
       ) return;
       lastChunkSent := Time.now();
       window.send();
-      let result = try {
-        await sendFunc(streamId, elements, from);
-      } catch (_) {
-        #err(#SendError);
-      };
-      switch (result) {
-        case (#ok) window.receive(#ok(to));
-        case (#err err) switch (err) {
-          case (#StreamClosed _) { window.receive(#err); closed := true };
-          case (#SendError) window.receive(#err);
+      try {
+        switch (await sendFunc(streamId, elements, from)) {
+          case (#ok) window.receive(#ok(to));
+          case (#err) {
+            // This is a response to the first batch after the stream's closing
+            // position, hence `from` is actually the final length of the
+            // stream.
+            window.receive(#ok(from)); 
+            closed := true;
+          };
         };
+      } catch (_) {
+        window.receive(#err);
       };
     };
   };
