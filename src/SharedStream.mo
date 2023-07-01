@@ -52,13 +52,13 @@ module {
 
     /// a function, should be called by shared function or stream manager
     public func onChunk(chunk : [T], firstIndex : Nat) : async* R.Result<(), ()> {
-      lastChunkReceived := Time.now();
       if (firstIndex != expectedNextIndex_) {
         throw Error.reject("Broken pipe in StreamReceiver");
       };
       if (isStreamClosed()) {
         return #err;
       };
+      lastChunkReceived := Time.now();
       for (index in chunk.keys()) {
         itemCallback(streamId, chunk[index], firstIndex + index);
       };
