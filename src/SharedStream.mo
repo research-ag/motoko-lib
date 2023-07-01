@@ -94,10 +94,7 @@ module {
     sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ()>,
   ) {
     var closed : Bool = false;
-
     let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
-    // a head of queue before submitting lately failed chunk. Used for error-handling. Null behaves like infinity in calculations
-    var lastChunkSent : Time.Time = Time.now();
 
     /// full amount of items which weren't sent yet or sender waits for response from receiver
     public func fullAmount() : Nat = queue.fullSize();
@@ -145,13 +142,18 @@ module {
     // The receive window of the sliding window protocol
     let window = object {
       public var maxSize = maxConcurrentChunks;
+      public var lastChunkSent = Time.now();
       var size = 0;
       var error_ = false;
+
       func isClosed() : Bool { size == 0 };
       public func isPaused() : Bool { error_ };
       public func isBusy() : Bool { size == maxSize };
       public func isActive() : Bool { not isPaused() and not isBusy() };
-      public func send() { size += 1 };
+      public func send() {
+        lastChunkSent := Time.now();
+        size += 1;
+      };
       public func receive(msg : { #ok : Nat; #err }) {
         switch (msg) {
           case (#ok(pos)) queue.pruneTo(pos);
@@ -189,17 +191,18 @@ module {
       (from, to, elements);
     };
 
+    func nothingToSend(start : Nat, end : Nat) : Bool {
+      // skip sending empty chunk unless keep-alive is due
+      start == end and Time.now() < window.lastChunkSent + keepAliveInterval
+    };
+
     /// send chunk to the receiver
     public func sendChunk() : async* () {
       if (closed) Debug.trap("Stream closed");
       if (window.isBusy()) Debug.trap("Stream sender is busy");
       if (window.isPaused()) Debug.trap("Stream sender is paused");
       let (from, to, elements) = chunkFromQueue();
-      // skip sending empty chunk unless keep-alive is due
-      if (
-        from == to and Time.now() < lastChunkSent + keepAliveInterval
-      ) return;
-      lastChunkSent := Time.now();
+      if (nothingToSend(from, to)) return;
       window.send();
       try {
         switch (await sendFunc(streamId, elements, from)) {
@@ -208,7 +211,7 @@ module {
             // This is a response to the first batch after the stream's closing
             // position, hence `from` is actually the final length of the
             // stream.
-            window.receive(#ok(from)); 
+            window.receive(#ok(from));
             closed := true;
           };
         };
