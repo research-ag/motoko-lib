@@ -16,8 +16,6 @@ module {
     #StreamClosed : Nat; // value is a stream length
   };
 
-  public type ResponseError = ChunkError or { #NotRegistered };
-
   func require<T>(opt : ?T) : T {
     switch (opt) {
       case (?o) o;
@@ -94,7 +92,7 @@ module {
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
     keepAliveSeconds : Nat,
-    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>,
+    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ChunkError>,
   ) {
     var closed : Bool = false;
 
@@ -212,7 +210,6 @@ module {
       switch (result) {
         case (#ok) window.receive(#ok(to));
         case (#err err) switch (err) {
-          case (#NotRegistered) window.receive(#err);
           case (#BrokenPipe _) window.receive(#err);
           case (#StreamClosed _) { window.receive(#err); closed := true };
           case (#SendError) window.receive(#err);
