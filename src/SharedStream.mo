@@ -96,6 +96,8 @@ module {
     keepAliveSeconds : Nat,
     sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>,
   ) {
+    var closed : Bool = false;
+
     let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
     // a head of queue before submitting lately failed chunk. Used for error-handling. Null behaves like infinity in calculations
     var lastChunkSent : Time.Time = Time.now();
@@ -110,10 +112,10 @@ module {
     public func get(index : Nat) : ?T = queue.get(index);
 
     /// check busy status of sender
-    public func isBusy() : Bool = concurrentChunksCounter >= maxConcurrentChunks_;
+    public func isBusy() : Bool = window.isBusy();
 
     /// check paused status of sender
-    public func isPaused() : Bool = window.hasError();
+    public func isPaused() : Bool = window.isPaused();
 
     var weightLimit_ : Nat = weightLimit;
     /// update weight limit
@@ -121,10 +123,9 @@ module {
       weightLimit_ := value;
     };
 
-    var maxConcurrentChunks_ : Nat = maxConcurrentChunks;
     /// update max amount of concurrent outgoing requests
     public func setMaxConcurrentChunks(value : Nat) {
-      maxConcurrentChunks_ := value;
+      window.maxSize := value;
     };
 
     var keepAliveInterval : Nat = keepAliveSeconds * 1_000_000_000;
@@ -146,27 +147,25 @@ module {
 
     // The receive window of the sliding window protocol
     let window = object {
-      var lowestError : ?Nat = null;
-      func rewindIfNeeded() {
-        if (lowestError == ?queue.rewindIndex()) {
+      public var maxSize = maxConcurrentChunks;
+      var size = 0;
+      var error_ = false;
+      func isClosed() : Bool { size == 0 };
+      public func isPaused() : Bool { error_ };
+      public func isBusy() : Bool { size == maxSize };
+      public func isActive() : Bool { not isPaused() and not isBusy() };
+      public func send() { size += 1 };
+      public func receive(msg : { #ok : Nat; #err }) {
+        switch (msg) {
+          case (#ok(pos)) queue.pruneTo(pos);
+          case (#err) error_ := true;
+        };
+        size -= 1;
+        if (isClosed() and error_) {
           queue.rewind();
-          lowestError := null;
+          error_ := false;
         };
       };
-      public func ack(n : Nat) {
-        queue.pruneTo(n);
-        rewindIfNeeded();
-      };
-      public func nak(n : Nat) {
-        lowestError := ?(
-          switch (lowestError) {
-            case (?val) Nat.min(val, n);
-            case (null) n;
-          }
-        );
-        rewindIfNeeded();
-      };
-      public func hasError() : Bool = Option.isSome(lowestError);
     };
 
     var concurrentChunksCounter : Nat = 0;
@@ -190,33 +189,35 @@ module {
         };
       };
       let elements = Array.tabulate<T>(to - from, func(n) = require(queue.pop()).1);
-      (from, to, elements)
+      (from, to, elements);
     };
 
     /// send chunk to the receiver
     public func sendChunk() : async* () {
-      if (isBusy()) Debug.trap("Stream sender is busy");
-      if (isPaused()) Debug.trap("Stream sender is paused");
+      if (closed) Debug.trap("Stream closed");
+      if (window.isBusy()) Debug.trap("Stream sender is busy");
+      if (window.isPaused()) Debug.trap("Stream sender is paused");
       let (from, to, elements) = chunkFromQueue();
       // skip sending empty chunk unless keep-alive is due
       if (
         from == to and Time.now() < lastChunkSent + keepAliveInterval
       ) return;
       lastChunkSent := Time.now();
-      concurrentChunksCounter += 1;
+      window.send();
       let result = try {
         await sendFunc(streamId, elements, from);
       } catch (_) {
         #err(#SendError);
       };
-      concurrentChunksCounter -= 1;
       switch (result) {
-        case (#ok) window.ack(to);
+        case (#ok) window.receive(#ok(to));
         case (#err err) switch (err) {
-          case (#NotRegistered) {};
-          case (#BrokenPipe pos) window.nak(pos);
-          case (#StreamClosed pos) { window.nak(pos); window.ack(pos) };
-          case (#SendError) window.nak(from);
+          case (#NotRegistered) window.receive(#err);
+          case (#BrokenPipe _) window.receive(#err);
+          case (#StreamClosed _) { window.receive(#err); closed := true };
+          case (#SendError) window.receive(#err);
+          // optional: we could call pruneTo(pos) with the value pos returned by #BrokenPipe, #StreamClosed
+          // This would accelerate the transition from pending to settled for some items
         };
       };
     };
