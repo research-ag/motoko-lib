@@ -93,7 +93,7 @@ module {
     weightLimit : Nat,
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
-    heartbeatIntervalSeconds : Nat,
+    keepAliveSeconds : Nat,
     sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>,
   ) {
     let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
@@ -127,10 +127,10 @@ module {
       maxConcurrentChunks_ := value;
     };
 
-    var heartbeatInterval_ : Nat = heartbeatIntervalSeconds * 1_000_000_000;
+    var keepAliveInterval : Nat = keepAliveSeconds * 1_000_000_000;
     /// update max interval between stream calls
-    public func setHeartbeatIntervalSeconds(value : Nat) {
-      heartbeatInterval_ := value * 1_000_000_000;
+    public func setKeepAlive(seconds : Nat) {
+      keepAliveInterval := seconds * 1_000_000_000;
     };
 
     /// add item to the stream
@@ -195,7 +195,7 @@ module {
       };
       // skip sending if found 0 elements, unless sending keep-alive heartbeat call
       if (
-        index == headIndex and (Time.now() - lastChunkSent) < heartbeatInterval_
+        index == headIndex and Time.now() < lastChunkSent + keepAliveInterval
       ) return;
       let elements = Array.tabulate<T>(index - headIndex, func(n) = require(queue.pop()).1);
       lastChunkSent := Time.now();
