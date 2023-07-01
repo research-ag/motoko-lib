@@ -171,16 +171,12 @@ module {
 
     var concurrentChunksCounter : Nat = 0;
 
-    /// send chunk to the receiver
-    public func sendChunk() : async* () {
-      if (isBusy()) Debug.trap("Stream sender is busy");
-      if (isPaused()) Debug.trap("Stream sender is paused");
-
-      let headIndex = queue.headIndex();
+    func chunkFromQueue() : (Nat, Nat, [T]) {
+      let from = queue.headIndex();
       var remainingWeight = weightLimit_;
-      var index = headIndex;
+      var to = from;
       label peekLoop while (true) {
-        switch (queue.get(index)) {
+        switch (queue.get(to)) {
           case (null) break peekLoop;
           case (?it) {
             let weight = weightFunc(it);
@@ -188,31 +184,39 @@ module {
               break peekLoop;
             } else {
               remainingWeight -= weight;
-              index += 1;
+              to += 1;
             };
           };
         };
       };
-      // skip sending if found 0 elements, unless sending keep-alive heartbeat call
+      let elements = Array.tabulate<T>(to - from, func(n) = require(queue.pop()).1);
+      (from, to, elements)
+    };
+
+    /// send chunk to the receiver
+    public func sendChunk() : async* () {
+      if (isBusy()) Debug.trap("Stream sender is busy");
+      if (isPaused()) Debug.trap("Stream sender is paused");
+      let (from, to, elements) = chunkFromQueue();
+      // skip sending empty chunk unless keep-alive is due
       if (
-        index == headIndex and Time.now() < lastChunkSent + keepAliveInterval
+        from == to and Time.now() < lastChunkSent + keepAliveInterval
       ) return;
-      let elements = Array.tabulate<T>(index - headIndex, func(n) = require(queue.pop()).1);
       lastChunkSent := Time.now();
       concurrentChunksCounter += 1;
       let result = try {
-        await sendFunc(streamId, elements, headIndex);
+        await sendFunc(streamId, elements, from);
       } catch (_) {
         #err(#SendError);
       };
       concurrentChunksCounter -= 1;
       switch (result) {
-        case (#ok) window.ack(index);
+        case (#ok) window.ack(to);
         case (#err err) switch (err) {
           case (#NotRegistered) {};
           case (#BrokenPipe pos) window.nak(pos);
           case (#StreamClosed pos) { window.nak(pos); window.ack(pos) };
-          case (#SendError) window.nak(headIndex);
+          case (#SendError) window.nak(from);
         };
       };
     };
