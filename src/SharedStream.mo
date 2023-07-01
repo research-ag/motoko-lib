@@ -46,12 +46,12 @@ module {
   ) {
 
     var expectedNextIndex_ : Nat = startFromIndex;
-    var lastChunkTimestamp : Time.Time = Time.now();
+    var lastChunkReceived : Time.Time = Time.now();
 
     let timeout = closeStreamTimeoutSeconds * 1_000_000_000;
 
     /// returns flag is receiver closed stream with timeout
-    public func isStreamClosed() : Bool = (Time.now() - lastChunkTimestamp) > timeout;
+    public func isStreamClosed() : Bool = (Time.now() - lastChunkReceived) > timeout;
 
     /// a function, should be called by shared function or stream manager
     public func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), ChunkError> {
@@ -98,7 +98,7 @@ module {
   ) {
     let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
     // a head of queue before submitting lately failed chunk. Used for error-handling. Null behaves like infinity in calculations
-    var lastChunkTimestamp : Time.Time = Time.now();
+    var lastChunkSent : Time.Time = Time.now();
 
     /// full amount of items which weren't sent yet or sender waits for response from receiver
     public func fullAmount() : Nat = queue.fullSize();
@@ -194,9 +194,11 @@ module {
         };
       };
       // skip sending if found 0 elements, unless sending keep-alive heartbeat call
-      if (index == headIndex and (Time.now() - lastChunkTimestamp) < heartbeatInterval_) return;
+      if (
+        index == headIndex and (Time.now() - lastChunkSent) < heartbeatInterval_
+      ) return;
       let elements = Array.tabulate<T>(index - headIndex, func(n) = require(queue.pop()).1);
-      lastChunkTimestamp := Time.now();
+      lastChunkSent := Time.now();
       concurrentChunksCounter += 1;
       let result = try {
         await sendFunc(streamId, elements, headIndex);
