@@ -167,8 +167,6 @@ module {
       };
     };
 
-    var concurrentChunksCounter : Nat = 0;
-
     func chunkFromQueue() : (Nat, Nat, [T]) {
       let from = queue.headIndex();
       var remainingWeight = weightLimit_;
