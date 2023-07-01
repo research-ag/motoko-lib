@@ -169,11 +169,11 @@ module {
     };
 
     func chunkFromQueue() : (Nat, Nat, [T]) {
-      let from = queue.headIndex();
+      let start = queue.headIndex();
       var remainingWeight = weightLimit_;
-      var to = from;
+      var end = start;
       label peekLoop while (true) {
-        switch (queue.get(to)) {
+        switch (queue.get(end)) {
           case (null) break peekLoop;
           case (?it) {
             let weight = weightFunc(it);
@@ -181,13 +181,13 @@ module {
               break peekLoop;
             } else {
               remainingWeight -= weight;
-              to += 1;
+              end += 1;
             };
           };
         };
       };
-      let elements = Array.tabulate<T>(to - from, func(n) = require(queue.pop()).1);
-      (from, to, elements);
+      let elements = Array.tabulate<T>(end - start, func(n) = require(queue.pop()).1);
+      (start, end, elements);
     };
 
     func nothingToSend(start : Nat, end : Nat) : Bool {
@@ -200,17 +200,17 @@ module {
       if (closed) Debug.trap("Stream closed");
       if (window.isBusy()) Debug.trap("Stream sender is busy");
       if (window.isPaused()) Debug.trap("Stream sender is paused");
-      let (from, to, elements) = chunkFromQueue();
-      if (nothingToSend(from, to)) return;
+      let (start, end, elements) = chunkFromQueue();
+      if (nothingToSend(start, end)) return;
       window.send();
       try {
-        switch (await sendFunc(streamId, elements, from)) {
-          case (#ok) window.receive(#ok(to));
+        switch (await sendFunc(streamId, elements, start)) {
+          case (#ok) window.receive(#ok(end));
           case (#err) {
-            // This is a response to the first batch after the stream's closing
-            // position, hence `from` is actually the final length of the
-            // stream.
-            window.receive(#ok(from));
+            // This response came from the first batch after the stream's
+            // closing position, hence `start` is exactly the final length of
+            // the stream.
+            window.receive(#ok(start));
             closed := true;
           };
         };
