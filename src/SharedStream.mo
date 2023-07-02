@@ -132,7 +132,7 @@ module {
     /// add item to the stream
     public func next(item : T) : { #ok : Nat; #err : { #NoSpace } } {
       switch (maxQueueSize) {
-        case (?max) if (queue.queueSize() >= max) {
+        case (?max) if (queue.fullSize() >= max) {
           return #err(#NoSpace);
         };
         case (_) {};
