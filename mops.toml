@@ -1,4 +1,4 @@
 [dependencies]
 base = "0.8.8"
 vector = "0.1.2"
-swb = "https://github.com/research-ag/swb#next"
+swb = "1.0.0"
