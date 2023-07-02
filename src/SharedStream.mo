@@ -6,17 +6,9 @@ import R "mo:base/Result";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
-
-import QueueBuffer "QueueBuffer";
+import SWB "mo:swb";
 
 module {
-
-  func require<T>(opt : ?T) : T {
-    switch (opt) {
-      case (?o) o;
-      case (null) Debug.trap("Required value is null");
-    };
-  };
 
   /// Usage:
   ///
@@ -95,16 +87,50 @@ module {
     sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ()>,
   ) {
     var closed : Bool = false;
-    let queue : QueueBuffer.QueueBuffer<T> = QueueBuffer.QueueBuffer<T>();
+    let queue = object {
+      // TODO: We currently expose buf to save some public function definitions
+      // We could introduce public pass-through functions if desired.
+      public let buf = SWB.SlidingWindowBuffer<T>();
+      var head : Nat = 0;
+      let weight : T -> Nat = weightFunc;
+      var limit : Nat = weightLimit;
+
+      func pop() : T {
+        let ?x = buf.getOpt(head) else Debug.trap("queue empty in pop()");
+        head += 1;
+        x;
+      };
+
+      public func rewind() { head := buf.start() };
+      public func size() : Nat { buf.end() - head : Nat };
+      public func chunk() : (Nat, Nat, [T]) {
+        let start = head;
+        var sum = 0;
+        var end = start;
+        label peekLoop while (true) {
+          switch (buf.getOpt(end)) {
+            case (null) break peekLoop;
+            case (?it) {
+              sum += weight(it);
+              if (sum > limit) break peekLoop;
+              end += 1;
+            };
+          };
+        };
+        let elements = Array.tabulate<T>(end - start, func(n) = pop());
+        (start, end, elements);
+      };
+      public func setLimit(weightLimit : Nat) { limit := weightLimit };
+    };
 
     /// full amount of items which weren't sent yet or sender waits for response from receiver
-    public func fullAmount() : Nat = queue.fullSize();
+    public func fullAmount() : Nat = queue.buf.len();
     /// amount of scheduled items
-    public func queuedAmount() : Nat = queue.queueSize();
+    public func queuedAmount() : Nat = queue.size();
     /// index, which will be assigned to next item
-    public func nextIndex() : Nat = queue.nextIndex();
+    public func nextIndex() : Nat = queue.buf.end();
     /// get item from queue by index
-    public func get(index : Nat) : ?T = queue.get(index);
+    public func get(index : Nat) : ?T = queue.buf.getOpt(index);
 
     /// check busy status of sender
     public func isBusy() : Bool = window.isBusy();
@@ -112,10 +138,9 @@ module {
     /// check paused status of sender
     public func isPaused() : Bool = window.isPaused();
 
-    var weightLimit_ : Nat = weightLimit;
     /// update weight limit
     public func setWeightLimit(value : Nat) {
-      weightLimit_ := value;
+      queue.setLimit(value);
     };
 
     /// update max amount of concurrent outgoing requests
@@ -132,12 +157,12 @@ module {
     /// add item to the stream
     public func next(item : T) : { #ok : Nat; #err : { #NoSpace } } {
       switch (maxQueueSize) {
-        case (?max) if (queue.fullSize() >= max) {
+        case (?max) if (queue.buf.len() >= max) {
           return #err(#NoSpace);
         };
         case (_) {};
       };
-      #ok(queue.push(item));
+      #ok(queue.buf.add(item));
     };
 
     // The receive window of the sliding window protocol
@@ -147,7 +172,7 @@ module {
       var size = 0;
       var error_ = false;
 
-      func isClosed() : Bool { size == 0 };
+      func isClosed() : Bool { size == 0 }; // if window is closed (not stream)
       public func isPaused() : Bool { error_ };
       public func isBusy() : Bool { size == maxSize };
       public func isActive() : Bool { not isPaused() and not isBusy() };
@@ -157,7 +182,7 @@ module {
       };
       public func receive(msg : { #ok : Nat; #err }) {
         switch (msg) {
-          case (#ok(pos)) queue.pruneTo(pos);
+          case (#ok(pos)) queue.buf.deleteTo(pos);
           case (#err) error_ := true;
         };
         size -= 1;
@@ -166,28 +191,6 @@ module {
           error_ := false;
         };
       };
-    };
-
-    func chunkFromQueue() : (Nat, Nat, [T]) {
-      let start = queue.headIndex();
-      var remainingWeight = weightLimit_;
-      var end = start;
-      label peekLoop while (true) {
-        switch (queue.get(end)) {
-          case (null) break peekLoop;
-          case (?it) {
-            let weight = weightFunc(it);
-            if (remainingWeight < weight) {
-              break peekLoop;
-            } else {
-              remainingWeight -= weight;
-              end += 1;
-            };
-          };
-        };
-      };
-      let elements = Array.tabulate<T>(end - start, func(n) = require(queue.pop()).1);
-      (start, end, elements);
     };
 
     func nothingToSend(start : Nat, end : Nat) : Bool {
@@ -200,7 +203,7 @@ module {
       if (closed) Debug.trap("Stream closed");
       if (window.isBusy()) Debug.trap("Stream sender is busy");
       if (window.isPaused()) Debug.trap("Stream sender is paused");
-      let (start, end, elements) = chunkFromQueue();
+      let (start, end, elements) = queue.chunk();
       if (nothingToSend(start, end)) return;
       window.send();
       try {
