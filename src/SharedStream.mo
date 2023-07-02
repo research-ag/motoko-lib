@@ -136,17 +136,13 @@ module {
     public func isBusy() : Bool = window.isBusy();
 
     /// check paused status of sender
-    public func isPaused() : Bool = window.isPaused();
+    public func isPaused() : Bool = window.hasError();
 
     /// update weight limit
-    public func setWeightLimit(value : Nat) {
-      queue.setLimit(value);
-    };
+    public func setWeightLimit(value : Nat) = queue.setLimit(value);
 
     /// update max amount of concurrent outgoing requests
-    public func setMaxConcurrentChunks(value : Nat) {
-      window.maxSize := value;
-    };
+    public func setMaxConcurrentChunks(value : Nat) = window.maxSize := value;
 
     var keepAliveInterval : Nat = keepAliveSeconds * 1_000_000_000;
     /// update max interval between stream calls
@@ -173,9 +169,8 @@ module {
       var error_ = false;
 
       func isClosed() : Bool { size == 0 }; // if window is closed (not stream)
-      public func isPaused() : Bool { error_ };
+      public func hasError() : Bool { error_ };
       public func isBusy() : Bool { size == maxSize };
-      public func isActive() : Bool { not isPaused() and not isBusy() };
       public func send() {
         lastChunkSent := Time.now();
         size += 1;
@@ -202,7 +197,7 @@ module {
     public func sendChunk() : async* () {
       if (closed) Debug.trap("Stream closed");
       if (window.isBusy()) Debug.trap("Stream sender is busy");
-      if (window.isPaused()) Debug.trap("Stream sender is paused");
+      if (window.hasError()) Debug.trap("Stream sender is paused");
       let (start, end, elements) = queue.chunk();
       if (nothingToSend(start, end)) return;
       window.send();
