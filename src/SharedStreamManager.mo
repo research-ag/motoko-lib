@@ -24,20 +24,13 @@ module {
     active : Bool;
   };
 
-  func requireOk<T>(res : R.Result<T, Any>) : T {
-    switch (res) {
-      case (#ok ok) ok;
-      case (_) Debug.trap("Required result is #err");
-    };
-  };
-
   public type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
   public func defaultStableData() : StableData = (Vec.new(), null);
 
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
   public class StreamsManager<T>(
     initialSourceCanisters : [Principal],
-    itemCallback : (streamId : Nat, item : T, index : Nat) -> Any,
+    itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Any,
   ) {
 
     // info about each issued stream id is preserved here forever. Index is a stream ID
@@ -90,14 +83,11 @@ module {
       #ok id;
     };
 
-    func streamItemCallback(streamId : Nat, item : T, index : Nat) {
+    func streamItemCallback(streamId : Nat, item : ?T, index : Nat) {
       let stream = Vec.get(streams_, streamId);
       stream.nextItemId += 1;
       ignore itemCallback(streamId, item, index);
     };
-
-    /// register new internal stream
-    public func issueInternalStreamId() : Nat = requireOk(issueStreamId(#internal));
 
     /// register new cross-canister stream
     public func registerSourceCanister(p : Principal) : () {
@@ -106,39 +96,6 @@ module {
         case (_) {
           let (map, _) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, null);
           sourceCanistersStreamMap := map;
-        };
-      };
-    };
-
-    /// handle chunk from incoming request
-    public func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : Nat) : R.Result<(), SharedStream.ResponseError> {
-      let stream = Vec.get(streams_, streamId);
-      let callerOk = switch (stream.source) {
-        case (#canister p) Principal.equal(source, p);
-        case (#internal) false;
-      };
-      if (not callerOk) {
-        return #err(#NotRegistered);
-      };
-      switch (stream.receiver) {
-        case (?receiver) receiver.onChunk(batch, firstIndex);
-        case (null) #err(#NotRegistered);
-      };
-    };
-
-    /// append item to internal stream
-    public func pushInternalItem(streamId : Nat, item : T) : (Nat, Nat) {
-      let stream = Vec.get(streams_, streamId);
-      switch (stream.source) {
-        case (#canister p) Debug.trap("Cannot internally produce item in #canister stream");
-        case (#internal) {};
-      };
-      switch (stream.receiver) {
-        case (null) Debug.trap("Internal stream has to have an active receiver");
-        case (?receiver) {
-          let id = stream.nextItemId;
-          requireOk(receiver.onChunk([item], id));
-          (streamId, id);
         };
       };
     };

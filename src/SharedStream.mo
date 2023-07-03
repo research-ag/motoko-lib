@@ -6,6 +6,7 @@ import R "mo:base/Result";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
+
 import SWB "mo:swb";
 
 module {
@@ -31,7 +32,7 @@ module {
     streamId : Nat,
     startFromIndex : Nat,
     closeStreamTimeoutSeconds : Nat,
-    itemCallback : (streamId : Nat, item : T, index : Nat) -> (),
+    itemCallback : (streamId : Nat, item : ?T, index : Nat) -> (),
   ) {
 
     var expectedNextIndex_ : Nat = startFromIndex;
@@ -43,7 +44,7 @@ module {
     public func isStreamClosed() : Bool = (Time.now() - lastChunkReceived) > timeout;
 
     /// a function, should be called by shared function or stream manager
-    public func onChunk(chunk : [T], firstIndex : Nat) : async* R.Result<(), ()> {
+    public func onChunk(chunk : [?T], firstIndex : Nat) : async* R.Result<(), ()> {
       if (firstIndex != expectedNextIndex_) {
         throw Error.reject("Broken pipe in StreamReceiver");
       };
@@ -84,7 +85,7 @@ module {
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
     keepAliveSeconds : Nat,
-    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ()>,
+    sendFunc : (streamId : Nat, items : [?T], firstIndex : Nat) -> async R.Result<(), ()>,
   ) {
     var closed : Bool = false;
     let queue = object {
@@ -103,21 +104,30 @@ module {
 
       public func rewind() { head := buf.start() };
       public func size() : Nat { buf.end() - head : Nat };
-      public func chunk() : (Nat, Nat, [T]) {
+      public func chunk() : (Nat, Nat, [?T]) {
         let start = head;
         var sum = 0;
         var end = start;
+        // if item has weight more than limit, we drop it. Works only on the first item in chunk
+        var firstItemDropped : Bool = true;
         label peekLoop while (true) {
           switch (buf.getOpt(end)) {
             case (null) break peekLoop;
             case (?it) {
               sum += weight(it);
-              if (sum > limit) break peekLoop;
+              if (sum > limit) {
+                if (end == start) {
+                  // item has bigger weight than weight limit
+                  firstItemDropped := true;
+                } else {
+                  break peekLoop;
+                };
+              };
               end += 1;
             };
           };
         };
-        let elements = Array.tabulate<T>(end - start, func(n) = pop());
+        let elements = Array.tabulate<?T>(end - start, func(n) = if (n == 0 and firstItemDropped) { null } else { ?pop() });
         (start, end, elements);
       };
       public func setLimit(weightLimit : Nat) { limit := weightLimit };
