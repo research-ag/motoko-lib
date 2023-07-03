@@ -109,25 +109,35 @@ module {
         var sum = 0;
         var end = start;
         // if item has weight more than limit, we drop it. Works only on the first item in chunk
-        var firstItemDropped : Bool = true;
+        var firstItemDropped : Bool = false;
         label peekLoop while (true) {
           switch (buf.getOpt(end)) {
             case (null) break peekLoop;
             case (?it) {
-              sum += weight(it);
-              if (sum > limit) {
+              let w = weight(it);
+              if (sum + w > limit) {
                 if (end == start) {
                   // item has bigger weight than weight limit
                   firstItemDropped := true;
                 } else {
                   break peekLoop;
                 };
+              } else {
+                sum += w;
               };
               end += 1;
             };
           };
         };
-        let elements = Array.tabulate<?T>(end - start, func(n) = if (n == 0 and firstItemDropped) { null } else { ?pop() });
+        let elements = Array.tabulate<?T>(
+          end - start,
+          func(n) = if (n == 0 and firstItemDropped) {
+            ignore pop();
+            null;
+          } else {
+            ?pop();
+          },
+        );
         (start, end, elements);
       };
       public func setLimit(weightLimit : Nat) { limit := weightLimit };
