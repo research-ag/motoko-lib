@@ -31,17 +31,23 @@ module {
   public class StreamReceiver<T>(
     streamId : Nat,
     startFromIndex : Nat,
-    closeStreamTimeoutSeconds : Nat,
+    closeStreamTimeoutSeconds : ?Nat,
     itemCallback : (streamId : Nat, item : ?T, index : Nat) -> (),
   ) {
 
     var expectedNextIndex_ : Nat = startFromIndex;
     var lastChunkReceived : Time.Time = Time.now();
 
-    let timeout = closeStreamTimeoutSeconds * 1_000_000_000;
+    let timeout : ?Nat = switch (closeStreamTimeoutSeconds) {
+      case (?s) ?(s * 1_000_000_000);
+      case (null) null;
+    };
 
     /// returns flag is receiver closed stream with timeout
-    public func isStreamClosed() : Bool = (Time.now() - lastChunkReceived) > timeout;
+    public func isStreamClosed() : Bool = switch (timeout) {
+      case (?to) (Time.now() - lastChunkReceived) > to;
+      case (null) false;
+    };
 
     /// a function, should be called by shared function or stream manager
     public func onChunk(chunk : [T], firstIndex : Nat, skipFirst : Bool) : async* R.Result<(), ()> {
@@ -64,6 +70,12 @@ module {
       #ok;
     };
 
+    // should be used only in internal streams
+    public func insertItem(item : T) : Nat {
+      itemCallback(streamId, ?item, expectedNextIndex_);
+      expectedNextIndex_ += 1;
+      expectedNextIndex_ - 1;
+    };
   };
 
   /// Usage:

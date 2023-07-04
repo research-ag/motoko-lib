@@ -61,6 +61,7 @@ module {
     /// register new stream
     public func issueStreamId(source : StreamSource) : R.Result<Nat, { #NotRegistered }> {
       let id = Vec.size(streams_);
+      var closeStreamTimeoutSeconds : ?Nat = ?120;
       switch (source) {
         case (#canister p) {
           let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ??id);
@@ -70,14 +71,16 @@ module {
             case (_) {};
           };
         };
-        case (#internal) {};
+        case (#internal) {
+          closeStreamTimeoutSeconds := null;
+        };
       };
       Vec.add(
         streams_,
         {
           source = source;
           var nextItemId = 0;
-          var receiver = ?SharedStream.StreamReceiver<T>(id, 0, 120, streamItemCallback);
+          var receiver = ?SharedStream.StreamReceiver<T>(id, 0, closeStreamTimeoutSeconds, streamItemCallback);
         },
       );
       #ok id;
@@ -126,7 +129,15 @@ module {
             source = info.source;
             var nextItemId = info.nextItemId;
             var receiver = switch (info.active) {
-              case (true) ?SharedStream.StreamReceiver<T>(id, info.nextItemId, 120, streamItemCallback);
+              case (true) ?SharedStream.StreamReceiver<T>(
+                id,
+                info.nextItemId,
+                switch (info.source) {
+                  case (#canister _) ?120;
+                  case (#internal) null;
+                },
+                streamItemCallback,
+              );
               case (false) null;
             };
           },
