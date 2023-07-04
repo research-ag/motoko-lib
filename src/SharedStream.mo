@@ -44,7 +44,7 @@ module {
     public func isStreamClosed() : Bool = (Time.now() - lastChunkReceived) > timeout;
 
     /// a function, should be called by shared function or stream manager
-    public func onChunk(chunk : [?T], firstIndex : Nat) : async* R.Result<(), ()> {
+    public func onChunk(chunk : [T], firstIndex : Nat, skipFirst : Bool) : async* R.Result<(), ()> {
       if (firstIndex != expectedNextIndex_) {
         throw Error.reject("Broken pipe in StreamReceiver");
       };
@@ -52,10 +52,15 @@ module {
         return #err;
       };
       lastChunkReceived := Time.now();
-      for (index in chunk.keys()) {
-        itemCallback(streamId, chunk[index], firstIndex + index);
+      var startIndex = firstIndex;
+      if (skipFirst) {
+        itemCallback(streamId, null, firstIndex);
+        startIndex += 1;
       };
-      expectedNextIndex_ += chunk.size();
+      for (index in chunk.keys()) {
+        itemCallback(streamId, ?chunk[index], startIndex + index);
+      };
+      expectedNextIndex_ := startIndex + chunk.size();
       #ok;
     };
 
@@ -85,7 +90,7 @@ module {
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
     keepAliveSeconds : Nat,
-    sendFunc : (streamId : Nat, items : [?T], firstIndex : Nat) -> async R.Result<(), ()>,
+    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skipFirst : Bool) -> async R.Result<(), ()>,
   ) {
     var closed : Bool = false;
     let queue = object {
@@ -104,12 +109,12 @@ module {
 
       public func rewind() { head := buf.start() };
       public func size() : Nat { buf.end() - head : Nat };
-      public func chunk() : (Nat, Nat, [?T]) {
-        let start = head;
+      public func chunk() : (Nat, Nat, [T], Bool) {
+        var start = head;
         var sum = 0;
         var end = start;
         // if item has weight more than limit, we drop it. Works only on the first item in chunk
-        var firstItemDropped : Bool = false;
+        var skipFirst : Bool = false;
         label peekLoop while (true) {
           switch (buf.getOpt(end)) {
             case (null) break peekLoop;
@@ -118,27 +123,20 @@ module {
               if (sum + w > limit) {
                 if (end == start) {
                   // item has bigger weight than weight limit
-                  firstItemDropped := true;
+                  skipFirst := true;
+                  ignore pop();
                 } else {
                   break peekLoop;
                 };
               } else {
                 sum += w;
+                end += 1;
               };
-              end += 1;
             };
           };
         };
-        let elements = Array.tabulate<?T>(
-          end - start,
-          func(n) = if (n == 0 and firstItemDropped) {
-            ignore pop();
-            null;
-          } else {
-            ?pop();
-          },
-        );
-        (start, end, elements);
+        let elements = Array.tabulate<T>(end - start, func(n) = pop());
+        (start, end, elements, skipFirst);
       };
       public func setLimit(weightLimit : Nat) { limit := weightLimit };
     };
@@ -218,11 +216,11 @@ module {
       if (closed) Debug.trap("Stream closed");
       if (window.isBusy()) Debug.trap("Stream sender is busy");
       if (window.hasError()) Debug.trap("Stream sender is paused");
-      let (start, end, elements) = queue.chunk();
+      let (start, end, elements, skipFirst) = queue.chunk();
       if (nothingToSend(start, end)) return;
       window.send();
       try {
-        switch (await sendFunc(streamId, elements, start)) {
+        switch (await sendFunc(streamId, elements, start, skipFirst)) {
           case (#ok) window.receive(#ok(end));
           case (#err) {
             // This response came from the first batch after the stream's
