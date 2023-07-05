@@ -44,7 +44,10 @@ module HPLTokenHandler {
       balance : ?BalanceUpdate;
       expiration : ?Expiration;
     };
-    public type TxInputV1 = {
+    public type TxWithMemos = {
+      memo : [Blob];
+    };
+    public type TxInputV1 = TxWithMemos and {
       map : [ContributionInput];
     };
     public type TxInput = { #v1 : TxInputV1 };
@@ -57,14 +60,29 @@ module HPLTokenHandler {
       outflow : [(AccountReference, Asset)];
       mints : [Asset];
       burns : [Asset];
-      memo : ?Blob;
     };
     public type ContributionInput = ContributionBody and {
       owner : ?Principal;
     };
-    public type AggregatorId = Nat;
-    public type LocalId = Nat;
-    public type GlobalId = (aggregator : AggregatorId, localId : LocalId);
+    public type GlobalId = (streamId : Nat, queueNumber : Nat);
+
+    public type TxStatus = {
+      _1_ : ?{
+        #awaited : { _0_ : Principal };
+        #processed : {};
+        #dropped : {};
+      };
+      _2_ : ?{
+        #failure : ?{
+          #ftTransfer : {
+            #DeletedVirtualAccount;
+            #InsufficientFunds;
+            #InvalidArguments : Text;
+          };
+        };
+        #success : ?{ #ftTransfer : { amount : Nat; fee : Nat } };
+      };
+    };
     public type ProcessingError = {
       #TooLargeAssetId;
       #TooLargeFtQuantity;
@@ -89,7 +107,7 @@ module HPLTokenHandler {
       openVirtualAccount : (state : VirtualAccountState) -> async R.Result<VirtualAccountId, ?{ #UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount; #InvalidExpirationTime }>;
       updateVirtualAccount : (vid : VirtualAccountId, updates : VirtualAccountUpdateObject) -> async R.Result<{ balance : Nat; delta : Int }, ?{ #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount; #UnknownSubaccount; #MismatchInAsset; #InsufficientFunds; #InvalidExpirationTime }>;
       virtualAccount : (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, ?{ #UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount }>;
-      submitAndExecute : (tx : TxInput) -> async R.Result<GlobalId, ?SubmitAndExecuteError>;
+      submitAndExecute : (tx : TxInput) -> async R.Result<(GlobalId, TxStatus), ?SubmitAndExecuteError>;
     };
   };
 
@@ -188,7 +206,7 @@ module HPLTokenHandler {
             };
             case (#err error) {
               switch (error) {
-                case (? #NoSpaceForAccount) throw Error.reject("No space for account");
+                case (?#NoSpaceForAccount) throw Error.reject("No space for account");
                 case (_) {
                   let message = "Opening virtual account problem";
                   journal.push((Time.now(), p, #error(message, error)));
@@ -263,7 +281,7 @@ module HPLTokenHandler {
       let updateResult = await hpl.updateVirtualAccount(
         vid,
         {
-          balance = ? #Set 0;
+          balance = ?#Set 0;
           backingSubaccountId = null;
           expiration = null;
         },
@@ -301,7 +319,7 @@ module HPLTokenHandler {
       let updateResult = await hpl.updateVirtualAccount(
         vid,
         {
-          balance = ? #Increment(info.credit);
+          balance = ?#Increment(info.credit);
           backingSubaccountId = null;
           expiration = null;
         },
@@ -334,8 +352,8 @@ module HPLTokenHandler {
             outflow = [(#vir(from), (assetId, amount))];
             mints = [];
             burns = [];
-            memo = null;
           }];
+          memo = [];
         })
       );
       switch (callResult) {
@@ -344,12 +362,12 @@ module HPLTokenHandler {
           journal.push((Time.now(), ownPrincipal, #deposit({ from = from; amount = amount })));
         };
         case (#err err) switch (err) {
-          case (? #InsufficientFunds) throw Error.reject("Insufficient funds");
-          case (? #MismatchInAsset) throw Error.reject("Mismatch in asset id");
-          case (? #MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
-          case (? #TooLargeFtQuantity) throw Error.reject("Too large quantity");
+          case (?#InsufficientFunds) throw Error.reject("Insufficient funds");
+          case (?#MismatchInAsset) throw Error.reject("Mismatch in asset id");
+          case (?#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
+          case (?#TooLargeFtQuantity) throw Error.reject("Too large quantity");
           case (
-            ? #DeletedVirtualAccount or ? #TooLargeVirtualAccountId or ? #UnknownPrincipal or ? #UnknownVirtualAccount
+            ?#DeletedVirtualAccount or ?#TooLargeVirtualAccountId or ?#UnknownPrincipal or ?#UnknownVirtualAccount
           ) throw Error.reject("Virtual account not registered");
           case (_) {
             let message = "Unexpected error during deposit";
@@ -388,9 +406,9 @@ module HPLTokenHandler {
               inflow = [(#vir(to), (assetId, amount))];
               mints = [];
               burns = [];
-              memo = null;
             },
           ];
+          memo = [];
         })
       );
       switch (callResult) {
@@ -400,11 +418,11 @@ module HPLTokenHandler {
         case (#err err) {
           info.credit += amount;
           switch (err) {
-            case (? #MismatchInAsset) throw Error.reject("Mismatch in asset id");
-            case (? #MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
-            case (? #TooLargeFtQuantity) throw Error.reject("Too large quantity");
+            case (?#MismatchInAsset) throw Error.reject("Mismatch in asset id");
+            case (?#MismatchInRemotePrincipal) throw Error.reject("Mismatch in remote principal");
+            case (?#TooLargeFtQuantity) throw Error.reject("Too large quantity");
             case (
-              ? #DeletedVirtualAccount or ? #TooLargeVirtualAccountId or ? #UnknownPrincipal or ? #UnknownVirtualAccount
+              ?#DeletedVirtualAccount or ?#TooLargeVirtualAccountId or ?#UnknownPrincipal or ?#UnknownVirtualAccount
             ) throw Error.reject("Virtual account not registered");
             case (_) {
               let message = "Unexpected error during withdraw";
