@@ -1,21 +1,9 @@
 # SharedStream
 
-## Type `ChunkError`
-``` motoko
-type ChunkError = {#BrokenPipe : Nat; #StreamClosed : Nat}
-```
-
-
-## Type `ResponseError`
-``` motoko
-type ResponseError = ChunkError or {#NotRegistered}
-```
-
-
 ## Class `StreamReceiver<T>`
 
 ``` motoko
-class StreamReceiver<T>(streamId : Nat, startFromIndex : Nat, closeStreamTimeoutSeconds : Nat, itemCallback : (streamId : Nat, item : T, index : Nat) -> ())
+class StreamReceiver<T>(streamId : Nat, startFromIndex : Nat, closeStreamTimeoutSeconds : ?Nat, itemCallback : (streamId : Nat, item : ?T, index : Nat) -> ())
 ```
 
 Usage:
@@ -32,6 +20,10 @@ public shared func onStreamChunk(streamId : Nat, chunk: [Int], firstIndex: Nat) 
   switch (streamId) case (123) { await receiver.onChunk(chunk, firstIndex); }; case (_) { Error.reject("Unknown stream"); }; };
 };
 
+The function `onChunk` throws in case of a gap (= broken pipe). The
+calling code should not catch the throw so that it gets passed through to
+the enclosing async expression of the calling code.
+
 ### Function `isStreamClosed`
 ``` motoko
 func isStreamClosed() : Bool
@@ -42,15 +34,22 @@ returns flag is receiver closed stream with timeout
 
 ### Function `onChunk`
 ``` motoko
-func onChunk(chunk : [T], firstIndex : Nat) : R.Result<(), ChunkError>
+func onChunk(chunk : [T], firstIndex : Nat, skippedFirst : Bool) : async* R.Result<(), ()>
 ```
 
 a function, should be called by shared function or stream manager
 
+
+### Function `insertItem`
+``` motoko
+func insertItem(item : T) : Nat
+```
+
+
 ## Class `StreamSender<T>`
 
 ``` motoko
-class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, heartbeatIntervalSeconds : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat) -> async R.Result<(), ResponseError>)
+class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, keepAliveSeconds : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async R.Result<(), ()>)
 ```
 
 Usage:
@@ -135,9 +134,9 @@ func setMaxConcurrentChunks(value : Nat)
 update max amount of concurrent outgoing requests
 
 
-### Function `setHeartbeatIntervalSeconds`
+### Function `setKeepAlive`
 ``` motoko
-func setHeartbeatIntervalSeconds(value : Nat)
+func setKeepAlive(seconds : Nat)
 ```
 
 update max interval between stream calls

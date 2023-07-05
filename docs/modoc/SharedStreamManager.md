@@ -12,22 +12,22 @@ type StreamInfo<T> = { source : StreamSource; var nextItemId : Nat; var receiver
 ```
 
 
-## Type `ManagerStableData`
+## Type `StableData`
 ``` motoko
-type ManagerStableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>)
+type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>)
 ```
 
 
-## Function `defaultManagerStableData`
+## Function `defaultStableData`
 ``` motoko
-func defaultManagerStableData() : ManagerStableData
+func defaultStableData() : StableData
 ```
 
 
 ## Class `StreamsManager<T>`
 
 ``` motoko
-class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (streamId : Nat, item : T, index : Nat) -> Any)
+class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Any)
 ```
 
 A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
@@ -72,14 +72,6 @@ func issueStreamId(source : StreamSource) : R.Result<Nat, {#NotRegistered}>
 register new stream
 
 
-### Function `issueInternalStreamId`
-``` motoko
-func issueInternalStreamId() : Nat
-```
-
-register new internal stream
-
-
 ### Function `registerSourceCanister`
 ``` motoko
 func registerSourceCanister(p : Principal) : ()
@@ -88,31 +80,15 @@ func registerSourceCanister(p : Principal) : ()
 register new cross-canister stream
 
 
-### Function `processBatch`
-``` motoko
-func processBatch(source : Principal, streamId : Nat, batch : [T], firstIndex : Nat) : R.Result<(), SharedStream.ResponseError>
-```
-
-handle chunk from incoming request
-
-
-### Function `pushInternalItem`
-``` motoko
-func pushInternalItem(streamId : Nat, item : T) : (Nat, Nat)
-```
-
-append item to internal stream
-
-
 ### Function `share`
 ``` motoko
-func share() : ManagerStableData
+func share() : StableData
 ```
 
 
 
 ### Function `unshare`
 ``` motoko
-func unshare(d : ManagerStableData)
+func unshare(d : StableData)
 ```
 
