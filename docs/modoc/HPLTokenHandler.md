@@ -1,8 +1,134 @@
 # HPLTokenHandler
 
-## Value `HPL`
+## Module `HPL`
+
 ``` motoko
-let HPL
+module HPL
+```
+
+
+### Type `AssetId`
+``` motoko
+type AssetId = Nat
+```
+
+
+
+### Type `SubaccountId`
+``` motoko
+type SubaccountId = Nat
+```
+
+
+
+### Type `VirtualAccountId`
+``` motoko
+type VirtualAccountId = Nat
+```
+
+
+
+### Type `Asset`
+``` motoko
+type Asset = (id : AssetId, quantity : Nat)
+```
+
+
+
+### Type `Expiration`
+``` motoko
+type Expiration = {#None; #Timestamp : Nat64}
+```
+
+
+
+### Type `VirtualAccountState`
+``` motoko
+type VirtualAccountState = { asset : Asset; backingSubaccountId : SubaccountId; remotePrincipal : Principal; expiration : Expiration }
+```
+
+
+
+### Type `BalanceUpdate`
+``` motoko
+type BalanceUpdate = {#Set : Nat; #Increment : Nat; #Decrement : Nat}
+```
+
+
+
+### Type `VirtualAccountUpdateObject`
+``` motoko
+type VirtualAccountUpdateObject = { backingSubaccountId : ?SubaccountId; balance : ?BalanceUpdate; expiration : ?Expiration }
+```
+
+
+
+### Type `TxInputV1`
+``` motoko
+type TxInputV1 = { map : [ContributionInput] }
+```
+
+
+
+### Type `TxInput`
+``` motoko
+type TxInput = {#v1 : TxInputV1}
+```
+
+
+
+### Type `AccountReference`
+``` motoko
+type AccountReference = {#sub : SubaccountId; #vir : (Principal, VirtualAccountId)}
+```
+
+
+
+### Type `ContributionInput`
+``` motoko
+type ContributionInput = ContributionBody and { owner : ?Principal }
+```
+
+
+
+### Type `AggregatorId`
+``` motoko
+type AggregatorId = Nat
+```
+
+
+
+### Type `LocalId`
+``` motoko
+type LocalId = Nat
+```
+
+
+
+### Type `GlobalId`
+``` motoko
+type GlobalId = (aggregator : AggregatorId, localId : LocalId)
+```
+
+
+
+### Type `ProcessingError`
+``` motoko
+type ProcessingError = {#TooLargeAssetId; #TooLargeFtQuantity; #TooLargeSubaccountId; #TooLargeVirtualAccountId; #TooLargeMemo; #TooManyFlows; #TooManyContributions; #NonZeroAssetSum; #UnknownPrincipal; #UnknownSubaccount; #UnknownVirtualAccount; #DeletedVirtualAccount; #UnknownFtAsset; #MismatchInAsset; #MismatchInRemotePrincipal; #InsufficientFunds; #NotAController}
+```
+
+
+
+### Type `SubmitAndExecuteError`
+``` motoko
+type SubmitAndExecuteError = ProcessingError or {#NotApproved}
+```
+
+
+
+### Type `Ledger`
+``` motoko
+type Ledger = actor { openVirtualAccount : shared (state : VirtualAccountState) -> async R.Result<VirtualAccountId, ?{#UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount; #InvalidExpirationTime}>; updateVirtualAccount : shared (vid : VirtualAccountId, updates : VirtualAccountUpdateObject) -> async R.Result<{ balance : Nat; delta : Int }, ?{#UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount; #UnknownSubaccount; #MismatchInAsset; #InsufficientFunds; #InvalidExpirationTime}>; virtualAccount : shared (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, ?{#UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount}>; submitAndExecute : shared (tx : TxInput) -> async R.Result<GlobalId, ?SubmitAndExecuteError> }
 ```
 
 
