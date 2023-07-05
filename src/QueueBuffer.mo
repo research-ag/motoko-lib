@@ -12,14 +12,14 @@ module {
     var head : Nat = 0;
 
     /// get index of oldest item in queue history
-    public func rewindIndex() : Nat = buf.offset();
+    public func rewindIndex() : Nat = buf.start();
     /// get index of oldest item in queue
     public func headIndex() : Nat = head;
     /// get next index which will be issued
-    public func nextIndex() : Nat = buf.size();
+    public func nextIndex() : Nat = buf.end();
 
     /// amount of items in the queue
-    public func queueSize() : Nat = buf.size() - head;
+    public func queueSize() : Nat = buf.end() - head;
     /// total amount of items in the queue and history
     public func fullSize() : Nat = buf.len();
 
@@ -40,15 +40,17 @@ module {
     public func get(index : Nat) : ?X = buf.getOpt(index);
     /// clear history
     public func pruneAll() {
-      buf.delete(head - buf.offset());
+      buf.delete(head - buf.start());
     };
     /// clear history up to provided item id
     public func pruneTo(n : Nat) {
-      buf.delete(n - buf.offset());
+      if (buf.start() <= n and n <= head) {
+        buf.delete(n - buf.start());
+      };
     };
     /// restore whole history in the queue
     public func rewind() {
-      head := buf.offset();
+      head := buf.start();
     };
   };
 };
