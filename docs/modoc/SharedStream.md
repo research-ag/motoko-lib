@@ -110,6 +110,14 @@ func isBusy() : Bool
 check busy status of sender
 
 
+### Function `isStreamClosed`
+``` motoko
+func isStreamClosed() : Bool
+```
+
+returns flag is receiver closed the stream
+
+
 ### Function `isPaused`
 ``` motoko
 func isPaused() : Bool
