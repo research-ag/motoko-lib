@@ -103,7 +103,7 @@ module {
       };
     };
 
-    public func share(storeInternalStreams : Bool) : StableData {
+    public func share() : StableData {
       let streamsVec : Vec.Vector<StableStreamInfo> = Vec.new();
       for (info in Vec.vals(streams_)) {
         Vec.add(
@@ -111,10 +111,9 @@ module {
           {
             source = info.source;
             nextItemId = info.nextItemId;
-            active = switch (info.source, info.receiver) {
-              case (#canister _, ?r) true;
-              case (#internal, ?r) storeInternalStreams;
-              case (_, null) false;
+            active = switch (info.receiver) {
+              case (?r) true;
+              case (null) false;
             };
           },
         );
