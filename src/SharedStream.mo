@@ -165,6 +165,9 @@ module {
     /// check busy status of sender
     public func isBusy() : Bool = window.isBusy();
 
+    /// returns flag is receiver closed the stream
+    public func isStreamClosed() : Bool = closed;
+
     /// check paused status of sender
     public func isPaused() : Bool = window.hasError();
 
