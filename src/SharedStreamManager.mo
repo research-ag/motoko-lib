@@ -34,7 +34,7 @@ module {
   ) {
 
     // info about each issued stream id is preserved here forever. Index is a stream ID
-    let streams_ : Vec.Vector<StreamInfo<T>> = Vec.new();
+    var streams_ : Vec.Vector<StreamInfo<T>> = Vec.new();
     // a mapping of canister principal to stream id
     var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = null;
 
@@ -103,7 +103,7 @@ module {
       };
     };
 
-    public func share() : StableData {
+    public func share(storeInternalStreams : Bool) : StableData {
       let streamsVec : Vec.Vector<StableStreamInfo> = Vec.new();
       for (info in Vec.vals(streams_)) {
         Vec.add(
@@ -111,9 +111,10 @@ module {
           {
             source = info.source;
             nextItemId = info.nextItemId;
-            active = switch (info.receiver) {
-              case (?r) true;
-              case (null) false;
+            active = switch (info.source, info.receiver) {
+              case (#canister _, ?r) true;
+              case (#internal, ?r) storeInternalStreams;
+              case (_, null) false;
             };
           },
         );
@@ -122,6 +123,7 @@ module {
     };
 
     public func unshare(d : StableData) {
+      streams_ := Vec.new();
       for ((info, id) in Vec.items(d.0)) {
         Vec.add(
           streams_,
