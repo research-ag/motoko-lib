@@ -82,7 +82,7 @@ register new cross-canister stream
 
 ### Function `share`
 ``` motoko
-func share() : StableData
+func share(storeInternalStreams : Bool) : StableData
 ```
 
 
