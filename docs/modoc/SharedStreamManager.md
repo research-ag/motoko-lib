@@ -40,6 +40,14 @@ func sourceCanisters() : Vec.Vector<Principal>
 principals of registered cross-canister stream sources
 
 
+### Function `canisterStreams`
+``` motoko
+func canisterStreams() : Vec.Vector<(Principal, ?Nat)>
+```
+
+principals and id-s of registered cross-canister stream sources
+
+
 ### Function `getStream`
 ``` motoko
 func getStream(id : Nat) : ?StreamInfo<T>

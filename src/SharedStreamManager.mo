@@ -27,6 +27,14 @@ module {
   public type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
   public func defaultStableData() : StableData = (Vec.new(), null);
 
+  func listFromIter<T>(iter : Iter.Iter<T>) : List.List<T> {
+    var l : List.List<T> = null;
+    for (item in iter) {
+      l := List.push(item, l);
+    };
+    l;
+  };
+
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
   public class StreamsManager<T>(
     initialSourceCanisters : [Principal],
@@ -36,10 +44,18 @@ module {
     // info about each issued stream id is preserved here forever. Index is a stream ID
     let streams_ : Vec.Vector<StreamInfo<T>> = Vec.new();
     // a mapping of canister principal to stream id
-    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = null;
+    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = listFromIter<(Principal, ?Nat)>(
+      Iter.map<Principal, (Principal, ?Nat)>(
+        Iter.fromArray(initialSourceCanisters),
+        func(p) = (p, null),
+      )
+    );
 
     /// principals of registered cross-canister stream sources
     public func sourceCanisters() : Vec.Vector<Principal> = Vec.fromIter(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
+
+    /// principals and id-s of registered cross-canister stream sources
+    public func canisterStreams() : Vec.Vector<(Principal, ?Nat)> = Vec.fromIter(List.toIter(sourceCanistersStreamMap));
 
     /// get stream info by id
     public func getStream(id : Nat) : ?StreamInfo<T> = Vec.getOpt(streams_, id);
@@ -68,7 +84,8 @@ module {
           sourceCanistersStreamMap := map;
           switch (oldValue) {
             case (??sid) Vec.get(streams_, sid).receiver := null;
-            case (_) {};
+            case (?null) {};
+            case (null) Debug.trap("Principal " # Principal.toText(p) # " not registered as stream source");
           };
         };
         case (#internal) {
@@ -122,7 +139,6 @@ module {
     };
 
     public func unshare(d : StableData) {
-      Vec.clear(streams_);
       for ((info, id) in Vec.items(d.0)) {
         Vec.add(
           streams_,
