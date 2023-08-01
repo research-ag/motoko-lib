@@ -139,6 +139,7 @@ module {
     };
 
     public func unshare(d : StableData) {
+      Vec.clear(streams_);
       for ((info, id) in Vec.items(d.0)) {
         Vec.add(
           streams_,
