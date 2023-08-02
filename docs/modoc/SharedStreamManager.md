@@ -53,9 +53,9 @@ principals and id-s of registered cross-canister stream sources
 func prioritySourceCanisters() : Vec.Vector<(Principal, Nat)>
 ```
 
-principals of cross-canister stream surces with the priority. The priority value tells the caller
-with what probability he should chose that canister for their needs. In future this value will be used for
-load balancing calls, for now it returns either 0 or 1. Zero value means that stream is closed it the canister should not be used
+principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should 
+chose that canister for their needs (sum of all values is not normalized). In the future this value will be used for
+load balancing, for now it returns either 0 or 1. Zero value means that stream is closed and the canister should not be used
 
 
 ### Function `getStream`
