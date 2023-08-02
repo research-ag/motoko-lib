@@ -1,9 +1,10 @@
+import AssocList "mo:base/AssocList";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
+import List "mo:base/List";
+import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import R "mo:base/Result";
-import AssocList "mo:base/AssocList";
-import List "mo:base/List";
 
 import Vec "mo:vector";
 import SharedStream "SharedStream";
@@ -56,6 +57,25 @@ module {
 
     /// principals and id-s of registered cross-canister stream sources
     public func canisterStreams() : Vec.Vector<(Principal, ?Nat)> = Vec.fromIter(List.toIter(sourceCanistersStreamMap));
+
+    /// principals of cross-canister stream surces with the priority. The priority value tells the caller
+    /// with what probability he should chose that canister for their needs. In future this value will be used for
+    /// load balancing calls, for now it returns either 0 or 1. Zero value means that stream is closed it the canister should not be used
+    public func prioritySourceCanisters() : Vec.Vector<(Principal, Nat)> = Vec.fromIter(
+      Iter.map<(Principal, ?Nat), (Principal, Nat)>(
+        List.toIter(sourceCanistersStreamMap),
+        func(p, n) = (
+          p,
+          switch (Option.flatten(Option.map(n, getStream))) {
+            case (?stream) switch (stream.receiver) {
+              case (?r) if (r.isStreamClosed()) { 0 } else { 1 };
+              case (null) 0;
+            };
+            case (_) 0;
+          },
+        ),
+      )
+    );
 
     /// get stream info by id
     public func getStream(id : Nat) : ?StreamInfo<T> = Vec.getOpt(streams_, id);

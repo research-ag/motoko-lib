@@ -48,6 +48,16 @@ func canisterStreams() : Vec.Vector<(Principal, ?Nat)>
 principals and id-s of registered cross-canister stream sources
 
 
+### Function `prioritySourceCanisters`
+``` motoko
+func prioritySourceCanisters() : Vec.Vector<(Principal, Nat)>
+```
+
+principals of cross-canister stream surces with the priority. The priority value tells the caller
+with what probability he should chose that canister for their needs. In future this value will be used for
+load balancing calls, for now it returns either 0 or 1. Zero value means that stream is closed it the canister should not be used
+
+
 ### Function `getStream`
 ``` motoko
 func getStream(id : Nat) : ?StreamInfo<T>
