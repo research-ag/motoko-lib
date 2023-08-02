@@ -55,15 +55,15 @@ module {
     );
 
     /// principals of registered cross-canister stream sources
-    public func sourceCanisters() : Vec.Vector<Principal> = Vec.fromIter(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
+    public func sourceCanisters() : [Principal] = Iter.toArray(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
 
     /// principals and id-s of registered cross-canister stream sources
-    public func canisterStreams() : Vec.Vector<(Principal, ?Nat)> = Vec.fromIter(List.toIter(sourceCanistersStreamMap));
+    public func canisterStreams() : [(Principal, ?Nat)] = Iter.toArray(List.toIter(sourceCanistersStreamMap));
 
     /// principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should
     /// chose that canister for their needs (sum of all values is not normalized). In the future this value will be used for
     /// load balancing, for now it returns either 0 or 1. Zero value means that stream is closed and the canister should not be used
-    public func prioritySourceCanisters() : Vec.Vector<(Principal, Nat)> = Vec.fromIter(
+    public func prioritySourceCanisters() : [(Principal, Nat)] = Iter.toArray(
       Iter.map<(Principal, ?Nat), (Principal, Nat)>(
         List.toIter(sourceCanistersStreamMap),
         func(p, n) = (
