@@ -28,10 +28,11 @@ module {
   public type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
   public func defaultStableData() : StableData = (Vec.new(), null);
 
-  func listFromIter<T>(iter : Iter.Iter<T>) : List.List<T> {
-    var l : List.List<T> = null;
-    for (item in iter) {
-      l := List.push(item, l);
+  func assocListFromIter<K, V>(iter : Iter.Iter<(K, V)>, equal : (K, K) -> Bool) : AssocList.AssocList<K, V> {
+    var l : AssocList.AssocList<K, V> = null;
+    for ((k, v) in iter) {
+      let (upd, _) = AssocList.replace<K, V>(l, k, equal, ?v);
+      l := upd;
     };
     l;
   };
@@ -45,11 +46,12 @@ module {
     // info about each issued stream id is preserved here forever. Index is a stream ID
     let streams_ : Vec.Vector<StreamInfo<T>> = Vec.new();
     // a mapping of canister principal to stream id
-    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = listFromIter<(Principal, ?Nat)>(
+    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = assocListFromIter(
       Iter.map<Principal, (Principal, ?Nat)>(
         Iter.fromArray(initialSourceCanisters),
         func(p) = (p, null),
-      )
+      ),
+      Principal.equal,
     );
 
     /// principals of registered cross-canister stream sources
@@ -58,7 +60,7 @@ module {
     /// principals and id-s of registered cross-canister stream sources
     public func canisterStreams() : Vec.Vector<(Principal, ?Nat)> = Vec.fromIter(List.toIter(sourceCanistersStreamMap));
 
-    /// principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should 
+    /// principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should
     /// chose that canister for their needs (sum of all values is not normalized). In the future this value will be used for
     /// load balancing, for now it returns either 0 or 1. Zero value means that stream is closed and the canister should not be used
     public func prioritySourceCanisters() : Vec.Vector<(Principal, Nat)> = Vec.fromIter(
