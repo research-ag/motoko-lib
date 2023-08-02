@@ -1,9 +1,10 @@
+import AssocList "mo:base/AssocList";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
+import List "mo:base/List";
+import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import R "mo:base/Result";
-import AssocList "mo:base/AssocList";
-import List "mo:base/List";
 
 import Vec "mo:vector";
 import SharedStream "SharedStream";
@@ -27,6 +28,15 @@ module {
   public type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
   public func defaultStableData() : StableData = (Vec.new(), null);
 
+  func assocListFromIter<K, V>(iter : Iter.Iter<(K, V)>, equal : (K, K) -> Bool) : AssocList.AssocList<K, V> {
+    var l : AssocList.AssocList<K, V> = null;
+    for ((k, v) in iter) {
+      let (upd, _) = AssocList.replace<K, V>(l, k, equal, ?v);
+      l := upd;
+    };
+    l;
+  };
+
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
   public class StreamsManager<T>(
     initialSourceCanisters : [Principal],
@@ -36,10 +46,38 @@ module {
     // info about each issued stream id is preserved here forever. Index is a stream ID
     let streams_ : Vec.Vector<StreamInfo<T>> = Vec.new();
     // a mapping of canister principal to stream id
-    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = null;
+    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = assocListFromIter(
+      Iter.map<Principal, (Principal, ?Nat)>(
+        Iter.fromArray(initialSourceCanisters),
+        func(p) = (p, null),
+      ),
+      Principal.equal,
+    );
 
     /// principals of registered cross-canister stream sources
-    public func sourceCanisters() : Vec.Vector<Principal> = Vec.fromIter(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
+    public func sourceCanisters() : [Principal] = Iter.toArray(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
+
+    /// principals and id-s of registered cross-canister stream sources
+    public func canisterStreams() : [(Principal, ?Nat)] = Iter.toArray(List.toIter(sourceCanistersStreamMap));
+
+    /// principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should
+    /// chose that canister for their needs (sum of all values is not normalized). In the future this value will be used for
+    /// load balancing, for now it returns either 0 or 1. Zero value means that stream is closed and the canister should not be used
+    public func prioritySourceCanisters() : [(Principal, Nat)] = Iter.toArray(
+      Iter.map<(Principal, ?Nat), (Principal, Nat)>(
+        List.toIter(sourceCanistersStreamMap),
+        func(p, n) = (
+          p,
+          switch (Option.flatten(Option.map(n, getStream))) {
+            case (?stream) switch (stream.receiver) {
+              case (?r) if (r.isStreamClosed()) { 0 } else { 1 };
+              case (null) 0;
+            };
+            case (_) 0;
+          },
+        ),
+      )
+    );
 
     /// get stream info by id
     public func getStream(id : Nat) : ?StreamInfo<T> = Vec.getOpt(streams_, id);
@@ -68,7 +106,8 @@ module {
           sourceCanistersStreamMap := map;
           switch (oldValue) {
             case (??sid) Vec.get(streams_, sid).receiver := null;
-            case (_) {};
+            case (?null) {};
+            case (null) Debug.trap("Principal " # Principal.toText(p) # " not registered as stream source");
           };
         };
         case (#internal) {

@@ -34,10 +34,28 @@ A manager, which is responsible for handling multiple incoming streams. Incapsul
 
 ### Function `sourceCanisters`
 ``` motoko
-func sourceCanisters() : Vec.Vector<Principal>
+func sourceCanisters() : [Principal]
 ```
 
 principals of registered cross-canister stream sources
+
+
+### Function `canisterStreams`
+``` motoko
+func canisterStreams() : [(Principal, ?Nat)]
+```
+
+principals and id-s of registered cross-canister stream sources
+
+
+### Function `prioritySourceCanisters`
+``` motoko
+func prioritySourceCanisters() : [(Principal, Nat)]
+```
+
+principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should
+chose that canister for their needs (sum of all values is not normalized). In the future this value will be used for
+load balancing, for now it returns either 0 or 1. Zero value means that stream is closed and the canister should not be used
 
 
 ### Function `getStream`
