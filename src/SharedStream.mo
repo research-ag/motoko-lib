@@ -245,8 +245,9 @@ module {
             closed := true;
           };
         };
-      } catch (_) {
+      } catch (e) {
         window.receive(#err);
+        throw e;
       };
     };
   };
