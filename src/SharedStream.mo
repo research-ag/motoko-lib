@@ -36,16 +36,19 @@ module {
   ) {
 
     var expectedNextIndex_ : Nat = startFromIndex;
-    var lastChunkReceived : Time.Time = Time.now();
+    var lastChunkReceived_ : Time.Time = Time.now();
 
     let timeout : ?Nat = switch (closeStreamTimeoutSeconds) {
       case (?s) ?(s * 1_000_000_000);
       case (null) null;
     };
 
+    /// returns timestamp when stream received last chunk
+    public func lastChunkReceived() : Time.Time = lastChunkReceived_;
+
     /// returns flag is receiver closed stream with timeout
     public func isStreamClosed() : Bool = switch (timeout) {
-      case (?to) (Time.now() - lastChunkReceived) > to;
+      case (?to) (Time.now() - lastChunkReceived_) > to;
       case (null) false;
     };
 
@@ -57,7 +60,7 @@ module {
       if (isStreamClosed()) {
         return #err;
       };
-      lastChunkReceived := Time.now();
+      lastChunkReceived_ := Time.now();
       var startIndex = firstIndex;
       if (skippedFirst) {
         itemCallback(streamId, null, firstIndex);

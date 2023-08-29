@@ -24,6 +24,14 @@ The function `onChunk` throws in case of a gap (= broken pipe). The
 calling code should not catch the throw so that it gets passed through to
 the enclosing async expression of the calling code.
 
+### Function `lastChunkReceived`
+``` motoko
+func lastChunkReceived() : Time.Time
+```
+
+returns timestamp when stream received last chunk
+
+
 ### Function `isStreamClosed`
 ``` motoko
 func isStreamClosed() : Bool
