@@ -48,7 +48,7 @@ module {
 
     /// returns flag is receiver closed stream with timeout
     public func isStreamClosed() : Bool = switch (timeout) {
-      case (?to) (Time.now() - lastChunkReceived_) > to;
+      case (?to)(Time.now() - lastChunkReceived_) > to;
       case (null) false;
     };
 
@@ -112,20 +112,22 @@ module {
       // TODO: We currently expose buf to save some public function definitions
       // We could introduce public pass-through functions if desired.
       public let buf = SWB.SlidingWindowBuffer<T>();
-      var head : Nat = 0;
+      var head_ : Nat = 0;
       let weight : T -> Nat = weightFunc;
       var limit : Nat = weightLimit;
 
+      public func head() : Nat = head_;
+
       func pop() : T {
-        let ?x = buf.getOpt(head) else Debug.trap("queue empty in pop()");
-        head += 1;
+        let ?x = buf.getOpt(head_) else Debug.trap("queue empty in pop()");
+        head_ += 1;
         x;
       };
 
-      public func rewind() { head := buf.start() };
-      public func size() : Nat { buf.end() - head : Nat };
+      public func rewind() { head_ := buf.start() };
+      public func size() : Nat { buf.end() - head_ : Nat };
       public func chunk() : (Nat, Nat, [T], Bool) {
-        var start = head;
+        var start = head_;
         var sum = 0;
         var end = start;
         // if item has weight more than limit, we drop it. Works only on the first item in chunk
@@ -156,12 +158,13 @@ module {
       public func setLimit(weightLimit : Nat) { limit := weightLimit };
     };
 
-    /// full amount of items which weren't sent yet or sender waits for response from receiver
-    public func fullAmount() : Nat = queue.buf.len();
-    /// amount of scheduled items
-    public func queuedAmount() : Nat = queue.size();
-    /// index, which will be assigned to next item
-    public func nextIndex() : Nat = queue.buf.end();
+    /// total amount of items, ever added to the stream sender, also an index, which will be assigned to the next item
+    public func length() : Nat = queue.buf.end();
+    /// amount of items, which were sent to receiver
+    public func sent() : Nat = queue.head();
+    /// amount of items, successfully sent and acknowledged by receiver
+    public func received() : Nat = queue.buf.start();
+
     /// get item from queue by index
     public func get(index : Nat) : ?T = queue.buf.getOpt(index);
 

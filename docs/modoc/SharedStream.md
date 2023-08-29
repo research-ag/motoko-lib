@@ -78,28 +78,28 @@ await* sender.sendChunk(); // will send (123, [1..10], 0) to `anotherCanister`
 await* sender.sendChunk(); // will send (123, [11..12], 10) to `anotherCanister`
 await* sender.sendChunk(); // will do nothing, stream clean
 
-### Function `fullAmount`
+### Function `length`
 ``` motoko
-func fullAmount() : Nat
+func length() : Nat
 ```
 
-full amount of items which weren't sent yet or sender waits for response from receiver
+total amount of items, ever added to the stream sender, also an index, which will be assigned to the next item
 
 
-### Function `queuedAmount`
+### Function `sent`
 ``` motoko
-func queuedAmount() : Nat
+func sent() : Nat
 ```
 
-amount of scheduled items
+amount of items, which were sent to receiver
 
 
-### Function `nextIndex`
+### Function `received`
 ``` motoko
-func nextIndex() : Nat
+func received() : Nat
 ```
 
-index, which will be assigned to next item
+amount of items, successfully sent and acknowledged by receiver
 
 
 ### Function `get`
