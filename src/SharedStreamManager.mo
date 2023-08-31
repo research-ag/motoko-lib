@@ -136,7 +136,7 @@ module {
       switch (AssocList.find(sourceCanistersStreamMap, p, Principal.equal)) {
         case (?entry) {};
         case (_) {
-          let (map, _) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, null);
+          let (map, _) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ?null);
           sourceCanistersStreamMap := map;
         };
       };
