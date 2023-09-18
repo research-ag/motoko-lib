@@ -46,6 +46,9 @@ module {
     /// returns timestamp when stream received last chunk
     public func lastChunkReceived() : Time.Time = lastChunkReceived_;
 
+    /// total amount of items, ever received
+    public func length() : Nat = expectedNextIndex_;
+
     /// returns flag is receiver closed stream with timeout
     public func isStreamClosed() : Bool = switch (timeout) {
       case (?to)(Time.now() - lastChunkReceived_) > to;

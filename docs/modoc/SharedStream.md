@@ -32,6 +32,14 @@ func lastChunkReceived() : Time.Time
 returns timestamp when stream received last chunk
 
 
+### Function `length`
+``` motoko
+func length() : Nat
+```
+
+total amount of items, ever received
+
+
 ### Function `isStreamClosed`
 ``` motoko
 func isStreamClosed() : Bool
