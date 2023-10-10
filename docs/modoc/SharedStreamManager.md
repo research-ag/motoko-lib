@@ -98,6 +98,14 @@ func registerSourceCanister(p : Principal) : ()
 register new cross-canister stream
 
 
+### Function `deregisterSourceCanister`
+``` motoko
+func deregisterSourceCanister(p : Principal) : ()
+```
+
+deregister cross-canister stream
+
+
 ### Function `share`
 ``` motoko
 func share() : StableData

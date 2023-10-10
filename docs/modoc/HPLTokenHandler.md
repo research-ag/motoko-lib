@@ -105,13 +105,6 @@ type GlobalId = (streamId : Nat, queueNumber : Nat)
 
 
 
-### Type `TxStatus`
-``` motoko
-type TxStatus = { _1_ : ?{#awaited : { _0_ : Principal }; #processed : {  }; #dropped : {  }}; _2_ : ?{#failure : ?{#ftTransfer : {#DeletedVirtualAccount; #InsufficientFunds; #InvalidArguments : Text}}; #success : ?{#ftTransfer : { amount : Nat; fee : Nat }}} }
-```
-
-
-
 ### Type `ProcessingError`
 ``` motoko
 type ProcessingError = {#TooLargeAssetId; #TooLargeFtQuantity; #TooLargeSubaccountId; #TooLargeVirtualAccountId; #TooLargeMemo; #TooManyFlows; #TooManyContributions; #NonZeroAssetSum; #UnknownPrincipal; #UnknownSubaccount; #UnknownVirtualAccount; #DeletedVirtualAccount; #UnknownFtAsset; #MismatchInAsset; #MismatchInRemotePrincipal; #InsufficientFunds; #NotAController}
@@ -128,7 +121,7 @@ type SubmitAndExecuteError = ProcessingError or {#NotApproved}
 
 ### Type `Ledger`
 ``` motoko
-type Ledger = actor { openVirtualAccount : shared (state : VirtualAccountState) -> async R.Result<VirtualAccountId, ?{#UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount; #InvalidExpirationTime}>; updateVirtualAccount : shared (vid : VirtualAccountId, updates : VirtualAccountUpdateObject) -> async R.Result<{ balance : Nat; delta : Int }, ?{#UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount; #UnknownSubaccount; #MismatchInAsset; #InsufficientFunds; #InvalidExpirationTime}>; virtualAccount : shared (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, ?{#UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount}>; submitAndExecute : shared (tx : TxInput) -> async R.Result<(GlobalId, TxStatus), ?SubmitAndExecuteError> }
+type Ledger = actor { openVirtualAccount : shared (state : VirtualAccountState) -> async R.Result<VirtualAccountId, ?{#UnknownPrincipal; #UnknownSubaccount; #MismatchInAsset; #NoSpaceForAccount; #InvalidExpirationTime}>; updateVirtualAccount : shared (vid : VirtualAccountId, updates : VirtualAccountUpdateObject) -> async R.Result<{ balance : Nat; delta : Int }, ?{#UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount; #UnknownSubaccount; #MismatchInAsset; #InsufficientFunds; #InvalidExpirationTime}>; virtualAccount : shared (vid : VirtualAccountId) -> async R.Result<VirtualAccountState, ?{#UnknownPrincipal; #UnknownVirtualAccount; #DeletedVirtualAccount}>; submitAndExecute : shared (tx : TxInput) -> async R.Result<(GlobalId, {#ftTransfer : { amount : Nat; fee : Nat }}), ?SubmitAndExecuteError> }
 ```
 
 
