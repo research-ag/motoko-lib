@@ -108,7 +108,7 @@ module {
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
     keepAliveSeconds : Nat,
-    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async R.Result<(), ()>,
+    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async* R.Result<(), ()>,
   ) {
     var closed : Bool = false;
     let queue = object {
@@ -244,7 +244,7 @@ module {
       if (nothingToSend(start, end)) return;
       window.send();
       try {
-        switch (await sendFunc(streamId, elements, start, skippedFirst)) {
+        switch (await* sendFunc(streamId, elements, start, skippedFirst)) {
           case (#ok) window.receive(#ok(end));
           case (#err) {
             // This response came from the first batch after the stream's

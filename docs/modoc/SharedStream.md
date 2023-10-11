@@ -65,7 +65,7 @@ func insertItem(item : T) : Nat
 ## Class `StreamSender<T>`
 
 ``` motoko
-class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, keepAliveSeconds : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async R.Result<(), ()>)
+class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, keepAliveSeconds : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async* R.Result<(), ()>)
 ```
 
 Usage:
