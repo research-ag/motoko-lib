@@ -238,8 +238,7 @@ module {
     /// send chunk to the receiver
     public func sendChunk() : async* () {
       if (closed) Debug.trap("Stream closed");
-      if (window.isBusy()) Debug.trap("Stream sender is busy");
-      if (window.hasError()) Debug.trap("Stream sender is paused");
+      if (window.isBusy() or window.hasError()) return;
       let (start, end, elements, skippedFirst) = queue.chunk();
       if (nothingToSend(start, end)) return;
       window.send();
