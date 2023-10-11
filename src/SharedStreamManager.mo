@@ -142,6 +142,15 @@ module {
       };
     };
 
+    /// deregister cross-canister stream
+    public func deregisterSourceCanister(p : Principal) : () {
+      let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, null);
+      switch (oldValue) {
+        case (?x) sourceCanistersStreamMap := map;
+        case (null) {};
+      };
+    };
+
     public func share() : StableData {
       let streamsVec : Vec.Vector<StableStreamInfo> = Vec.new();
       for (info in Vec.vals(streams_)) {

@@ -108,7 +108,7 @@ module {
     weightFunc : (item : T) -> Nat,
     maxConcurrentChunks : Nat,
     keepAliveSeconds : Nat,
-    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async R.Result<(), ()>,
+    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async* R.Result<(), ()>,
   ) {
     var closed : Bool = false;
     let queue = object {
@@ -238,13 +238,12 @@ module {
     /// send chunk to the receiver
     public func sendChunk() : async* () {
       if (closed) Debug.trap("Stream closed");
-      if (window.isBusy()) Debug.trap("Stream sender is busy");
-      if (window.hasError()) Debug.trap("Stream sender is paused");
+      if (window.isBusy() or window.hasError()) return;
       let (start, end, elements, skippedFirst) = queue.chunk();
       if (nothingToSend(start, end)) return;
       window.send();
       try {
-        switch (await sendFunc(streamId, elements, start, skippedFirst)) {
+        switch (await* sendFunc(streamId, elements, start, skippedFirst)) {
           case (#ok) window.receive(#ok(end));
           case (#err) {
             // This response came from the first batch after the stream's
