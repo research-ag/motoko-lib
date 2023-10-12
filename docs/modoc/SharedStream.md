@@ -126,6 +126,14 @@ func isBusy() : Bool
 check busy status of sender
 
 
+### Function `busyLevel`
+``` motoko
+func busyLevel() : Nat
+```
+
+check busy level of sender, e.g. current amount of outgoing calls in flight
+
+
 ### Function `isStreamClosed`
 ``` motoko
 func isStreamClosed() : Bool
