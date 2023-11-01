@@ -16,16 +16,24 @@ module {
   type StableDataItem = { #counter : Nat; #gauge : (Nat, Nat) };
   public type StableData = AssocList.AssocList<Text, StableDataItem>;
 
-  type ValueRefMixin = { value : () -> Nat; remove : () -> () };
-  /// A reference to pull value
-  public type PullValueRef = ValueRefMixin;
-  /// A reference to accumulator value
-  public type AccumulatorValueRef = ValueRefMixin and {
+  /// An access interface for pull value
+  public type PullValueInterface = {
+    value : () -> Nat;
+    remove : () -> ();
+  };
+  /// An access interface for counter value
+  public type CounterInterface = {
+    value : () -> Nat;
     set : (x : Nat) -> ();
     add : (x : Nat) -> ();
+    remove : () -> ();
   };
-  /// A reference to gauge value
-  public type GaugeValueRef = ValueRefMixin and { update : (x : Nat) -> () };
+  /// An access interface for gauge value
+  public type GaugeInterface = {
+    value : () -> Nat;
+    update : (x : Nat) -> ();
+    remove : () -> ();
+  };
 
   /// Value tracker, designed specifically to use as source for Prometheus.
   ///
@@ -62,14 +70,13 @@ module {
   public class PromTracker(watermarkResetIntervalSeconds : Nat) {
 
     type IValue = {
+      prefix : Text;
       dump : () -> [(Text, Nat)];
-      prefix : () -> Text;
       share : () -> ?StableDataItem;
       unshare : (StableDataItem) -> ();
     };
-    let values_ : Vec.Vector<?IValue> = Vec.new<?IValue>();
 
-    func removeValue(id : Nat) : () = Vec.put(values_, id, null);
+    let values_ : Vec.Vector<?IValue> = Vec.new<?IValue>();
 
     /// Add a stateless value, which outputs value, returned by provided `pull` function on demand
     ///
@@ -77,12 +84,12 @@ module {
     /// ```motoko
     /// let storageSize = tracker.addPullValue("storage_size", func() = storage.size());
     /// ```
-    public func addPullValue(prefix : Text, pull : () -> Nat) : PullValueRef {
+    public func addPullValue(prefix : Text, pull : () -> Nat) : PullValueInterface {
       let id = Vec.size(values_);
       let value = PullValue(prefix, pull);
       Vec.add(values_, ?value);
       {
-        value = value.value;
+        value = pull;
         remove = func() = removeValue(id);
       };
     };
@@ -96,12 +103,12 @@ module {
     /// requestsAmount.add(3);
     /// requestsAmount.add(1);
     /// ```
-    public func addCounter(prefix : Text, isStable : Bool) : AccumulatorValueRef {
+    public func addCounter(prefix : Text, isStable : Bool) : CounterInterface {
       let id = Vec.size(values_);
-      let value = AccumulatorValue(prefix, isStable);
+      let value = CounterValue(prefix, isStable);
       Vec.add(values_, ?value);
       {
-        value = value.value;
+        value = func() = value.value;
         set = value.set;
         add = value.add;
         remove = func() = removeValue(id);
@@ -118,12 +125,12 @@ module {
     /// requestDuration.update(123);
     /// requestDuration.update(101);
     /// ```
-    public func addGauge(prefix : Text, isStable : Bool) : GaugeValueRef {
+    public func addGauge(prefix : Text, isStable : Bool) : GaugeInterface {
       let id = Vec.size(values_);
       let value = GaugeValue(prefix, watermarkResetIntervalSeconds, isStable);
       Vec.add(values_, ?value);
       {
-        value = value.lastValue;
+        value = func() = value.lastValue;
         update = value.update;
         remove = func() = removeValue(id);
       };
@@ -145,6 +152,8 @@ module {
       ignore addPullValue("stablememory_size", func() = Nat64.toNat(StableMemory.size()));
     };
 
+    func removeValue(id : Nat) : () = Vec.put(values_, id, null);
+
     /// Dump all current stats to array
     public func dump() : [(Text, Nat)] {
       let result : Vec.Vector<(Text, Nat)> = Vec.new();
@@ -160,7 +169,7 @@ module {
     func renderSingle(name : Text, value : Text, timestamp : Text) : Text = name # "{} " # value # " " # timestamp # "\n";
 
     /// Render all current stats to prometheus format
-    public func renderStats() : Text {
+    public func renderExposition() : Text {
       let timestamp = Int.toText(Time.now() / 1000000);
       var res = "";
       for ((name, value) in dump().vals()) {
@@ -176,7 +185,7 @@ module {
         switch (value) {
           case (?v) switch (v.share()) {
             case (?data) {
-              res := AssocList.replace(res, v.prefix(), Text.equal, ?data).0;
+              res := AssocList.replace(res, v.prefix, Text.equal, ?data).0;
             };
             case (_) {};
           };
@@ -190,7 +199,7 @@ module {
     public func unshare(data : StableData) : () {
       for (value in Vec.vals(values_)) {
         switch (value) {
-          case (?v) switch (AssocList.find(data, v.prefix(), Text.equal)) {
+          case (?v) switch (AssocList.find(data, v.prefix, Text.equal)) {
             case (?data) v.unshare(data);
             case (_) {};
           };
@@ -202,87 +211,78 @@ module {
   };
 
   class PullValue(prefix_ : Text, pull : () -> Nat) {
+    public let prefix = prefix_;
 
-    public func value() : Nat = pull();
+    public func dump() : [(Text, Nat)] = [(prefix, pull())];
 
-    public func dump() : [(Text, Nat)] = [(prefix_, pull())];
-
-    public func prefix() : Text = prefix_;
     public func share() : ?StableDataItem = null;
     public func unshare(data : StableDataItem) = ();
   };
 
-  class AccumulatorValue(prefix_ : Text, isStable : Bool) {
-    var value_ = 0;
+  class CounterValue(prefix_ : Text, isStable : Bool) {
+    public let prefix = prefix_;
 
-    public func value() : Nat = value_;
-    public func add(n : Nat) { value_ += n };
-    public func set(n : Nat) { value_ := n };
+    public var value = 0;
 
-    public func dump() : [(Text, Nat)] = [(prefix_, value_)];
+    public func add(n : Nat) { value += n };
+    public func set(n : Nat) { value := n };
 
-    public func prefix() : Text = prefix_;
+    public func dump() : [(Text, Nat)] = [(prefix, value)];
+
     public func share() : ?StableDataItem {
       if (not isStable) return null;
-      ? #counter(value_);
+      ? #counter(value);
     };
     public func unshare(data : StableDataItem) = switch (data) {
-      case (#counter x) value_ := x;
+      case (#counter x) value := x;
       case (_) {};
     };
   };
 
   class GaugeValue(prefix_ : Text, watermarkResetIntervalSeconds : Nat, isStable : Bool) {
+    public let prefix = prefix_;
 
     class WatermarkTracker<T>(default : T, condition : (old : T, new : T) -> Bool, resetIntervalSeconds : Nat) {
       var lastWatermarkTimestamp : Time.Time = 0;
-      var val : T = default;
-      public func value() : T = val;
+      public var value : T = default;
       public func update(current : T) {
-        if (condition(val, current)) {
-          val := current;
+        if (condition(value, current)) {
+          value := current;
           lastWatermarkTimestamp := Time.now();
         } else if (Time.now() > lastWatermarkTimestamp + resetIntervalSeconds * 1_000_000_000) {
-          val := current;
+          value := current;
         };
       };
     };
 
-    var count_ : Nat = 0;
-    var sum_ : Nat = 0;
-    var highWatermark_ : WatermarkTracker<Nat> = WatermarkTracker<Nat>(0, func(old, new) = new > old, watermarkResetIntervalSeconds);
-    var lowWatermark_ : WatermarkTracker<Nat> = WatermarkTracker<Nat>(0, func(old, new) = new < old, watermarkResetIntervalSeconds);
-    var lastVal_ : Nat = 0;
-
-    public func lastValue() : Nat = lastVal_;
-    public func count() : Nat = count_;
-    public func sum() : Nat = sum_;
-    public func highWatermark() : Nat = highWatermark_.value();
-    public func lowWatermark() : Nat = lowWatermark_.value();
+    public var count : Nat = 0;
+    public var sum : Nat = 0;
+    public var highWatermark : WatermarkTracker<Nat> = WatermarkTracker<Nat>(0, func(old, new) = new > old, watermarkResetIntervalSeconds);
+    public var lowWatermark : WatermarkTracker<Nat> = WatermarkTracker<Nat>(0, func(old, new) = new < old, watermarkResetIntervalSeconds);
+    public var lastValue : Nat = 0;
 
     public func update(current : Nat) {
-      count_ += 1;
-      sum_ += current;
-      highWatermark_.update(current);
-      lowWatermark_.update(current);
+      count += 1;
+      sum += current;
+      highWatermark.update(current);
+      lowWatermark.update(current);
     };
 
     public func dump() : [(Text, Nat)] = [
-      (prefix_ # "_sum", sum()),
-      (prefix_ # "_count", count()),
-      (prefix_ # "_high_watermark", highWatermark()),
-      (prefix_ # "_low_watermark", lowWatermark()),
+      (prefix # "_sum", sum),
+      (prefix # "_count", count),
+      (prefix # "_high_watermark", highWatermark.value),
+      (prefix # "_low_watermark", lowWatermark.value),
     ];
 
-    public func prefix() : Text = prefix_;
     public func share() : ?StableDataItem {
       if (not isStable) return null;
-      ? #gauge(count_, sum_);
+      ? #gauge(count, sum);
     };
     public func unshare(data : StableDataItem) = switch (data) {
       case (#gauge(c, s)) {
-        count_ := c;
-        sum_ := s;
+        count := c;
+        sum := s;
       };
       case (_) {};
     };

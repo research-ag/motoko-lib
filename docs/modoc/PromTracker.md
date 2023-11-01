@@ -6,26 +6,26 @@ type StableData = AssocList.AssocList<Text, StableDataItem>
 ```
 
 
-## Type `PullValueRef`
+## Type `PullValueInterface`
 ``` motoko
-type PullValueRef = ValueRefMixin
+type PullValueInterface = { value : () -> Nat; remove : () -> () }
 ```
 
-A reference to pull value
+An access interface for pull value
 
-## Type `AccumulatorValueRef`
+## Type `CounterInterface`
 ``` motoko
-type AccumulatorValueRef = ValueRefMixin and { set : (x : Nat) -> (); add : (x : Nat) -> () }
+type CounterInterface = { value : () -> Nat; set : (x : Nat) -> (); add : (x : Nat) -> (); remove : () -> () }
 ```
 
-A reference to accumulator value
+An access interface for counter value
 
-## Type `GaugeValueRef`
+## Type `GaugeInterface`
 ``` motoko
-type GaugeValueRef = ValueRefMixin and { update : (x : Nat) -> () }
+type GaugeInterface = { value : () -> Nat; update : (x : Nat) -> (); remove : () -> () }
 ```
 
-A reference to gauge value
+An access interface for gauge value
 
 ## Class `PromTracker`
 
@@ -68,7 +68,7 @@ heartbeat_duration_low_watermark{} 10 1698842860811
 
 ### Function `addPullValue`
 ``` motoko
-func addPullValue(prefix : Text, pull : () -> Nat) : PullValueRef
+func addPullValue(prefix : Text, pull : () -> Nat) : PullValueInterface
 ```
 
 Add a stateless value, which outputs value, returned by provided `pull` function on demand
@@ -81,7 +81,7 @@ let storageSize = tracker.addPullValue("storage_size", func() = storage.size());
 
 ### Function `addCounter`
 ``` motoko
-func addCounter(prefix : Text, isStable : Bool) : AccumulatorValueRef
+func addCounter(prefix : Text, isStable : Bool) : CounterInterface
 ```
 
 Add an accumulating counter
@@ -97,7 +97,7 @@ requestsAmount.add(1);
 
 ### Function `addGauge`
 ``` motoko
-func addGauge(prefix : Text, isStable : Bool) : GaugeValueRef
+func addGauge(prefix : Text, isStable : Bool) : GaugeInterface
 ```
 
 Add a gauge value for ever changing value, with ability to catch the highest and lowest value during interval, set on tracker instance.
@@ -128,9 +128,9 @@ func dump() : [(Text, Nat)]
 Dump all current stats to array
 
 
-### Function `renderStats`
+### Function `renderExposition`
 ``` motoko
-func renderStats() : Text
+func renderExposition() : Text
 ```
 
 Render all current stats to prometheus format
