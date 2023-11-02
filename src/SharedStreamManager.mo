@@ -13,15 +13,36 @@ module {
 
   public type StreamSource = { #canister : Principal; #internal };
 
+  /*
   public type StreamInfo<T> = {
     source : StreamSource;
-    var nextItemId : Nat;
-    var receiver : ?SharedStream.StreamReceiver<T>;
+    var state : {
+      #open : SharedStream.StreamReceiver<T>;
+      #closed : Nat;
+    };
+  };
+  */
+
+  public type StreamInfoState<T> = {
+    #open : SharedStream.StreamReceiver<T>;
+    #closed : Nat;
+  };
+
+  public class StreamInfo<T>(
+    source_ : StreamSource,
+    state_ : StreamInfoState<T>,
+  ) {
+    public let source : StreamSource = source_;
+    public var state : StreamInfoState<T> = state_;
+    public func close() {
+      let #open r = state else return;
+      state := #closed(r.length());
+    };
   };
 
   type StableStreamInfo = {
     source : StreamSource;
-    nextItemId : Nat;
+    lastLength : Nat;
     active : Bool;
   };
 
@@ -40,7 +61,7 @@ module {
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
   public class StreamsManager<T>(
     initialSourceCanisters : [Principal],
-    itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Any,
+    itemCallback : (streamId : Nat, item : T, index : Nat) -> (),
   ) {
 
     // info about each issued stream id is preserved here forever. Index is a stream ID
@@ -69,9 +90,9 @@ module {
         func(p, n) = (
           p,
           switch (Option.flatten(Option.map(n, getStream))) {
-            case (?stream) switch (stream.receiver) {
-              case (?r) if (r.isStreamClosed()) { 0 } else { 1 };
-              case (null) 0;
+            case (?stream) switch (stream.state) {
+              case (#open r) if (r.isClosed()) { 0 } else { 1 };
+              case (#closed _) 0;
             };
             case (_) 0;
           },
@@ -105,7 +126,14 @@ module {
           let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ??id);
           sourceCanistersStreamMap := map;
           switch (oldValue) {
-            case (??sid) Vec.get(streams_, sid).receiver := null;
+            case (??sid) {
+              let info = Vec.get(streams_, sid);
+              let len = switch (info.state) {
+                case (#open r) r.length();
+                case (#closed _) { Debug.trap("cannot happen") };
+              };
+              info.state := #closed len;
+            };
             case (?null) {};
             case (null) Debug.trap("Principal " # Principal.toText(p) # " not registered as stream source");
           };
@@ -114,21 +142,16 @@ module {
           closeStreamTimeoutSeconds := null;
         };
       };
+      let r = SharedStream.StreamReceiver<T>(0, closeStreamTimeoutSeconds, streamItemCallback(id));
       Vec.add(
         streams_,
-        {
-          source = source;
-          var nextItemId = 0;
-          var receiver = ?SharedStream.StreamReceiver<T>(id, 0, closeStreamTimeoutSeconds, streamItemCallback);
-        },
+        StreamInfo<T>(source, #open(r))
       );
       #ok id;
     };
 
-    func streamItemCallback(streamId : Nat, item : ?T, index : Nat) {
-      let stream = Vec.get(streams_, streamId);
-      stream.nextItemId += 1;
-      ignore itemCallback(streamId, item, index);
+    func streamItemCallback(streamId : Nat) : (T, Nat) -> () {
+      func(item, index) = itemCallback(streamId, item, index);
     };
 
     /// register new cross-canister stream
@@ -149,10 +172,13 @@ module {
           streamsVec,
           {
             source = info.source;
-            nextItemId = info.nextItemId;
-            active = switch (info.receiver) {
-              case (?r) true;
-              case (null) false;
+            lastLength = switch (info.state) {
+              case (#open r) r.length();
+              case (#closed len) len;
+            };
+            active = switch (info.state) {
+              case (#open _) true;
+              case (#closed _) false;
             };
           },
         );
@@ -165,22 +191,23 @@ module {
       for ((info, id) in Vec.items(d.0)) {
         Vec.add(
           streams_,
-          {
-            source = info.source;
-            var nextItemId = info.nextItemId;
-            var receiver = switch (info.active) {
-              case (true) ?SharedStream.StreamReceiver<T>(
-                id,
-                info.nextItemId,
-                switch (info.source) {
-                  case (#canister _) ?120;
-                  case (#internal) null;
-                },
-                streamItemCallback,
+          StreamInfo<T>(
+            info.source,
+            switch (info.active) {
+              case (true) #open(
+                SharedStream.StreamReceiver<T>(
+                  info.lastLength,
+                  switch (info.source) {
+                    case (#canister _) ?120;
+                    case (#internal) null;
+                  },
+                  streamItemCallback(id),
+                )
               );
-              case (false) null;
-            };
-          },
+              case (false) #closed(
+                info.lastLength
+              );
+            })
         );
       };
       sourceCanistersStreamMap := d.1;

@@ -1,12 +1,8 @@
 import Debug "mo:base/Debug";
 import Error "mo:base/Error";
-import Iter "mo:base/Iter";
-import Nat "mo:base/Nat";
 import R "mo:base/Result";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
-import Option "mo:base/Option";
-
 import SWB "mo:swb";
 
 module {
@@ -29,16 +25,19 @@ module {
   /// calling code should not catch the throw so that it gets passed through to
   /// the enclosing async expression of the calling code.
   public class StreamReceiver<T>(
-    streamId : Nat,
-    startFromIndex : Nat,
-    closeStreamTimeoutSeconds : ?Nat,
-    itemCallback : (streamId : Nat, item : ?T, index : Nat) -> (),
+    startIndex : Nat,
+    timeoutSeconds : ?Nat,
+    itemCallback : (item : T, index : Nat) -> (),
+    // itemCallback is custom made per-stream and contains the streamId
   ) {
 
-    var expectedNextIndex_ : Nat = startFromIndex;
+    var expectedNextIndex_ : Nat = startIndex;
+    // rename to length_?
     var lastChunkReceived_ : Time.Time = Time.now();
 
-    let timeout : ?Nat = switch (closeStreamTimeoutSeconds) {
+    public func length() : Nat = expectedNextIndex_;
+
+    let timeout : ?Nat = switch (timeoutSeconds) {
       case (?s) ?(s * 1_000_000_000);
       case (null) null;
     };
@@ -47,35 +46,31 @@ module {
     public func lastChunkReceived() : Time.Time = lastChunkReceived_;
 
     /// returns flag is receiver closed stream with timeout
-    public func isStreamClosed() : Bool = switch (timeout) {
+    public func isClosed() : Bool = switch (timeout) {
       case (?to)(Time.now() - lastChunkReceived_) > to;
       case (null) false;
     };
 
     /// a function, should be called by shared function or stream manager
-    public func onChunk(chunk : [T], firstIndex : Nat, skippedFirst : Bool) : async* R.Result<(), ()> {
+    // This function is async* so that can throw an Error.
+    // It does not make any subsequent calls.
+    public func onChunk(chunk : [T], firstIndex : Nat) : async* Bool {
       if (firstIndex != expectedNextIndex_) {
         throw Error.reject("Broken pipe in StreamReceiver");
       };
-      if (isStreamClosed()) {
-        return #err;
-      };
+      if (isClosed()) return false;
       lastChunkReceived_ := Time.now();
       var startIndex = firstIndex;
-      if (skippedFirst) {
-        itemCallback(streamId, null, firstIndex);
-        startIndex += 1;
-      };
-      for (index in chunk.keys()) {
-        itemCallback(streamId, ?chunk[index], startIndex + index);
+      for (i in chunk.keys()) {
+        itemCallback(chunk[i], startIndex + i);
       };
       expectedNextIndex_ := startIndex + chunk.size();
-      #ok;
+      return true;
     };
 
     // should be used only in internal streams
     public func insertItem(item : T) : Nat {
-      itemCallback(streamId, ?item, expectedNextIndex_);
+      itemCallback(item, expectedNextIndex_);
       expectedNextIndex_ += 1;
       expectedNextIndex_ - 1;
     };
@@ -98,24 +93,19 @@ module {
   /// await* sender.sendChunk(); // will send (123, [1..10], 0) to `anotherCanister`
   /// await* sender.sendChunk(); // will send (123, [11..12], 10) to `anotherCanister`
   /// await* sender.sendChunk(); // will do nothing, stream clean
-  public class StreamSender<T>(
-    streamId : Nat,
+  public class StreamSender<T, S>(
     maxQueueSize : ?Nat,
-    weightLimit : Nat,
-    weightFunc : (item : T) -> Nat,
+    counter : { accept(item : T) : Bool; reset() : () },
+    wrapItem : T -> S,
     maxConcurrentChunks : Nat,
     keepAliveSeconds : Nat,
-    sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async R.Result<(), ()>,
+    sendFunc : (items : [S], firstIndex : Nat) -> async* Bool,
+    // TODO Did we already change this to async* in deployment?
   ) {
     var closed : Bool = false;
     let queue = object {
-      // TODO: We currently expose buf to save some public function definitions
-      // We could introduce public pass-through functions if desired.
       public let buf = SWB.SlidingWindowBuffer<T>();
       var head_ : Nat = 0;
-      let weight : T -> Nat = weightFunc;
-      var limit : Nat = weightLimit;
-
       public func head() : Nat = head_;
 
       func pop() : T {
@@ -126,36 +116,22 @@ module {
 
       public func rewind() { head_ := buf.start() };
       public func size() : Nat { buf.end() - head_ : Nat };
-      public func chunk() : (Nat, Nat, [T], Bool) {
+      public func chunk() : (Nat, Nat, [S]) {
         var start = head_;
-        var sum = 0;
         var end = start;
-        // if item has weight more than limit, we drop it. Works only on the first item in chunk
-        var skippedFirst : Bool = false;
+        counter.reset();
         label peekLoop while (true) {
           switch (buf.getOpt(end)) {
             case (null) break peekLoop;
-            case (?it) {
-              let w = weight(it);
-              if (sum + w > limit) {
-                if (end == start) {
-                  // item has bigger weight than weight limit
-                  skippedFirst := true;
-                  ignore pop();
-                } else {
-                  break peekLoop;
-                };
-              } else {
-                sum += w;
-                end += 1;
-              };
+            case (?item) {
+              if (not counter.accept(item)) break peekLoop;
+              end += 1;
             };
           };
         };
-        let elements = Array.tabulate<T>(end - start, func(n) = pop());
-        (start, end, elements, skippedFirst);
+        let elements = Array.tabulate<S>(end - start, func(n) = wrapItem(pop()));
+        (start, end, elements);
       };
-      public func setLimit(weightLimit : Nat) { limit := weightLimit };
     };
 
     /// total amount of items, ever added to the stream sender, also an index, which will be assigned to the next item
@@ -172,13 +148,10 @@ module {
     public func isBusy() : Bool = window.isBusy();
 
     /// returns flag is receiver closed the stream
-    public func isStreamClosed() : Bool = closed;
+    public func isClosed() : Bool = closed;
 
     /// check paused status of sender
     public func isPaused() : Bool = window.hasError();
-
-    /// update weight limit
-    public func setWeightLimit(value : Nat) = queue.setLimit(value);
 
     /// update max amount of concurrent outgoing requests
     public func setMaxConcurrentChunks(value : Nat) = window.maxSize := value;
@@ -190,7 +163,7 @@ module {
     };
 
     /// add item to the stream
-    public func next(item : T) : { #ok : Nat; #err : { #NoSpace } } {
+    public func add(item : T) : { #ok : Nat; #err : { #NoSpace } } {
       switch (maxQueueSize) {
         case (?max) if (queue.buf.len() >= max) {
           return #err(#NoSpace);
@@ -237,13 +210,13 @@ module {
       if (closed) Debug.trap("Stream closed");
       if (window.isBusy()) Debug.trap("Stream sender is busy");
       if (window.hasError()) Debug.trap("Stream sender is paused");
-      let (start, end, elements, skippedFirst) = queue.chunk();
+      let (start, end, elements) = queue.chunk();
       if (nothingToSend(start, end)) return;
       window.send();
       try {
-        switch (await sendFunc(streamId, elements, start, skippedFirst)) {
-          case (#ok) window.receive(#ok(end));
-          case (#err) {
+        switch (await* sendFunc(elements, start)) {
+          case (true) window.receive(#ok(end));
+          case (false) {
             // This response came from the first batch after the stream's
             // closing position, hence `start` is exactly the final length of
             // the stream.
