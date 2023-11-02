@@ -9,7 +9,7 @@ import StableMemory "mo:base/ExperimentalStableMemory";
 import Time "mo:base/Time";
 import Text "mo:base/Text";
 
-import Vec "mo:vector";
+import Vector "mo:vector/Class";
 
 module {
 
@@ -76,7 +76,7 @@ module {
       unshare : (StableDataItem) -> ();
     };
 
-    let values_ : Vec.Vector<?IValue> = Vec.new<?IValue>();
+    let values = Vector.Vector<?IValue>();
 
     /// Add a stateless value, which outputs value, returned by provided `pull` function on demand
     ///
@@ -85,9 +85,9 @@ module {
     /// let storageSize = tracker.addPullValue("storage_size", func() = storage.size());
     /// ```
     public func addPullValue(prefix : Text, pull : () -> Nat) : PullValueInterface {
-      let id = Vec.size(values_);
+      let id = values.size();
       let value = PullValue(prefix, pull);
-      Vec.add(values_, ?value);
+      values.add(?value);
       {
         value = pull;
         remove = func() = removeValue(id);
@@ -104,9 +104,9 @@ module {
     /// requestsAmount.add(1);
     /// ```
     public func addCounter(prefix : Text, isStable : Bool) : CounterInterface {
-      let id = Vec.size(values_);
+      let id = values.size();
       let value = CounterValue(prefix, isStable);
-      Vec.add(values_, ?value);
+      values.add(?value);
       {
         value = func() = value.value;
         set = value.set;
@@ -126,9 +126,9 @@ module {
     /// requestDuration.update(101);
     /// ```
     public func addGauge(prefix : Text, isStable : Bool) : GaugeInterface {
-      let id = Vec.size(values_);
+      let id = values.size();
       let value = GaugeValue(prefix, watermarkResetIntervalSeconds, isStable);
-      Vec.add(values_, ?value);
+      values.add(?value);
       {
         value = func() = value.lastValue;
         update = value.update;
@@ -152,18 +152,18 @@ module {
       ignore addPullValue("stablememory_size", func() = Nat64.toNat(StableMemory.size()));
     };
 
-    func removeValue(id : Nat) : () = Vec.put(values_, id, null);
+    func removeValue(id : Nat) : () = values.put(id, null);
 
     /// Dump all current stats to array
     public func dump() : [(Text, Nat)] {
-      let result : Vec.Vector<(Text, Nat)> = Vec.new();
-      for (v in Vec.vals(values_)) {
+      let result = Vector.Vector<(Text, Nat)>();
+      for (v in values.vals()) {
         switch (v) {
-          case (?value) Vec.addFromIter(result, Iter.fromArray(value.dump()));
+          case (?value) Vector.addFromIter(result, Iter.fromArray(value.dump()));
           case (null) {};
         };
       };
-      Vec.toArray(result);
+      Vector.toArray(result);
     };
 
     func renderSingle(name : Text, value : Text, timestamp : Text) : Text = name # "{} " # value # " " # timestamp # "\n";
@@ -181,7 +181,7 @@ module {
     /// Dump all values, marked as stable, to stable data structure
     public func share() : StableData {
       var res : StableData = null;
-      for (value in Vec.vals(values_)) {
+      for (value in values.vals()) {
         switch (value) {
           case (?v) switch (v.share()) {
             case (?data) {
@@ -197,7 +197,7 @@ module {
 
     /// Patch all values with stable data
     public func unshare(data : StableData) : () {
-      for (value in Vec.vals(values_)) {
+      for (value in values.vals()) {
         switch (value) {
           case (?v) switch (AssocList.find(data, v.prefix, Text.equal)) {
             case (?data) v.unshare(data);
