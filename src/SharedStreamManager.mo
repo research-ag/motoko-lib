@@ -146,7 +146,13 @@ module {
     public func deregisterSourceCanister(p : Principal) : () {
       let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, null);
       switch (oldValue) {
-        case (?x) sourceCanistersStreamMap := map;
+        case (?streamIdOpt) {
+          sourceCanistersStreamMap := map;
+          switch (streamIdOpt) {
+            case (?streamId) Vec.get(streams_, streamId).receiver := null;
+            case (null) {};
+          };
+        };
         case (null) {};
       };
     };
