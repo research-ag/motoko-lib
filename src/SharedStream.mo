@@ -45,6 +45,9 @@ module {
     /// returns timestamp when stream received last chunk
     public func lastChunkReceived() : Time.Time = lastChunkReceived_;
 
+    /// total amount of items, ever received
+    public func length() : Nat = expectedNextIndex_;
+
     /// returns flag is receiver closed stream with timeout
     public func isClosed() : Bool = switch (timeout) {
       case (?to)(Time.now() - lastChunkReceived_) > to;
@@ -147,6 +150,9 @@ module {
     /// check busy status of sender
     public func isBusy() : Bool = window.isBusy();
 
+    /// check busy level of sender, e.g. current amount of outgoing calls in flight
+    public func busyLevel() : Nat = window.size();
+
     /// returns flag is receiver closed the stream
     public func isClosed() : Bool = closed;
 
@@ -177,22 +183,23 @@ module {
     let window = object {
       public var maxSize = maxConcurrentChunks;
       public var lastChunkSent = Time.now();
-      var size = 0;
+      var size_ = 0;
       var error_ = false;
 
-      func isClosed() : Bool { size == 0 }; // if window is closed (not stream)
+      func isClosed() : Bool { size_ == 0 }; // if window is closed (not stream)
       public func hasError() : Bool { error_ };
-      public func isBusy() : Bool { size == maxSize };
+      public func isBusy() : Bool { size_ == maxSize };
+      public func size() : Nat = size_;
       public func send() {
         lastChunkSent := Time.now();
-        size += 1;
+        size_ += 1;
       };
       public func receive(msg : { #ok : Nat; #err }) {
         switch (msg) {
           case (#ok(pos)) queue.buf.deleteTo(pos);
           case (#err) error_ := true;
         };
-        size -= 1;
+        size_ -= 1;
         if (isClosed() and error_) {
           queue.rewind();
           error_ := false;

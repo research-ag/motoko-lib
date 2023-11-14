@@ -32,6 +32,14 @@ func lastChunkReceived() : Time.Time
 returns timestamp when stream received last chunk
 
 
+### Function `length`
+``` motoko
+func length() : Nat
+```
+
+total amount of items, ever received
+
+
 ### Function `isStreamClosed`
 ``` motoko
 func isStreamClosed() : Bool
@@ -57,7 +65,7 @@ func insertItem(item : T) : Nat
 ## Class `StreamSender<T>`
 
 ``` motoko
-class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, keepAliveSeconds : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async R.Result<(), ()>)
+class StreamSender<T>(streamId : Nat, maxQueueSize : ?Nat, weightLimit : Nat, weightFunc : (item : T) -> Nat, maxConcurrentChunks : Nat, keepAliveSeconds : Nat, sendFunc : (streamId : Nat, items : [T], firstIndex : Nat, skippedFirst : Bool) -> async* R.Result<(), ()>)
 ```
 
 Usage:
@@ -116,6 +124,14 @@ func isBusy() : Bool
 ```
 
 check busy status of sender
+
+
+### Function `busyLevel`
+``` motoko
+func busyLevel() : Nat
+```
+
+check busy level of sender, e.g. current amount of outgoing calls in flight
 
 
 ### Function `isStreamClosed`
