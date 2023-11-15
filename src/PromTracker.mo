@@ -254,11 +254,9 @@ module {
       var lastWatermarkTimestamp : Time.Time = 0;
       public var value : T = default;
       public func update(current : T) {
-        if (condition(value, current)) {
+        if (condition(value, current) or now() > lastWatermarkTimestamp + resetIntervalSeconds * 1_000_000_000) {
           value := current;
           lastWatermarkTimestamp := now();
-        } else if (now() > lastWatermarkTimestamp + resetIntervalSeconds * 1_000_000_000) {
-          value := current;
         };
       };
     };
@@ -266,7 +264,7 @@ module {
     public var count : Nat = 0;
     public var sum : Nat = 0;
     public var highWatermark : WatermarkTracker<Nat> = WatermarkTracker<Nat>(0, func(old, new) = new > old, watermarkResetIntervalSeconds);
-    public var lowWatermark : WatermarkTracker<?Nat> = WatermarkTracker<?Nat>(null, func(old, new) = switch (old, new) { case (?o, ?n) { n < o }; case (_) { true } }, watermarkResetIntervalSeconds);
+    public var lowWatermark : WatermarkTracker<Nat> = WatermarkTracker<Nat>(0, func(old, new) = new < old, watermarkResetIntervalSeconds);
     public var lastValue : Nat = 0;
     public let bucketValues : [var Nat] = Array.tabulateVar<Nat>(
       switch (buckets) { case (?b) { b.size() + 1 }; case (null) { 0 } },
@@ -277,7 +275,7 @@ module {
       count += 1;
       sum += current;
       highWatermark.update(current);
-      lowWatermark.update(?current);
+      lowWatermark.update(current);
       switch (buckets) {
         case (null) {};
         case (?b) {
@@ -302,7 +300,7 @@ module {
         case (0)(prefix # "_sum{}", sum);
         case (1)(prefix # "_count{}", count);
         case (2)(prefix # "_high_watermark{}", highWatermark.value);
-        case (3)(prefix # "_low_watermark{}", Option.get(lowWatermark.value, 0));
+        case (3)(prefix # "_low_watermark{}", lowWatermark.value);
         case (_)(
           prefix
           # "_bucket{le=\""
