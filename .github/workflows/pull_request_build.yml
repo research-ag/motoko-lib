@@ -4,8 +4,9 @@ on:
     types: [synchronize, opened, reopened, ready_for_review, unlabeled]
 
 env:
-  mops_version: 0.12.1
-  moc_version: 0.9.0
+  mops_version: latest
+  moc_version: 0.10.2
+  wasmtime_version: 14.0.4
 
 jobs:
   build:
@@ -20,14 +21,14 @@ jobs:
 
       - name: "install Motoko binaries"
         run: |
-          wget https://github.com/dfinity/motoko/releases/download/${{ env.moc_version }}/motoko-linux64-${{ env.moc_version }}.tar.gz
-          tar -xzf motoko-linux64-${{ env.moc_version }}.tar.gz -C /home/runner/bin
+          wget https://github.com/dfinity/motoko/releases/download/${{ env.moc_version }}/motoko-Linux-x86_64-${{ env.moc_version }}.tar.gz
+          tar -xzf motoko-Linux-x86_64-${{ env.moc_version }}.tar.gz -C /home/runner/bin
           echo "/home/runner/bin" >> $GITHUB_PATH
 
       - name: "Install wasmtime"
         run: |
-          curl https://wasmtime.dev/install.sh -sSf | bash
-          echo "/home/runner/.wasmtime/bin" >> $GITHUB_PATH
+          wget https://github.com/bytecodealliance/wasmtime/releases/download/v${{ env.wasmtime_version }}/wasmtime-v${{ env.wasmtime_version }}-x86_64-linux.tar.xz
+          tar -xf wasmtime-v${{ env.wasmtime_version }}-x86_64-linux.tar.xz --transform='s/.*\///' -C /home/runner/bin
 
       - name: "install mops"
         run: |          
