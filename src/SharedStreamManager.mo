@@ -166,7 +166,7 @@ module {
             source = info.source;
             nextItemId = info.nextItemId;
             active = switch (info.receiver) {
-              case (?r) true;
+              case (?r) not r.isStreamClosed();
               case (null) false;
             };
           },
