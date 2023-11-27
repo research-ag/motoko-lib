@@ -192,7 +192,7 @@ module {
               case (#closed len) len;
             };
             active = switch (info.state) {
-              case (#open _) true;
+              case (#open r) not r.isStreamClosed();
               case (#closed _) false;
             };
           },
