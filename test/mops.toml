@@ -1,5 +1,5 @@
 [dependencies]
-base = "0.10.1"
+base = "0.10.2"
 matchers = "https://github.com/kritzcreek/motoko-matchers#3dac8a071b69e4e651b25a7d9683fe831eb7cffd"
-vector = "0.1.2"
+vector = "0.2.0"
 swb = "1.0.0"
