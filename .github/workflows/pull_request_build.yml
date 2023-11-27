@@ -22,7 +22,7 @@ jobs:
       - name: "Install wasmtime"
         run: |
           wget https://github.com/bytecodealliance/wasmtime/releases/download/v${{ env.wasmtime_version }}/wasmtime-v${{ env.wasmtime_version }}-x86_64-linux.tar.xz
-          tar -xzf wasmtime-v${{ env.wasmtime_version }}-x86_64-linux.tar.xz -C /home/runner/bin
+          tar -xf wasmtime-v${{ env.wasmtime_version }}-x86_64-linux.tar.xz -C /home/runner/bin
 
       - name: "install Motoko binaries"
         run: |
