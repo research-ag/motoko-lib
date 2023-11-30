@@ -7,11 +7,12 @@ import Principal "mo:base/Principal";
 import R "mo:base/Result";
 import Time "mo:base/Time";
 
-import StreamSender "mo:streams/StreamSender";
 import StreamReceiver "mo:streams/StreamReceiver";
+import { StreamReceiver = Receiver } "mo:streams/StreamReceiver";
 import Vec "mo:vector";
 
 module {
+  type Receiver<T> = StreamReceiver.StreamReceiver<T>;
 
   let TIMEOUT = 120_000_000_000;
 
@@ -20,7 +21,7 @@ module {
   public type StreamInfo<T> = {
     source : StreamSource;
     var nextItemId : Nat;
-    var receiver : ?StreamReceiver.StreamReceiver<T>;
+    var receiver : ?Receiver<T>;
   };
 
   type StableStreamInfo = {
@@ -194,7 +195,7 @@ module {
       sourceCanistersStreamMap := d.1;
     };
 
-    func createReceiver(streamId : Nat, nextItemId : Nat, source : StreamSource) : StreamReceiver.StreamReceiver<T> = StreamReceiver.StreamReceiver<T>(
+    func createReceiver(streamId : Nat, nextItemId : Nat, source : StreamSource) : Receiver<T> = Receiver<T>(
       nextItemId,
       switch (source) {
         case (#canister _) ?(TIMEOUT, Time.now);
