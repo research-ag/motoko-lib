@@ -18,11 +18,9 @@ module {
   public type StreamSource = { #canister : Principal; #internal };
 
   public type StreamInfo<T> = {
-    var source : {
-      #canister : (Principal, ?StreamReceiver.StreamReceiver<T>);
-      #internal : ?InternalStreamReceiver<T>;
-    };
+    source : StreamSource;
     var nextItemId : Nat;
+    var receiver : ?StreamReceiver.StreamReceiver<T>;
   };
 
   type StableStreamInfo = {
@@ -41,22 +39,6 @@ module {
       l := upd;
     };
     l;
-  };
-
-  public class InternalStreamReceiver<T>(
-    startPos : Nat,
-    itemCallback : (pos : Nat, item : T) -> (),
-  ) {
-
-    var length_ : Nat = startPos;
-
-    public func length() : Nat = length_;
-
-    public func insertItem(it : T) : Nat {
-      itemCallback(length_, it);
-      length_ += 1;
-      length_ - 1;
-    };
   };
 
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
@@ -91,12 +73,9 @@ module {
         func(p, n) = (
           p,
           switch (Option.map(n, getStream)) {
-            case (??stream) switch (stream.source) {
-              case (#canister(_, receiver)) switch (receiver) {
-                case (?r) if (r.hasTimedOut()) { 0 } else { 1 };
-                case (null) 0;
-              };
-              case (_) 0;
+            case (??stream) switch (stream.receiver) {
+              case (?r) if (r.hasTimedOut()) { 0 } else { 1 };
+              case (null) 0;
             };
             case (_) 0;
           },
@@ -115,58 +94,42 @@ module {
       switch (Vec.getOpt(streams_, streamId)) {
         case (null) null;
         case (?info) switch (info.source) {
-          case (#canister(p, _)) ?p;
+          case (#canister p) ?p;
           case (_) null;
         };
       };
     };
 
-    func clearReceiver(streamId : Nat) : () {
-      let info = Vec.get(streams_, streamId);
-      switch (info.source) {
-        case (#canister(p, _)) info.source := #canister(p, null);
-        case (#internal _) info.source := #internal(null);
-      };
-    };
-
-    func streamItemCallback(streamId : Nat, item : T, index : Nat) {
-      let stream = Vec.get(streams_, streamId);
-      stream.nextItemId += 1;
-      ignore itemCallback(streamId, ?item, index);
-    };
-
     /// register new stream
     public func issueStreamId(source : StreamSource) : R.Result<Nat, { #NotRegistered }> {
       let id = Vec.size(streams_);
-      let cb = func(pos : Nat, item : T) = streamItemCallback(id, item, pos);
       switch (source) {
         case (#canister p) {
           let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ??id);
           sourceCanistersStreamMap := map;
           switch (oldValue) {
-            case (??sid) clearReceiver(sid);
+            case (??sid) Vec.get(streams_, sid).receiver := null;
             case (?null) {};
             case (null) Prim.trap("Principal " # Principal.toText(p) # " not registered as stream source");
           };
-          Vec.add<StreamInfo<T>>(
-            streams_,
-            {
-              var source = #canister(p, ?StreamReceiver.StreamReceiver<T>(0, ?(TIMEOUT, Time.now), cb));
-              var nextItemId = 0;
-            },
-          );
         };
-        case (#internal) {
-          Vec.add<StreamInfo<T>>(
-            streams_,
-            {
-              var source = #internal(?InternalStreamReceiver(0, cb));
-              var nextItemId = 0;
-            },
-          );
-        };
+        case (#internal) {};
       };
+      Vec.add(
+        streams_,
+        {
+          source = source;
+          var nextItemId = 0;
+          var receiver = ?createReceiver(id, 0, source);
+        },
+      );
       #ok id;
+    };
+
+    func streamItemCallback(streamId : Nat, item : ?T, index : Nat) {
+      let stream = Vec.get(streams_, streamId);
+      stream.nextItemId += 1;
+      ignore itemCallback(streamId, item, index);
     };
 
     /// register new cross-canister stream
@@ -187,7 +150,7 @@ module {
         case (?streamIdOpt) {
           sourceCanistersStreamMap := map;
           switch (streamIdOpt) {
-            case (?streamId) clearReceiver(streamId);
+            case (?streamId) Vec.get(streams_, streamId).receiver := null;
             case (null) {};
           };
         };
@@ -200,20 +163,13 @@ module {
       for (info in Vec.vals(streams_)) {
         Vec.add(
           streamsVec,
-          switch (info.source) {
-            case (#canister(p, r))({
-              source = #canister(p);
-              nextItemId = info.nextItemId;
-              active = switch (r) {
-                case (?rec) not rec.hasTimedOut();
-                case (null) false;
-              };
-            });
-            case (#internal r)({
-              source = #internal;
-              nextItemId = info.nextItemId;
-              active = not Option.isNull(r);
-            });
+          {
+            source = info.source;
+            nextItemId = info.nextItemId;
+            active = switch (info.receiver) {
+              case (?r) not r.hasTimedOut();
+              case (null) false;
+            };
           },
         );
       };
@@ -223,31 +179,30 @@ module {
     public func unshare(d : StableData) {
       Vec.clear(streams_);
       for ((info, id) in Vec.items(d.0)) {
-        let cb = func(pos : Nat, item : T) = streamItemCallback(id, item, pos);
         Vec.add(
           streams_,
           {
-            var source = switch (info.source) {
-              case (#canister p) #canister(
-                p,
-                switch (info.active) {
-                  case (true) ?StreamReceiver.StreamReceiver<T>(info.nextItemId, ?(TIMEOUT, Time.now), cb);
-                  case (false) null;
-                },
-              );
-              case (#internal) #internal(
-                switch (info.active) {
-                  case (true) ?InternalStreamReceiver<T>(info.nextItemId, cb);
-                  case (false) null;
-                }
-              );
-            };
+            source = info.source;
             var nextItemId = info.nextItemId;
+            var receiver = switch (info.active) {
+              case (true) ?createReceiver(id, info.nextItemId, info.source);
+              case (false) null;
+            };
           },
         );
       };
       sourceCanistersStreamMap := d.1;
     };
+
+    func createReceiver(streamId : Nat, nextItemId : Nat, source : StreamSource) : StreamReceiver.StreamReceiver<T> = StreamReceiver.StreamReceiver<T>(
+      nextItemId,
+      switch (source) {
+        case (#canister _) ?(TIMEOUT, Time.now);
+        case (#internal) null;
+      },
+      func(pos : Nat, item : T) = streamItemCallback(streamId, ?item, pos),
+    );
+
   };
 
 };

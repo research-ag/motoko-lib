@@ -2,4 +2,4 @@
 base = "0.10.2"
 vector = "0.2.0"
 swb = "1.0.0"
-streams = "https://github.com/research-ag/streams#487650dad73224135ff53561b85bcd93b86c4cc6"
+streams = "https://github.com/research-ag/streams#dc4d801b560a13bd537f8d6f843d2cad21c55366"
