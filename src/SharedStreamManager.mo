@@ -1,22 +1,27 @@
 import AssocList "mo:base/AssocList";
-import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import List "mo:base/List";
 import Option "mo:base/Option";
+import Prim "mo:prim";
 import Principal "mo:base/Principal";
 import R "mo:base/Result";
+import Time "mo:base/Time";
 
+import StreamReceiver "mo:streams/StreamReceiver";
+import { StreamReceiver = Receiver } "mo:streams/StreamReceiver";
 import Vec "mo:vector";
-import SharedStream "SharedStream";
 
 module {
+  type Receiver<T> = StreamReceiver.StreamReceiver<T>;
+
+  let TIMEOUT = 120_000_000_000;
 
   public type StreamSource = { #canister : Principal; #internal };
 
   public type StreamInfo<T> = {
     source : StreamSource;
     var nextItemId : Nat;
-    var receiver : ?SharedStream.StreamReceiver<T>;
+    var receiver : ?Receiver<T>;
   };
 
   type StableStreamInfo = {
@@ -68,9 +73,9 @@ module {
         List.toIter(sourceCanistersStreamMap),
         func(p, n) = (
           p,
-          switch (Option.flatten(Option.map(n, getStream))) {
-            case (?stream) switch (stream.receiver) {
-              case (?r) if (r.isStreamClosed()) { 0 } else { 1 };
+          switch (Option.map(n, getStream)) {
+            case (??stream) switch (stream.receiver) {
+              case (?r) if (r.hasTimedOut()) { 0 } else { 1 };
               case (null) 0;
             };
             case (_) 0;
@@ -99,7 +104,6 @@ module {
     /// register new stream
     public func issueStreamId(source : StreamSource) : R.Result<Nat, { #NotRegistered }> {
       let id = Vec.size(streams_);
-      var closeStreamTimeoutSeconds : ?Nat = ?120;
       switch (source) {
         case (#canister p) {
           let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ??id);
@@ -107,19 +111,17 @@ module {
           switch (oldValue) {
             case (??sid) Vec.get(streams_, sid).receiver := null;
             case (?null) {};
-            case (null) Debug.trap("Principal " # Principal.toText(p) # " not registered as stream source");
+            case (null) Prim.trap("Principal " # Principal.toText(p) # " not registered as stream source");
           };
         };
-        case (#internal) {
-          closeStreamTimeoutSeconds := null;
-        };
+        case (#internal) {};
       };
       Vec.add(
         streams_,
         {
           source = source;
           var nextItemId = 0;
-          var receiver = ?SharedStream.StreamReceiver<T>(id, 0, closeStreamTimeoutSeconds, streamItemCallback);
+          var receiver = ?createReceiver(id, 0, source);
         },
       );
       #ok id;
@@ -166,7 +168,7 @@ module {
             source = info.source;
             nextItemId = info.nextItemId;
             active = switch (info.receiver) {
-              case (?r) not r.isStreamClosed();
+              case (?r) not r.hasTimedOut();
               case (null) false;
             };
           },
@@ -184,15 +186,7 @@ module {
             source = info.source;
             var nextItemId = info.nextItemId;
             var receiver = switch (info.active) {
-              case (true) ?SharedStream.StreamReceiver<T>(
-                id,
-                info.nextItemId,
-                switch (info.source) {
-                  case (#canister _) ?120;
-                  case (#internal) null;
-                },
-                streamItemCallback,
-              );
+              case (true) ?createReceiver(id, info.nextItemId, info.source);
               case (false) null;
             };
           },
@@ -200,6 +194,16 @@ module {
       };
       sourceCanistersStreamMap := d.1;
     };
+
+    func createReceiver(streamId : Nat, nextItemId : Nat, source : StreamSource) : Receiver<T> = Receiver<T>(
+      nextItemId,
+      switch (source) {
+        case (#canister _) ?(TIMEOUT, Time.now);
+        case (#internal) null;
+      },
+      func(pos : Nat, item : T) = streamItemCallback(streamId, ?item, pos),
+    );
+
   };
 
 };
