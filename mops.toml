@@ -1,5 +1,5 @@
 [dependencies]
 base = "0.10.2"
 vector = "0.2.0"
-swb = "1.0.0"
-streams = "https://github.com/research-ag/streams#f8e109ebf2e6ebfd07880b1687875e702a9b4d89@f8e109ebf2e6ebfd07880b1687875e702a9b4d89"
+swb = "1.1.0"
+streams = "https://github.com/research-ag/streams#99b2b38a3002e90d5a5cd36df4d5f2a815964822@99b2b38a3002e90d5a5cd36df4d5f2a815964822"
