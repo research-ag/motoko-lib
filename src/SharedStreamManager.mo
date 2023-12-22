@@ -5,6 +5,7 @@ import Option "mo:base/Option";
 import Prim "mo:prim";
 import Principal "mo:base/Principal";
 import R "mo:base/Result";
+import Time "mo:base/Time";
 
 import StreamReceiver "mo:streams/StreamReceiver";
 import { StreamReceiver = Receiver } "mo:streams/StreamReceiver";
@@ -74,7 +75,7 @@ module {
           p,
           switch (Option.map(n, getStream)) {
             case (??stream) switch (stream.receiver) {
-              case (?r) if (r.stopped()) { 0 } else { 1 };
+              case (?r) if (r.isStopped()) { 0 } else { 1 };
               case (null) 0;
             };
             case (_) 0;
@@ -167,7 +168,7 @@ module {
             source = info.source;
             nextItemId = info.nextItemId;
             active = switch (info.receiver) {
-              case (?r) not r.stopped();
+              case (?r) not r.isStopped();
               case (null) false;
             };
           },
@@ -197,7 +198,7 @@ module {
     func createReceiver(streamId : Nat, nextItemId : Nat, source : StreamSource) : Receiver<T> = Receiver<T>(
       nextItemId,
       switch (source) {
-        case (#canister _) ?TIMEOUT;
+        case (#canister _) ?(TIMEOUT, Time.now);
         case (#internal) null;
       },
       func(pos : Nat, item : T) = streamItemCallback(streamId, ?item, pos),

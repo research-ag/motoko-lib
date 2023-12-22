@@ -5,7 +5,7 @@ on:
 
 env:
   mops_version: latest
-  moc_version: 0.10.2
+  moc_version: 0.10.3
   wasmtime_version: 14.0.4
 
 jobs:
