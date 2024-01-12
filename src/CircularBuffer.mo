@@ -231,4 +231,80 @@ module CircularBuffer {
 
     CircularBufferBase<T, (Nat, Bool, Buffer.StableBuffer)>(array, capacity);
   };
+
+  public class CircularBufferStable<T>(
+    serialize : T -> Blob,
+    deserialize : Blob -> T,
+    capacity : Nat,
+    length : Nat,
+  ) {
+    assert capacity % (2 ** 16) == 0;
+    assert length % (2 ** 16) == 0;
+
+    type State = {
+      index : Region;
+      var start : Nat;
+      var count : Nat;
+
+      data : Region;
+      var start_data : Nat;
+      var count_data : Nat;
+
+      var pushes : Nat;
+    };
+
+    var state_ : ?State = null;
+
+    func state() : State {
+      switch (state_) {
+        case (?s) s;
+        case (null) {
+          let s : State = {
+            index = Region.new();
+            data = Region.new();
+            var pushes = 0;
+            var start = 0;
+            var end = 0;
+            var start_data = 0;
+            var end_data = 0;
+          };
+          ignore Region.grow(s.index, Nat64.fromNat(capacity / (2 ** 16) * 8));
+          ignore Region.grow(s.data, Nat64.fromNat(length / 2 ** 16));
+          s;
+        };
+      };
+    };
+
+    /// Number of items that were ever pushed to the buffer
+    public func pushesAmount() : Nat = state().pushes;
+
+    /// Insert value into the buffer
+    public func push(item : T) {
+      let s = state();
+      let blob = serialize(item);
+      assert blob.size() <= length;
+
+      // check empty
+
+      while (length < blob.size() + s.count_data) {
+        let new_start = Nat64.toNat(Region.loadNat64(s.index, Nat64.fromNat((s.start + 1) % length * 8)));
+        s.count_data -= (new_start + length - s.start_data) % length;
+        s.start_data := new_start;
+        s.start += 1;
+      };
+
+      if (s.start_data + s.count_data + blob.size() < length) {
+        Region.storeBlob(s.data, Nat64.fromNat(s.start_data + s.count_data), blob);
+      } else {
+        let a = Blob.toArray(blob);
+        let first_part = Blob.fromArray(Array.tabulate<Nat8>(Int.abs(length : Int - s.start_data - s.count_data), func(i) = a[i]));
+        let second_part = Blob.fromArray(Array.tabulate<Nat8>(blob.size() - first_part.size(), func(i) = a[first_part.size() + i]));
+        Region.storeBlob(s.data, Nat64.fromNat(s.start_data + s.count_data), first_part);
+        Region.storeBlob(s.data, 0, second_part);
+      };
+      s.count_data += blob.size();
+      s.count += 1;
+      s.pushes += 1;
+    };
+  };
 };
