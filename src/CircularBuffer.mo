@@ -282,7 +282,7 @@ module CircularBuffer {
     public func push(item : T) {
       let s = state();
       let blob = serialize(item);
-      assert blob.size() <= length;
+      assert 0 < blob.size() and blob.size() <= length;
 
       // check empty
 
@@ -305,6 +305,30 @@ module CircularBuffer {
       s.count_data += blob.size();
       s.count += 1;
       s.pushes += 1;
+    };
+
+    public func get(index : Nat) : ?T {
+      let s = state();
+      if (not (s.start <= index and index < s.start + s.count)) {
+        return null;
+      };
+
+      let from64 = Region.loadNat64(s.index, Nat64.fromNat(index * 8));
+      let from = Nat64.toNat(from64);
+      let to = Nat64.toNat(Region.loadNat64(s.index, Nat64.fromNat((index + 1) % length * 8)));
+      let blob = if (to <= from) {
+        let first_part = Blob.toArray(Region.loadBlob(s.data, from64, length - from));
+        let second_part = Blob.toArray(Region.loadBlob(s.data, 0, to));
+        Blob.fromArray(
+          Array.tabulate<Nat8>(
+            first_part.size() + second_part.size(),
+            func(i) = if (i < first_part.size()) first_part[i] else second_part[i - first_part.size()],
+          )
+        );
+      } else {
+        Region.loadBlob(s.data, from64, to - from);
+      };
+      ?deserialize(blob);
     };
   };
 };
