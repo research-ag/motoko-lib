@@ -7,6 +7,7 @@ import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Blob "mo:base/Blob";
 import Option "mo:base/Option";
+import Nat32 "mo:base/Nat32";
 import Prim "mo:⛔";
 import MemoryRegion "mo:memory-region/MemoryRegion";
 
@@ -238,8 +239,13 @@ module CircularBuffer {
     capacity : Nat,
     length : Nat,
   ) {
-    assert capacity % (2 ** 16) == 0;
-    assert length % (2 ** 16) == 0;
+    let POINTER_SIZE = 4;
+    let PAGE_SIZE = 2 ** 16;
+    assert capacity * POINTER_SIZE % PAGE_SIZE == 0;
+    assert capacity * POINTER_SIZE <= 2 ** (POINTER_SIZE * 8);
+
+    assert length % PAGE_SIZE == 0;
+    assert length <= 2 ** (POINTER_SIZE * 8);
 
     type State = {
       index : Region;
@@ -264,12 +270,13 @@ module CircularBuffer {
             data = Region.new();
             var pushes = 0;
             var start = 0;
-            var end = 0;
+            var count = 0;
             var start_data = 0;
-            var end_data = 0;
+            var count_data = 0;
           };
-          ignore Region.grow(s.index, Nat64.fromNat(capacity / (2 ** 16) * 8));
-          ignore Region.grow(s.data, Nat64.fromNat(length / 2 ** 16));
+          ignore Region.grow(s.index, Nat64.fromNat(capacity / PAGE_SIZE * POINTER_SIZE));
+          ignore Region.grow(s.data, Nat64.fromNat(length / PAGE_SIZE));
+          Region.storeNat32(s.index, 0, 0);
           s;
         };
       };
@@ -282,18 +289,19 @@ module CircularBuffer {
     public func push(item : T) {
       let s = state();
       let blob = serialize(item);
+
+      // 0 < blob.size() necessary for correct work of get
       assert 0 < blob.size() and blob.size() <= length;
 
-      // check empty
-
-      while (length < blob.size() + s.count_data) {
-        let new_start = Nat64.toNat(Region.loadNat64(s.index, Nat64.fromNat((s.start + 1) % length * 8)));
+      while (s.count == capacity or length < blob.size() + s.count_data) {
+        let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % length * POINTER_SIZE)));
         s.count_data -= (new_start + length - s.start_data) % length;
         s.start_data := new_start;
         s.start += 1;
+        s.count -= 1;
       };
 
-      if (s.start_data + s.count_data + blob.size() < length) {
+      if (s.start_data + s.count_data + blob.size() <= length) {
         Region.storeBlob(s.data, Nat64.fromNat(s.start_data + s.count_data), blob);
       } else {
         let a = Blob.toArray(blob);
@@ -304,20 +312,29 @@ module CircularBuffer {
       };
       s.count_data += blob.size();
       s.count += 1;
+      Region.storeNat32(s.index, Nat64.fromNat(((s.start + s.count) % capacity) * POINTER_SIZE), Nat32.fromNat(s.count_data));
       s.pushes += 1;
+    };
+
+    /// Return interval `[start, end)` of indices of elements available.
+    public func available() : (Nat, Nat) {
+      let s = state();
+      (Int.abs(Int.max(0, s.pushes : Int - s.count)), s.pushes);
     };
 
     public func get(index : Nat) : ?T {
       let s = state();
-      if (not (s.start <= index and index < s.start + s.count)) {
+      let (l, r) = available();
+      if (not (l <= index and index < r)) {
         return null;
       };
 
-      let from64 = Region.loadNat64(s.index, Nat64.fromNat(index * 8));
-      let from = Nat64.toNat(from64);
-      let to = Nat64.toNat(Region.loadNat64(s.index, Nat64.fromNat((index + 1) % length * 8)));
+      let i = Int.abs(s.start : Int + index - l);
+
+      let from = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat(i * POINTER_SIZE)));
+      let to = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((i + 1) % length * POINTER_SIZE)));
       let blob = if (to <= from) {
-        let first_part = Blob.toArray(Region.loadBlob(s.data, from64, length - from));
+        let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(from), length - from));
         let second_part = Blob.toArray(Region.loadBlob(s.data, 0, to));
         Blob.fromArray(
           Array.tabulate<Nat8>(
@@ -326,7 +343,7 @@ module CircularBuffer {
           )
         );
       } else {
-        Region.loadBlob(s.data, from64, to - from);
+        Region.loadBlob(s.data, Nat64.fromNat(from), to - from);
       };
       ?deserialize(blob);
     };
