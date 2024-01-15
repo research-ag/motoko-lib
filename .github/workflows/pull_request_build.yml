@@ -5,8 +5,6 @@ on:
 
 env:
   mops_version: latest
-  moc_version: 0.10.3
-  wasmtime_version: 14.0.4
 
 jobs:
   build:
@@ -19,20 +17,9 @@ jobs:
       - name: Make bin directory
         run: mkdir -p /home/runner/bin
 
-      - name: "install Motoko binaries"
-        run: |
-          wget https://github.com/dfinity/motoko/releases/download/${{ env.moc_version }}/motoko-Linux-x86_64-${{ env.moc_version }}.tar.gz
-          tar -xzf motoko-Linux-x86_64-${{ env.moc_version }}.tar.gz -C /home/runner/bin
-          echo "/home/runner/bin" >> $GITHUB_PATH
-
-      - name: "Install wasmtime"
-        run: |
-          wget https://github.com/bytecodealliance/wasmtime/releases/download/v${{ env.wasmtime_version }}/wasmtime-v${{ env.wasmtime_version }}-x86_64-linux.tar.xz
-          tar -xf wasmtime-v${{ env.wasmtime_version }}-x86_64-linux.tar.xz --transform='s/.*\///' -C /home/runner/bin
-
       - name: "install mops"
         run: |          
           npm i -g ic-mops@${{ env.mops_version }}
 
       - name: "test"
-        run: make -C test
+        run: mops test
