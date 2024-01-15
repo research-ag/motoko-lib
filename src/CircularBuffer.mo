@@ -286,8 +286,6 @@ module CircularBuffer {
     /// Number of items that were ever pushed to the buffer
     public func pushesAmount() : Nat = state().pushes;
 
-    var last = 0;
-
     /// Insert value into the buffer
     public func push(item : T) {
       let s = state();
@@ -298,11 +296,7 @@ module CircularBuffer {
 
       while (s.count == capacity or length < blob.size() + s.count_data) {
         let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % length * POINTER_SIZE)));
-        //Debug.print(debug_show (last, new_start, s.start_data, s.count_data, s.start, s.count, s.pushes));
-        let back_length = (new_start + length - s.start_data) % length;
-        assert back_length == last + 1;
-        last := back_length;
-        s.count_data -= back_length;
+        s.count_data -= (new_start + length - s.start_data) % length;
         s.start_data := new_start;
         s.start += 1;
         s.count -= 1;
