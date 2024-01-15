@@ -233,6 +233,18 @@ module CircularBuffer {
     CircularBufferBase<T, (Nat, Bool, Buffer.StableBuffer)>(array, capacity);
   };
 
+  public type CircularBufferStableState = {
+    index : Region;
+    var start : Nat;
+    var count : Nat;
+
+    data : Region;
+    var start_data : Nat;
+    var count_data : Nat;
+
+    var pushes : Nat;
+  };
+
   public class CircularBufferStable<T>(
     serialize : T -> Blob,
     deserialize : Blob -> T,
@@ -247,25 +259,13 @@ module CircularBuffer {
     assert length % PAGE_SIZE == 0;
     assert length <= 2 ** (POINTER_SIZE * 8);
 
-    type State = {
-      index : Region;
-      var start : Nat;
-      var count : Nat;
+    var state_ : ?CircularBufferStableState = null;
 
-      data : Region;
-      var start_data : Nat;
-      var count_data : Nat;
-
-      var pushes : Nat;
-    };
-
-    var state_ : ?State = null;
-
-    func state() : State {
+    func state() : CircularBufferStableState {
       switch (state_) {
         case (?s) s;
         case (null) {
-          let s : State = {
+          let s : CircularBufferStableState = {
             index = Region.new();
             data = Region.new();
             var pushes = 0;
@@ -324,13 +324,7 @@ module CircularBuffer {
       (Int.abs(Int.max(0, s.pushes : Int - s.count)), s.pushes);
     };
 
-    public func get(index : Nat) : ?T {
-      let s = state();
-      let (l, r) = available();
-      if (not (l <= index and index < r)) {
-        return null;
-      };
-
+    func get_(s : CircularBufferStableState, l : Nat, index : Nat) : T {
       let i = Int.abs(s.start : Int + index - l);
 
       let from = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat(i * POINTER_SIZE)));
@@ -347,7 +341,55 @@ module CircularBuffer {
       } else {
         Region.loadBlob(s.data, Nat64.fromNat(from), to - from);
       };
-      ?deserialize(blob);
+      deserialize(blob);
+    };
+
+    /// Returns single element added with number `index` or null if element is not available or index out of bounds.
+    public func get(index : Nat) : ?T {
+      let s = state();
+      let (l, r) = available();
+      if (not (l <= index and index < r)) {
+        return null;
+      };
+      ?get_(s, l, index);
+    };
+
+    /// Return iterator to values added with numbers in interval `[from; to)`.
+    /// `from` should be not more then `to`. Both should be not more then `pushes`.
+    public func slice(from : Nat, to : Nat) : Iter.Iter<T> {
+      assert from <= to;
+      let interval = available();
+
+      assert interval.0 <= from and from <= interval.1 and interval.0 <= to and to <= interval.1;
+
+      let s = state();
+      let count : Int = to - from;
+
+      object {
+        var i = from;
+
+        public func next() : ?T {
+          if (i == to) return null;
+          let ret = get_(s, interval.0, i);
+          i += 1;
+          ?ret;
+        };
+      };
+    };
+
+    /// Share stable content
+    public func share() : CircularBufferStableState = state();
+
+    /// Unshare from stable content
+    public func unshare(data : CircularBufferStableState) {
+      switch (state_) {
+        case (?s) {
+          assert false;
+        };
+        case (null) {
+          state_ := ?data;
+        };
+      };
     };
   };
 };
