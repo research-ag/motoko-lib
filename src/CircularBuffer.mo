@@ -277,6 +277,7 @@ module CircularBuffer {
           ignore Region.grow(s.index, Nat64.fromNat(capacity / PAGE_SIZE * POINTER_SIZE));
           ignore Region.grow(s.data, Nat64.fromNat(length / PAGE_SIZE));
           Region.storeNat32(s.index, 0, 0);
+          state_ := ?s;
           s;
         };
       };
@@ -284,6 +285,8 @@ module CircularBuffer {
 
     /// Number of items that were ever pushed to the buffer
     public func pushesAmount() : Nat = state().pushes;
+
+    var last = 0;
 
     /// Insert value into the buffer
     public func push(item : T) {
@@ -295,24 +298,29 @@ module CircularBuffer {
 
       while (s.count == capacity or length < blob.size() + s.count_data) {
         let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % length * POINTER_SIZE)));
-        s.count_data -= (new_start + length - s.start_data) % length;
+        //Debug.print(debug_show (last, new_start, s.start_data, s.count_data, s.start, s.count, s.pushes));
+        let back_length = (new_start + length - s.start_data) % length;
+        assert back_length == last + 1;
+        last := back_length;
+        s.count_data -= back_length;
         s.start_data := new_start;
         s.start += 1;
         s.count -= 1;
       };
 
-      if (s.start_data + s.count_data + blob.size() <= length) {
-        Region.storeBlob(s.data, Nat64.fromNat(s.start_data + s.count_data), blob);
+      let end_data = (s.start_data + s.count_data) % length;
+      if (end_data + blob.size() <= length) {
+        Region.storeBlob(s.data, Nat64.fromNat(end_data), blob);
       } else {
         let a = Blob.toArray(blob);
-        let first_part = Blob.fromArray(Array.tabulate<Nat8>(Int.abs(length : Int - s.start_data - s.count_data), func(i) = a[i]));
+        let first_part = Blob.fromArray(Array.tabulate<Nat8>(Int.abs(length : Int - end_data), func(i) = a[i]));
         let second_part = Blob.fromArray(Array.tabulate<Nat8>(blob.size() - first_part.size(), func(i) = a[first_part.size() + i]));
-        Region.storeBlob(s.data, Nat64.fromNat(s.start_data + s.count_data), first_part);
+        Region.storeBlob(s.data, Nat64.fromNat(end_data), first_part);
         Region.storeBlob(s.data, 0, second_part);
       };
       s.count_data += blob.size();
       s.count += 1;
-      Region.storeNat32(s.index, Nat64.fromNat(((s.start + s.count) % capacity) * POINTER_SIZE), Nat32.fromNat(s.count_data));
+      Region.storeNat32(s.index, Nat64.fromNat(((s.start + s.count) % capacity) * POINTER_SIZE), Nat32.fromNat((s.start_data + s.count_data) % length));
       s.pushes += 1;
     };
 

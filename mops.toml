@@ -1,9 +1,8 @@
 [toolchain]
-
 moc = "0.10.3"
+wasmtime = "16.0.0"
 
 [dependencies]
-
 base = "0.10.3"
 vector = "0.2.0"
 swb = "1.1.1"
