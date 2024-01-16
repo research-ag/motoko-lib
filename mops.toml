@@ -1,7 +1,10 @@
 [toolchain]
 moc = "0.10.3"
+wasmtime = "16.0.0"
+
 [dependencies]
 base = "0.10.3"
 vector = "0.2.0"
 swb = "1.1.1"
 streams = "https://github.com/research-ag/streams#9bb6f686449a5fd7d4c9b46fe29cde4888adfa4d@9bb6f686449a5fd7d4c9b46fe29cde4888adfa4d"
+memory-region = "0.1.1"
