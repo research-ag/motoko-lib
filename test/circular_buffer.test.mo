@@ -30,27 +30,55 @@ do {
 };
 
 do {
-  let c = CircularBuffer.CircularBufferStable<Text>(
-    func(x : Text) : Blob = Text.encodeUtf8(x),
-    func(x : Blob) : Text = Option.unwrap(Text.decodeUtf8(x)),
-    2 ** 16,
-    8 * 2 ** 16,
-  );
+  func test(len : Nat, cap : Nat) {
+    let c = CircularBuffer.CircularBufferStable<Text>(
+      func(x : Text) : Blob = Text.encodeUtf8(x),
+      func(x : Blob) : Text = Option.unwrap(Text.decodeUtf8(x)),
+      cap,
+      len,
+    );
 
-  let n = 10_000;
-  var t = "";
-  for (i in Iter.range(0, n)) {
-    t #= "a";
-    c.push(t);
-  };
-  t := "";
-  for (i in Iter.range(0, n)) {
-    t #= "a";
-    switch (c.get(i)) {
-      case (?s) {
-        assert s == t;
+    let n = len;
+    var t = "";
+    for (i in Iter.range(0, n - 1)) {
+      t #= "a";
+      c.push(t);
+    };
+    t := "";
+    for (i in Iter.range(0, n - 1)) {
+      t #= "a";
+      switch (c.get(i)) {
+        case (?s) {
+          assert s == t;
+        };
+        case (null) {};
       };
-      case (null) {};
+    };
+
+    // test slice
+    let (l, r) = c.available();
+    var i = l;
+    for (item in c.slice(l, r)) {
+      assert item.size() == i + 1;
+      i += 1;
+    };
+
+    // test share/unshare
+    let data = c.share();
+    let nc = CircularBuffer.CircularBufferStable<Text>(
+      func(x : Text) : Blob = Text.encodeUtf8(x),
+      func(x : Blob) : Text = Option.unwrap(Text.decodeUtf8(x)),
+      cap,
+      len,
+    );
+    nc.unshare(data);
+  };
+
+  for (i in Iter.range(0, 10)) {
+    for (j in Iter.range(0, 10)) {
+      test(2 ** i, 2 ** j);
     };
   };
+
+  test(2 ** 12 / 4, 2 ** 12);
 };

@@ -234,6 +234,9 @@ module CircularBuffer {
   };
 
   public type CircularBufferStableState = {
+    length : Nat;
+    capacity : Nat;
+
     index : Region;
     var start : Nat;
     var count : Nat;
@@ -253,11 +256,17 @@ module CircularBuffer {
   ) {
     let POINTER_SIZE = 4;
     let PAGE_SIZE = 2 ** 16;
-    assert capacity * POINTER_SIZE % PAGE_SIZE == 0;
-    assert capacity * POINTER_SIZE <= 2 ** (POINTER_SIZE * 8);
 
-    assert length % PAGE_SIZE == 0;
-    assert length <= 2 ** (POINTER_SIZE * 8);
+    /// Assert no waste in regions memory
+    public func assert_no_waste() {
+      assert capacity > 0;
+      assert (capacity * POINTER_SIZE) % PAGE_SIZE == 0;
+      assert capacity * POINTER_SIZE <= 2 ** (POINTER_SIZE * 8);
+
+      assert length > 0;
+      assert length % PAGE_SIZE == 0;
+      assert length <= 2 ** (POINTER_SIZE * 8);
+    };
 
     var state_ : ?CircularBufferStableState = null;
 
@@ -266,6 +275,8 @@ module CircularBuffer {
         case (?s) s;
         case (null) {
           let s : CircularBufferStableState = {
+            capacity;
+            length;
             index = Region.new();
             data = Region.new();
             var pushes = 0;
@@ -274,8 +285,8 @@ module CircularBuffer {
             var start_data = 0;
             var count_data = 0;
           };
-          ignore Region.grow(s.index, Nat64.fromNat(capacity / PAGE_SIZE * POINTER_SIZE));
-          ignore Region.grow(s.data, Nat64.fromNat(length / PAGE_SIZE));
+          assert Region.grow(s.index, Nat64.fromNat((capacity * POINTER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
+          assert Region.grow(s.data, Nat64.fromNat((length + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
           Region.storeNat32(s.index, 0, 0);
           state_ := ?s;
           s;
@@ -295,10 +306,10 @@ module CircularBuffer {
       assert 0 < blob.size() and blob.size() <= length;
 
       while (s.count == capacity or length < blob.size() + s.count_data) {
-        let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % length * POINTER_SIZE)));
+        let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % capacity * POINTER_SIZE)));
         s.count_data -= (new_start + length - s.start_data) % length;
         s.start_data := new_start;
-        s.start += 1;
+        s.start := (s.start + 1) % capacity;
         s.count -= 1;
       };
 
@@ -328,7 +339,7 @@ module CircularBuffer {
       let i = Int.abs(s.start : Int + index - l);
 
       let from = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat(i * POINTER_SIZE)));
-      let to = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((i + 1) % length * POINTER_SIZE)));
+      let to = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((i + 1) % capacity * POINTER_SIZE)));
       let blob = if (to <= from) {
         let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(from), length - from));
         let second_part = Blob.toArray(Region.loadBlob(s.data, 0, to));
@@ -387,6 +398,12 @@ module CircularBuffer {
           assert false;
         };
         case (null) {
+          if (capacity > data.capacity) {
+            assert Region.grow(data.index, Nat64.fromNat(((capacity - data.capacity) * POINTER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
+          };
+          if (length > data.length) {
+            assert Region.grow(data.data, Nat64.fromNat((length - data.length + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
+          };
           state_ := ?data;
         };
       };
