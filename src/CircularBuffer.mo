@@ -115,6 +115,16 @@ module CircularBuffer {
 
     var state_ : ?CircularBufferStableState = null;
 
+    /// Reset circular buffer state
+    public func reset() {
+      let s = state();
+      s.pushes := 0;
+      s.start := 0;
+      s.count := 0;
+      s.start_data := 0;
+      s.count_data := 0;
+    };
+
     func state() : CircularBufferStableState {
       switch (state_) {
         case (?s) s;
@@ -243,12 +253,8 @@ module CircularBuffer {
           assert false;
         };
         case (null) {
-          if (capacity > data.capacity) {
-            assert Region.grow(data.index, Nat64.fromNat(((capacity - data.capacity) * POINTER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
-          };
-          if (length > data.length) {
-            assert Region.grow(data.data, Nat64.fromNat((length - data.length + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
-          };
+          assert capacity == data.capacity;
+          assert length == data.length;
           state_ := ?data;
         };
       };
