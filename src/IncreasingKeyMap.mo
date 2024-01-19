@@ -47,7 +47,7 @@ module {
       var left : Nat64 = 0;
       var right = s.count;
       while (right - left > 1) {
-        let mid = left + (right - left) / 2;
+        let mid = (left + right) >> 1;
         let index = mid * 12;
         let in_mid = Region.loadNat32(s.data, index);
         if (in_mid <= key) {
