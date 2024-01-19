@@ -5,7 +5,7 @@ module {
   public type StableData = {
     data : Region;
     var count : Nat64;
-    var last_key : ?Nat32;
+    var last_key : Nat32;
   };
 
   /// Map from keys to values, keys should be incresing in order of addition
@@ -19,7 +19,7 @@ module {
           let s : StableData = {
             data = Region.new();
             var count = 0;
-            var last_key = null;
+            var last_key = 0;
           };
           state_ := ?s;
           s;
@@ -30,17 +30,14 @@ module {
     /// Add key-value pair to array assuming keys are increasing in order of addition
     public func add(key : Nat32, value : Nat64) {
       let s = state();
-      assert switch (s.last_key) {
-        case (?x) x < key;
-        case (null) true;
-      };
+      assert s.last_key < key or s.count == 0;
       let index = s.count * 12;
-      if (index % (2 ** 16) == 0 and index / (2 ** 16) == Region.size(s.data)) {
+      if ((index >> 16 != (index + 12) >> 16 or s.count == 0) and Region.size(s.data) == (index + (1 << 16) - 1) >> 16) {
         assert Region.grow(s.data, 1) != 0xFFFF_FFFF_FFFF_FFFF;
       };
       Region.storeNat32(s.data, index, key);
       Region.storeNat64(s.data, index + 4, value);
-      s.last_key := ?key;
+      s.last_key := key;
       s.count += 1;
     };
 
@@ -50,7 +47,7 @@ module {
       var left : Nat64 = 0;
       var right = s.count;
       while (right - left > 1) {
-        let mid = left + (right - left) / 2;
+        let mid = (left + right) >> 1;
         let index = mid * 12;
         let in_mid = Region.loadNat32(s.data, index);
         if (in_mid <= key) {
@@ -70,7 +67,7 @@ module {
     public func reset() {
       let s = state();
       s.count := 0;
-      s.last_key := null;
+      s.last_key := 0;
     };
 
     /// Share stable content
