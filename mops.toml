@@ -1,6 +1,6 @@
 [toolchain]
 moc = "0.10.3"
-wasmtime = "15.0.1"
+wasmtime = "16.0.0"
 
 [dependencies]
 base = "0.10.3"
