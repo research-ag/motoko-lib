@@ -32,7 +32,7 @@ module {
       let s = state();
       assert s.last_key < key or s.count == 0;
       let index = s.count * 12;
-      if (index >> 16 != (index + 12) >> 16 or s.count == 0) {
+      if ((index >> 16 != (index + 12) >> 16 or s.count == 0) and Region.size(s.data) == (index + (1 << 16) - 1) >> 16) {
         assert Region.grow(s.data, 1) != 0xFFFF_FFFF_FFFF_FFFF;
       };
       Region.storeNat32(s.data, index, key);
