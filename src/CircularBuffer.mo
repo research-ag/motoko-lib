@@ -123,6 +123,7 @@ module CircularBuffer {
       s.count := 0;
       s.start_data := 0;
       s.count_data := 0;
+      Region.storeNat32(s.index, 0, 0);
     };
 
     func state() : CircularBufferStableState {
@@ -152,6 +153,35 @@ module CircularBuffer {
     /// Number of items that were ever pushed to the buffer
     public func pushesAmount() : Nat = state().pushes;
 
+    func pop_(s : CircularBufferStableState, take : Bool) : ?T {
+      let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % capacity * POINTER_SIZE)));
+      let item_length = Int.abs((new_start : Int + length - s.start_data - 1)) % length + 1;
+
+      let value = if (take) {
+        let blob = if (s.start_data < new_start) {
+          Region.loadBlob(s.data, Nat64.fromNat(s.start_data), item_length);
+        } else {
+          let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(s.start_data), length - s.start_data));
+          let second_part = Blob.toArray(Region.loadBlob(s.data, 0, new_start));
+          let sz = first_part.size();
+          Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i : Nat) : Nat8 = if (i < sz) first_part[i] else second_part[i - sz]));
+        };
+        ?deserialize(blob);
+      } else { null };
+
+      s.count_data -= item_length;
+      s.start_data := new_start;
+      s.start := (s.start + 1) % capacity;
+      s.count -= 1;
+      value;
+    };
+
+    public func pop() : ?T {
+      let s = state();
+      if (s.count == 0) return null;
+      pop_(s, true);
+    };
+
     func push_(item : T, force : Bool) : Bool {
       let s = state();
       let blob = serialize(item);
@@ -161,11 +191,7 @@ module CircularBuffer {
 
       if (force) {
         while (s.count == capacity or length < blob.size() + s.count_data) {
-          let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % capacity * POINTER_SIZE)));
-          s.count_data -= (new_start + length - s.start_data) % length;
-          s.start_data := new_start;
-          s.start := (s.start + 1) % capacity;
-          s.count -= 1;
+          ignore pop_(s, false);
         };
       } else if (s.count == capacity or length < blob.size() + s.count_data) {
         return false;
@@ -194,30 +220,6 @@ module CircularBuffer {
 
     /// Insert value into the buffer with overwriting
     public func push_force(item : T) = ignore push_(item, true);
-
-    public func pop() : ?T {
-      let s = state();
-      if (s.count == 0) return null;
-      
-      let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % capacity * POINTER_SIZE)));
-      let item_length = Int.abs((new_start : Int + length - s.start_data)) % length;
-
-      let blob = if (s.start_data < new_start) {
-        Region.loadBlob(s.data, Nat64.fromNat(s.start_data), item_length);
-      } else {
-        let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(s.start_data), length - s.start_data));
-        let second_part = Blob.toArray(Region.loadBlob(s.data, 0, new_start));
-        let sz = first_part.size();
-        Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i : Nat) : Nat8 = if (i < sz) first_part[i] else second_part[i - sz]));
-      };
-
-      s.count_data -= item_length;
-      s.start_data := new_start;
-      s.start := (s.start + 1) % capacity;
-      s.count -= 1;
-
-      ?deserialize(blob);
-    };
 
     /// Return interval `[start, end)` of indices of elements available.
     public func available() : (Nat, Nat) {
