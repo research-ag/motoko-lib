@@ -176,6 +176,15 @@ module CircularBuffer {
       value;
     };
 
+    public func deleteTo(index : Nat) {
+      let (l, r) = available();
+      assert l < index and index <= r;
+      let s = state();
+      for (i in Iter.range(0, index - l - 1)) {
+        ignore pop_(s, false);
+      };
+    };
+
     public func pop() : ?T {
       let s = state();
       if (s.count == 0) return null;
