@@ -106,7 +106,6 @@ module CircularBuffer {
     public func assert_no_waste() {
       assert capacity > 0;
       assert ((capacity + 1) * POINTER_SIZE) % PAGE_SIZE == 0;
-      assert (capacity + 1) * POINTER_SIZE <= 2 ** (POINTER_SIZE * 8);
 
       assert length > 0;
       assert length % PAGE_SIZE == 0;
@@ -195,8 +194,8 @@ module CircularBuffer {
       let s = state();
       let blob = serialize(item);
 
-      // 0 < blob.size() necessary for correct work of get
-      assert 0 < blob.size() and blob.size() <= length;
+      // blob.size() < length necessary for correct work of get
+      assert 0 <= blob.size() and blob.size() < length;
 
       if (force) {
         while (s.count == capacity or length < blob.size() + s.count_data) {
@@ -206,16 +205,18 @@ module CircularBuffer {
         return false;
       };
 
-      let end_data = (s.start_data + s.count_data) % length;
-      if (end_data + blob.size() <= length) {
-        Region.storeBlob(s.data, Nat64.fromNat(end_data), blob);
-      } else {
-        let a = Blob.toArray(blob);
-        let first_part = Blob.fromArray(Array.tabulate<Nat8>(length - end_data, func(i) = a[i]));
-        let sz = first_part.size();
-        let second_part = Blob.fromArray(Array.tabulate<Nat8>(blob.size() - sz, func(i) = a[sz + i]));
-        Region.storeBlob(s.data, Nat64.fromNat(end_data), first_part);
-        Region.storeBlob(s.data, 0, second_part);
+      if (blob.size() > 0) {
+        let end_data = (s.start_data + s.count_data) % length;
+        if (end_data + blob.size() <= length) {
+          Region.storeBlob(s.data, Nat64.fromNat(end_data), blob);
+        } else {
+          let a = Blob.toArray(blob);
+          let first_part = Blob.fromArray(Array.tabulate<Nat8>(length - end_data, func(i) = a[i]));
+          let sz = first_part.size();
+          let second_part = Blob.fromArray(Array.tabulate<Nat8>(blob.size() - sz, func(i) = a[sz + i]));
+          Region.storeBlob(s.data, Nat64.fromNat(end_data), first_part);
+          Region.storeBlob(s.data, 0, second_part);
+        };
       };
       s.count_data += blob.size();
       s.count += 1;
@@ -241,7 +242,7 @@ module CircularBuffer {
 
       let from = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat(i * POINTER_SIZE)));
       let to = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((i + 1) % (capacity + 1) * POINTER_SIZE)));
-      let blob = if (to <= from) {
+      let blob = if (to < from) {
         let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(from), length - from));
         let second_part = Blob.toArray(Region.loadBlob(s.data, 0, to));
         Blob.fromArray(
@@ -250,6 +251,8 @@ module CircularBuffer {
             func(i) = if (i < first_part.size()) first_part[i] else second_part[i - first_part.size()],
           )
         );
+      } else if (to == from) {
+        Blob.fromArray([]);
       } else {
         Region.loadBlob(s.data, Nat64.fromNat(from), to - from);
       };
