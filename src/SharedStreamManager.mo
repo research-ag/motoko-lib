@@ -51,7 +51,7 @@ module {
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
   public class StreamsManager<T>(
     initialSourceCanisters : [Principal],
-    itemCallback : (streamId : Nat, item : ?T, index : Nat) -> (),
+    itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Bool,
   ) {
     public var callbacks : Callbacks<T> = {
       onReceiverRegistered = func(_) {};
