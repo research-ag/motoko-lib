@@ -30,6 +30,26 @@ do {
 };
 
 do {
+
+  func test_pop(len : Nat, cap : Nat) {
+    let c = CircularBuffer.CircularBufferStable<Text>(
+      func(x : Text) : Blob = Text.encodeUtf8(x),
+      func(x : Blob) : Text = Option.unwrap(Text.decodeUtf8(x)),
+      cap,
+      len,
+    );
+    let n = len;
+    var i = 0;
+    var t = "";
+    label w while (i * (i + 1) / 2 < n and i + 1 < n) {
+      t #= "a";
+      if (Text.encodeUtf8(t).size() >= len) break w;
+      assert c.push(t);
+      let s = c.pop();
+      assert s == ?t;
+    };
+  };
+
   func test(len : Nat, cap : Nat) {
     let c = CircularBuffer.CircularBufferStable<Text>(
       func(x : Text) : Blob = Text.encodeUtf8(x),
@@ -41,25 +61,25 @@ do {
     let n = len;
     var t = "";
     for (i in Iter.range(0, n - 1)) {
+      c.push_force(t);
       t #= "a";
-      c.push(t);
     };
     t := "";
     for (i in Iter.range(0, n - 1)) {
-      t #= "a";
       switch (c.get(i)) {
         case (?s) {
           assert s == t;
         };
         case (null) {};
       };
+      t #= "a";
     };
 
     // test slice
     let (l, r) = c.available();
     var i = l;
     for (item in c.slice(l, r)) {
-      assert item.size() == i + 1;
+      assert item.size() == i;
       i += 1;
     };
 
@@ -77,6 +97,7 @@ do {
   for (i in Iter.range(0, 10)) {
     for (j in Iter.range(0, 10)) {
       test(2 ** i, 2 ** j);
+      test_pop(2 ** i, 2 ** j);
     };
   };
 
