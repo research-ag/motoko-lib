@@ -1,15 +1,10 @@
 import Array "mo:base/Array";
-import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
 import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Blob "mo:base/Blob";
-import Option "mo:base/Option";
 import Nat32 "mo:base/Nat32";
-import Prim "mo:⛔";
-import MemoryRegion "mo:memory-region/MemoryRegion";
 
 module CircularBuffer {
   public class CircularBuffer<T>(capacity : Nat) {
