@@ -154,16 +154,18 @@ module CircularBuffer {
 
     func pop_(s : CircularBufferStableState, take : Bool) : ?T {
       let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % (capacity + 1) * POINTER_SIZE)));
-      let item_length = (((new_start + length - s.start_data) : Nat - 1) : Nat) % length + 1;
+      let item_length = ((new_start + length - s.start_data) : Nat) % length;
 
       let value = if (take) {
         let blob = if (s.start_data < new_start) {
           Region.loadBlob(s.data, Nat64.fromNat(s.start_data), item_length);
-        } else {
+        } else if (s.start_data > new_start) {
           let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(s.start_data), length - s.start_data));
           let second_part = Blob.toArray(Region.loadBlob(s.data, 0, new_start));
           let sz = first_part.size();
           Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i : Nat) : Nat8 = if (i < sz) first_part[i] else second_part[i - sz]));
+        } else {
+          Blob.fromArray([]);
         };
         ?deserialize(blob);
       } else { null };

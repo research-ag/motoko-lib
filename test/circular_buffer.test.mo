@@ -43,7 +43,7 @@ do {
     var t = "";
     label w while (i * (i + 1) / 2 < n and i + 1 < n) {
       t #= "a";
-      if (Text.encodeUtf8(t).size() > len) break w;
+      if (Text.encodeUtf8(t).size() >= len) break w;
       assert c.push(t);
       let s = c.pop();
       assert s == ?t;
@@ -61,25 +61,25 @@ do {
     let n = len;
     var t = "";
     for (i in Iter.range(0, n - 1)) {
-      t #= "a";
       c.push_force(t);
+      t #= "a";
     };
     t := "";
     for (i in Iter.range(0, n - 1)) {
-      t #= "a";
       switch (c.get(i)) {
         case (?s) {
           assert s == t;
         };
         case (null) {};
       };
+      t #= "a";
     };
 
     // test slice
     let (l, r) = c.available();
     var i = l;
     for (item in c.slice(l, r)) {
-      assert item.size() == i + 1;
+      assert item.size() == i;
       i += 1;
     };
 
