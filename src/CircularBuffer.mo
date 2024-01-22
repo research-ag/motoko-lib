@@ -279,7 +279,6 @@ module CircularBuffer {
       assert interval.0 <= from and from <= interval.1 and interval.0 <= to and to <= interval.1;
 
       let s = state();
-      let count : Int = to - from;
 
       object {
         var i = from;
