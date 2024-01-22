@@ -235,7 +235,7 @@ module CircularBuffer {
     /// Return interval `[start, end)` of indices of elements available.
     public func available() : (Nat, Nat) {
       let s = state();
-      (Int.abs(Int.max(0, s.pushes : Int - s.count)), s.pushes);
+      (s.pushes - s.count, s.pushes);
     };
 
     func get_(s : CircularBufferStableState, l : Nat, index : Nat) : T {
