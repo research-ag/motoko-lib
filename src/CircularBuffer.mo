@@ -97,6 +97,10 @@ module CircularBuffer {
     let POINTER_SIZE = 4;
     let PAGE_SIZE = 2 ** 16;
 
+    func bytesToPages(n : Nat) : Nat64 {
+      Nat64.fromNat((n + PAGE_SIZE - 1) / PAGE_SIZE);
+    };
+
     /// Assert no waste in regions memory
     public func assert_no_waste() {
       assert capacity > 0;
@@ -135,8 +139,8 @@ module CircularBuffer {
             var start_data = 0;
             var count_data = 0;
           };
-          assert Region.grow(s.index, Nat64.fromNat(((capacity + 1) * POINTER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
-          assert Region.grow(s.data, Nat64.fromNat((length + PAGE_SIZE - 1) / PAGE_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
+          assert Region.grow(s.index, bytesToPages((capacity + 1) * POINTER_SIZE)) != 0xFFFF_FFFF_FFFF_FFFF;
+          assert Region.grow(s.data, bytesToPages(length)) != 0xFFFF_FFFF_FFFF_FFFF;
           Region.storeNat32(s.index, 0, 0);
           state_ := ?s;
           s;
