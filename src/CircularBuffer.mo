@@ -1,6 +1,5 @@
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
-import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Blob "mo:base/Blob";
@@ -11,11 +10,11 @@ module CircularBuffer {
     assert capacity != 0;
 
     var array : [var ?T] = Array.init(capacity, null);
-    var last : Nat = 0;
-    var pushes : Int = 0;
+    var last = 0;
+    var pushes = 0;
 
     /// Number of items that were ever pushed to the buffer
-    public func pushesAmount() : Nat = Int.abs(pushes);
+    public func pushesAmount() : Nat = pushes;
 
     /// Insert value into the buffer
     public func push(item : T) {
@@ -27,7 +26,7 @@ module CircularBuffer {
 
     /// Return interval `[start, end)` of indices of elements available.
     public func available() : (Nat, Nat) {
-      (Int.abs(Int.max(0, pushes - capacity)), Int.abs(pushes));
+      (if (pushes <= capacity) 0 else pushes - capacity, pushes);
     };
 
     /// Returns single element added with number `index` or null if element is not available or index out of bounds.
@@ -66,7 +65,7 @@ module CircularBuffer {
     public func share() : ([var ?T], Nat, Int) = (array, last, pushes);
 
     /// Unshare from stable content
-    public func unshare(data : ([var ?T], Nat, Int)) {
+    public func unshare(data : ([var ?T], Nat, Nat)) {
       array := data.0;
       last := data.1;
       pushes := data.2;
