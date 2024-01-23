@@ -150,18 +150,37 @@ module CircularBuffer {
     /// Number of items that were ever pushed to the buffer
     public func pushesAmount() : Nat = state().pushes;
 
+    // Load and store pointers
+    func pointerPosition(i : Nat) : Nat64 {
+      let pos = i % (capacity + 1);
+      Nat64.fromNat(pos * POINTER_SIZE);
+    };
+    func storePointer(i : Nat, val : Nat) {
+      Region.storeNat32(state().index, pointerPosition(i), Nat32.fromNat(val));
+    };
+    func loadPointer(i : Nat) : Nat {
+      Nat32.toNat(Region.loadNat32(state().index, pointerPosition(i)));
+    };
+    // Load and store data
+    func storeData(pos : Nat, blob : Blob) {
+      Region.storeBlob(state().data, Nat64.fromNat(pos), blob);
+    };
+    func loadData(pos : Nat, len : Nat) : Blob {
+      Region.loadBlob(state().data, Nat64.fromNat(pos), len);
+    };
+
     func pop_(s : CircularBufferStableState, take : Bool) : ?T {
-      let new_start = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((s.start + 1) % (capacity + 1) * POINTER_SIZE)));
-      let item_length = ((new_start + length - s.start_data) : Nat) % length;
+      let new_start_data = loadPointer(s.start + 1);
+      let item_length = (new_start_data + length - s.start_data : Nat) % length;
 
       let value = if (take) {
-        let blob = if (s.start_data < new_start) {
-          Region.loadBlob(s.data, Nat64.fromNat(s.start_data), item_length);
-        } else if (s.start_data > new_start) {
-          let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(s.start_data), length - s.start_data));
-          let second_part = Blob.toArray(Region.loadBlob(s.data, 0, new_start));
-          let sz = first_part.size();
-          Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i : Nat) : Nat8 = if (i < sz) first_part[i] else second_part[i - sz]));
+        let blob = if (s.start_data < new_start_data) {
+          loadData(s.start_data, item_length);
+        } else if (s.start_data > new_start_data) {
+          let sz1 : Nat = length - s.start_data;
+          let first_part = Blob.toArray(loadData(s.start_data, sz1));
+          let second_part = Blob.toArray(loadData(0, new_start_data));
+          Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i) = if (i < sz1) first_part[i] else second_part[i - sz1]));
         } else {
           Blob.fromArray([]);
         };
@@ -169,7 +188,7 @@ module CircularBuffer {
       } else { null };
 
       s.count_data -= item_length;
-      s.start_data := new_start;
+      s.start_data := new_start_data;
       s.start := (s.start + 1) % (capacity + 1);
       s.count -= 1;
       value;
@@ -194,8 +213,7 @@ module CircularBuffer {
       let s = state();
       let blob = serialize(item);
 
-      // blob.size() < length necessary for correct work of get
-      assert 0 <= blob.size() and blob.size() < length;
+      assert blob.size() < length;
 
       if (force) {
         while (s.count == capacity or length < blob.size() + s.count_data) {
@@ -208,19 +226,19 @@ module CircularBuffer {
       if (blob.size() > 0) {
         let end_data = (s.start_data + s.count_data) % length;
         if (end_data + blob.size() <= length) {
-          Region.storeBlob(s.data, Nat64.fromNat(end_data), blob);
+          storeData(end_data, blob);
         } else {
           let a = Blob.toArray(blob);
-          let first_part = Blob.fromArray(Array.tabulate<Nat8>(length - end_data, func(i) = a[i]));
-          let sz = first_part.size();
+          let sz : Nat = length - end_data;
+          let first_part = Blob.fromArray(Array.tabulate<Nat8>(sz, func(i) = a[i]));
           let second_part = Blob.fromArray(Array.tabulate<Nat8>(blob.size() - sz, func(i) = a[sz + i]));
-          Region.storeBlob(s.data, Nat64.fromNat(end_data), first_part);
-          Region.storeBlob(s.data, 0, second_part);
+          storeData(end_data, first_part);
+          storeData(0, second_part);
         };
       };
       s.count_data += blob.size();
       s.count += 1;
-      Region.storeNat32(s.index, Nat64.fromNat(((s.start + s.count) % (capacity + 1)) * POINTER_SIZE), Nat32.fromNat((s.start_data + s.count_data) % length));
+      storePointer(s.start + s.count, (s.start_data + s.count_data) % length);
       s.pushes += 1;
       true;
     };
@@ -237,14 +255,14 @@ module CircularBuffer {
       (s.pushes - s.count, s.pushes);
     };
 
-    func get_(s : CircularBufferStableState, l : Nat, index : Nat) : T {
-      let i = s.start + index - l : Nat;
+    func get_(start : Nat, l : Nat, index : Nat) : T {
+      let i = start + index - l : Nat;
 
-      let from = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat(i * POINTER_SIZE)));
-      let to = Nat32.toNat(Region.loadNat32(s.index, Nat64.fromNat((i + 1) % (capacity + 1) * POINTER_SIZE)));
+      let from = loadPointer(i);
+      let to = loadPointer(i +1);
       let blob = if (to < from) {
-        let first_part = Blob.toArray(Region.loadBlob(s.data, Nat64.fromNat(from), length - from));
-        let second_part = Blob.toArray(Region.loadBlob(s.data, 0, to));
+        let first_part = Blob.toArray(loadData(from, length - from));
+        let second_part = Blob.toArray(loadData(0, to));
         Blob.fromArray(
           Array.tabulate<Nat8>(
             first_part.size() + second_part.size(),
@@ -254,19 +272,18 @@ module CircularBuffer {
       } else if (to == from) {
         Blob.fromArray([]);
       } else {
-        Region.loadBlob(s.data, Nat64.fromNat(from), to - from);
+        loadData(from, to - from);
       };
       deserialize(blob);
     };
 
     /// Returns single element added with number `index` or null if element is not available or index out of bounds.
     public func get(index : Nat) : ?T {
-      let s = state();
       let (l, r) = available();
       if (not (l <= index and index < r)) {
         return null;
       };
-      ?get_(s, l, index);
+      ?get_(state().start, l, index);
     };
 
     /// Return iterator to values added with numbers in interval `[from; to)`.
@@ -277,14 +294,14 @@ module CircularBuffer {
 
       assert interval.0 <= from and from <= interval.1 and interval.0 <= to and to <= interval.1;
 
-      let s = state();
+      let start = state().start;
 
       object {
         var i = from;
 
         public func next() : ?T {
           if (i == to) return null;
-          let ret = get_(s, interval.0, i);
+          let ret = get_(start, interval.0, i);
           i += 1;
           ?ret;
         };
