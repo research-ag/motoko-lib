@@ -4,6 +4,7 @@ import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Blob "mo:base/Blob";
 import Nat32 "mo:base/Nat32";
+import Prim "mo:prim";
 
 module CircularBuffer {
   public class CircularBuffer<T>(capacity : Nat) {
@@ -72,6 +73,9 @@ module CircularBuffer {
     };
   };
 
+  type Address = Nat; // offset into data region, reduced modulo length
+  type Index = Nat; // pointer index, not reduced modulo capacity
+
   public type CircularBufferStableState = {
     length : Nat;
     capacity : Nat;
@@ -81,10 +85,22 @@ module CircularBuffer {
     var count : Nat;
 
     data : Region;
-    var start_data : Nat;
+    var start_data : Address;
     var count_data : Nat;
 
     var pushes : Nat;
+  };
+
+  let PAGE_SIZE = 65536;
+  func bytesToPages(n : Nat) : Nat64 {
+    Nat64.fromNat((n + PAGE_SIZE - 1) / PAGE_SIZE);
+  };
+
+  func unwrap<X>(x : ?X) : X {
+    switch (x) {
+      case (?x) x;
+      case (null) Prim.trap("cannot unwrap");
+    };
   };
 
   public class CircularBufferStable<T>(
@@ -94,11 +110,6 @@ module CircularBuffer {
     length : Nat,
   ) {
     let POINTER_SIZE = 4;
-    let PAGE_SIZE = 2 ** 16;
-
-    func bytesToPages(n : Nat) : Nat64 {
-      Nat64.fromNat((n + PAGE_SIZE - 1) / PAGE_SIZE);
-    };
 
     /// Assert no waste in regions memory
     public func assert_no_waste() {
@@ -151,38 +162,37 @@ module CircularBuffer {
     public func pushesAmount() : Nat = state().pushes;
 
     // Load and store pointers
-    func pointerPosition(i : Nat) : Nat64 {
-      let pos = i % (capacity + 1);
-      Nat64.fromNat(pos * POINTER_SIZE);
+    func pointerOffset(i : Index) : Nat64 {
+      Nat64.fromNat(i % (capacity + 1) * POINTER_SIZE);
     };
-    func storePointer(i : Nat, val : Nat) {
-      Region.storeNat32(state().index, pointerPosition(i), Nat32.fromNat(val));
+    func storePointer(i : Index, addr : Address) {
+      Region.storeNat32(state().index, pointerOffset(i), Nat32.fromNat(addr));
     };
-    func loadPointer(i : Nat) : Nat {
-      Nat32.toNat(Region.loadNat32(state().index, pointerPosition(i)));
+    func loadPointer(i : Index) : Address {
+      Nat32.toNat(Region.loadNat32(state().index, pointerOffset(i)));
     };
     // Load and store data
-    func storeData(pos : Nat, blob : Blob) {
-      Region.storeBlob(state().data, Nat64.fromNat(pos), blob);
+    func storeData(addr : Address, blob : Blob) {
+      Region.storeBlob(state().data, Nat64.fromNat(addr), blob);
     };
-    func loadData(pos : Nat, len : Nat) : Blob {
-      Region.loadBlob(state().data, Nat64.fromNat(pos), len);
+    func loadData(addr : Address, len : Nat) : Blob {
+      Region.loadBlob(state().data, Nat64.fromNat(addr), len);
     };
 
     func pop_(s : CircularBufferStableState, take : Bool) : ?T {
-      let new_start_data = loadPointer(s.start + 1);
+      let new_start_data : Address = loadPointer(s.start + 1);
       let item_length = (new_start_data + length - s.start_data : Nat) % length;
 
       let value = if (take) {
         let blob = if (s.start_data < new_start_data) {
           loadData(s.start_data, item_length);
         } else if (s.start_data > new_start_data) {
-          let sz1 : Nat = length - s.start_data;
-          let first_part = Blob.toArray(loadData(s.start_data, sz1));
-          let second_part = Blob.toArray(loadData(0, new_start_data));
-          Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i) = if (i < sz1) first_part[i] else second_part[i - sz1]));
+          let sz : Nat = length - s.start_data;
+          let next1 = loadData(s.start_data, sz).vals().next;
+          let next2 = loadData(0, new_start_data).vals().next;
+          Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i) = if (i < sz) unwrap(next1()) else unwrap(next2())));
         } else {
-          Blob.fromArray([]);
+          "" : Blob;
         };
         ?deserialize(blob);
       } else { null };
@@ -212,31 +222,32 @@ module CircularBuffer {
     func push_(item : T, force : Bool) : Bool {
       let s = state();
       let blob = serialize(item);
+      let item_length = blob.size();
 
-      assert blob.size() < length;
+      assert item_length < length;
 
       if (force) {
-        while (s.count == capacity or length < blob.size() + s.count_data) {
+        while (s.count == capacity or length < item_length + s.count_data) {
           ignore pop_(s, false);
         };
-      } else if (s.count == capacity or length < blob.size() + s.count_data) {
+      } else if (s.count == capacity or length < item_length + s.count_data) {
         return false;
       };
 
-      if (blob.size() > 0) {
+      if (item_length > 0) {
         let end_data = (s.start_data + s.count_data) % length;
-        if (end_data + blob.size() <= length) {
+        if (end_data + item_length <= length) {
           storeData(end_data, blob);
         } else {
-          let a = Blob.toArray(blob);
+          let next = blob.vals().next;
           let sz : Nat = length - end_data;
-          let first_part = Blob.fromArray(Array.tabulate<Nat8>(sz, func(i) = a[i]));
-          let second_part = Blob.fromArray(Array.tabulate<Nat8>(blob.size() - sz, func(i) = a[sz + i]));
-          storeData(end_data, first_part);
-          storeData(0, second_part);
+          let part1 = Blob.fromArray(Array.tabulate<Nat8>(sz, func(i) = unwrap(next())));
+          let part2 = Blob.fromArray(Array.tabulate<Nat8>(item_length - sz, func(i) = unwrap(next())));
+          storeData(end_data, part1);
+          storeData(0, part2);
         };
       };
-      s.count_data += blob.size();
+      s.count_data += item_length;
       s.count += 1;
       storePointer(s.start + s.count, (s.start_data + s.count_data) % length);
       s.pushes += 1;
@@ -259,18 +270,19 @@ module CircularBuffer {
       let i = start + index - l : Nat;
 
       let from = loadPointer(i);
-      let to = loadPointer(i +1);
+      let to = loadPointer(i + 1);
       let blob = if (to < from) {
-        let first_part = Blob.toArray(loadData(from, length - from));
-        let second_part = Blob.toArray(loadData(0, to));
+        let sz : Nat = length - from;
+        let next1 = loadData(from, sz).vals().next;
+        let next2 = loadData(0, to).vals().next;
         Blob.fromArray(
           Array.tabulate<Nat8>(
-            first_part.size() + second_part.size(),
-            func(i) = if (i < first_part.size()) first_part[i] else second_part[i - first_part.size()],
+            sz + to,
+            func(i) = if (i < sz) unwrap(next1()) else unwrap(next2()),
           )
         );
       } else if (to == from) {
-        Blob.fromArray([]);
+        "" : Blob;
       } else {
         loadData(from, to - from);
       };
