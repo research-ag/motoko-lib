@@ -165,18 +165,36 @@ module CircularBuffer {
     func pointerOffset(i : Index) : Nat64 {
       Nat64.fromNat(i % (capacity + 1) * POINTER_SIZE);
     };
+
     func storePointer(i : Index, addr : Address) {
       Region.storeNat32(state().index, pointerOffset(i), Nat32.fromNat(addr));
     };
+
     func loadPointer(i : Index) : Address {
       Nat32.toNat(Region.loadNat32(state().index, pointerOffset(i)));
     };
+
     // Load and store data
     func storeData(addr : Address, blob : Blob) {
       Region.storeBlob(state().data, Nat64.fromNat(addr), blob);
     };
+
     func loadData(addr : Address, len : Nat) : Blob {
       Region.loadBlob(state().data, Nat64.fromNat(addr), len);
+    };
+
+    func loadInterval(from : Address, to : Address) : T {
+      let blob = if (from < to) {
+        loadData(from, to - from);
+      } else if (from > to) {
+        let sz : Nat = length - from;
+        let next1 = loadData(from, sz).vals().next;
+        let next2 = loadData(0, to).vals().next;
+        Blob.fromArray(Array.tabulate<Nat8>(sz + to, func(i) = if (i < sz) unwrap(next1()) else unwrap(next2())));
+      } else {
+        "" : Blob;
+      };
+      deserialize(blob);
     };
 
     func pop_(s : CircularBufferStableState, take : Bool) : ?T {
@@ -184,17 +202,7 @@ module CircularBuffer {
       let item_length = (new_start_data + length - s.start_data : Nat) % length;
 
       let value = if (take) {
-        let blob = if (s.start_data < new_start_data) {
-          loadData(s.start_data, item_length);
-        } else if (s.start_data > new_start_data) {
-          let sz : Nat = length - s.start_data;
-          let next1 = loadData(s.start_data, sz).vals().next;
-          let next2 = loadData(0, new_start_data).vals().next;
-          Blob.fromArray(Array.tabulate<Nat8>(item_length, func(i) = if (i < sz) unwrap(next1()) else unwrap(next2())));
-        } else {
-          "" : Blob;
-        };
-        ?deserialize(blob);
+        ?loadInterval(s.start_data, new_start_data);
       } else { null };
 
       s.count_data -= item_length;
@@ -271,22 +279,7 @@ module CircularBuffer {
 
       let from = loadPointer(i);
       let to = loadPointer(i + 1);
-      let blob = if (to < from) {
-        let sz : Nat = length - from;
-        let next1 = loadData(from, sz).vals().next;
-        let next2 = loadData(0, to).vals().next;
-        Blob.fromArray(
-          Array.tabulate<Nat8>(
-            sz + to,
-            func(i) = if (i < sz) unwrap(next1()) else unwrap(next2()),
-          )
-        );
-      } else if (to == from) {
-        "" : Blob;
-      } else {
-        loadData(from, to - from);
-      };
-      deserialize(blob);
+      loadInterval(from, to);
     };
 
     /// Returns single element added with number `index` or null if element is not available or index out of bounds.
