@@ -22,4 +22,6 @@ jobs:
           npm i -g ic-mops@${{ env.mops_version }}
 
       - name: "test"
-        run: mops test
+        run: |
+          mops install
+          mops test
