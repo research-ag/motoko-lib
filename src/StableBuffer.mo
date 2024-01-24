@@ -80,6 +80,16 @@ module Buffer {
       Nat64.toNat(self.elems_count);
     };
 
+    public func bytes() : Nat {
+      let self = state();
+      Nat64.toNat(self.bytes_count);
+    };
+
+    public func pages() : Nat {
+      let self = state();
+      Nat64.toNat(Region.size(self.elems) + Region.size(self.bytes));
+    };
+
     public func share() : StableData = state();
 
     public func unshare(data : StableData) {
