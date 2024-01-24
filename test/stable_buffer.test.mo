@@ -10,12 +10,15 @@ let buffer = StableBuffer.StableBuffer<Text>(
   func(x : Blob) : Text = Option.unwrap(Text.decodeUtf8(x)),
 );
 
-let n = 100;
+var n = 0;
 var t = "";
-for (i in Iter.range(0, n - 1)) {
-  buffer.add(t);
+buffer.setMaxPages(?3);
+while (buffer.add(t)) {
   t #= "a";
+  n += 1;
 };
+
+assert buffer.pages() == 3;
 
 t := "";
 for (i in Iter.range(0, n - 1)) {
