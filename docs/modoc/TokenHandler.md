@@ -75,7 +75,7 @@ type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Int))
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
 ```
 
 

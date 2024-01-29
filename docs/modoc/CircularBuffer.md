@@ -50,7 +50,7 @@ Return iterator to values added with numbers in interval `[from; to)`.
 
 ### Function `share`
 ``` motoko
-func share() : ([var ?T], Nat, Int)
+func share() : ([var ?T], Nat, Nat)
 ```
 
 Share stable content
