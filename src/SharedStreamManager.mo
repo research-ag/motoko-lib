@@ -134,8 +134,8 @@ module {
                   };
                 };
               };
-              for (i in Iter.range(0, streamsPerSourceCanister - 1)) {
-                slots[i] := if (i < old.size()) { old[i] } else { null };
+              for (i in Iter.range(0, old.size() - 1)) {
+                slots[i] := old[i];
               };
             };
           };
