@@ -2,19 +2,19 @@
 
 ## Type `StreamSource`
 ``` motoko
-type StreamSource = {#canister : Principal; #internal}
+type StreamSource = {#canister : (slotIndex : Nat, source : Principal); #internal}
 ```
 
 
 ## Type `StreamInfo`
 ``` motoko
-type StreamInfo<T> = { source : StreamSource; var nextItemId : Nat; var receiver : ?SharedStream.StreamReceiver<T> }
+type StreamInfo<T> = { source : StreamSource; var length : Nat; var receiver : ?Receiver<T> }
 ```
 
 
 ## Type `StableData`
 ``` motoko
-type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>)
+type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, [?Nat]>)
 ```
 
 
@@ -24,10 +24,16 @@ func defaultStableData() : StableData
 ```
 
 
+## Type `Callbacks`
+``` motoko
+type Callbacks<T> = { onReceiverRegistered : (streamId : Nat, receiver : Receiver<T>, source : StreamSource) -> (); onReceiverDeregistered : (streamId : Nat, receiver : Receiver<T>, source : StreamSource) -> () }
+```
+
+
 ## Class `StreamsManager<T>`
 
 ``` motoko
-class StreamsManager<T>(initialSourceCanisters : [Principal], itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Any)
+class StreamsManager<T>(streamsPerSourceCanister : Nat, itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Bool)
 ```
 
 A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
@@ -40,17 +46,9 @@ func sourceCanisters() : [Principal]
 principals of registered cross-canister stream sources
 
 
-### Function `canisterStreams`
-``` motoko
-func canisterStreams() : [(Principal, ?Nat)]
-```
-
-principals and id-s of registered cross-canister stream sources
-
-
 ### Function `prioritySourceCanisters`
 ``` motoko
-func prioritySourceCanisters() : [(Principal, Nat)]
+func prioritySourceCanisters(streamSlot : Nat) : [(Principal, Nat)]
 ```
 
 principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should

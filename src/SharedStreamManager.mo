@@ -1,3 +1,4 @@
+import Array "mo:base/Array";
 import AssocList "mo:base/AssocList";
 import Iter "mo:base/Iter";
 import List "mo:base/List";
@@ -16,7 +17,10 @@ module {
 
   let TIMEOUT = 120_000_000_000;
 
-  public type StreamSource = { #canister : Principal; #internal };
+  public type StreamSource = {
+    #canister : (slotIndex : Nat, source : Principal);
+    #internal;
+  };
 
   public type StreamInfo<T> = {
     source : StreamSource;
@@ -30,7 +34,7 @@ module {
     receiverData : ?StreamReceiver.StableData;
   };
 
-  public type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, ?Nat>);
+  public type StableData = (Vec.Vector<StableStreamInfo>, AssocList.AssocList<Principal, [?Nat]>);
 
   public func defaultStableData() : StableData = (Vec.new(), null);
 
@@ -39,18 +43,9 @@ module {
     onReceiverDeregistered : (streamId : Nat, receiver : Receiver<T>, source : StreamSource) -> ();
   };
 
-  func assocListFromIter<K, V>(iter : Iter.Iter<(K, V)>, equal : (K, K) -> Bool) : AssocList.AssocList<K, V> {
-    var l : AssocList.AssocList<K, V> = null;
-    for ((k, v) in iter) {
-      let (upd, _) = AssocList.replace<K, V>(l, k, equal, ?v);
-      l := upd;
-    };
-    l;
-  };
-
   /// A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers
   public class StreamsManager<T>(
-    initialSourceCanisters : [Principal],
+    streamsPerSourceCanister : Nat,
     itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Bool,
   ) {
     public var callbacks : Callbacks<T> = {
@@ -61,29 +56,25 @@ module {
     // info about each issued stream id is preserved here forever. Index is a stream ID
     let streams_ : Vec.Vector<StreamInfo<T>> = Vec.new();
     // a mapping of canister principal to stream id
-    var sourceCanistersStreamMap : AssocList.AssocList<Principal, ?Nat> = assocListFromIter(
-      Iter.map<Principal, (Principal, ?Nat)>(
-        Iter.fromArray(initialSourceCanisters),
-        func(p) = (p, null),
-      ),
-      Principal.equal,
-    );
+    var sourceCanistersStreamMap : AssocList.AssocList<Principal, [?Nat]> = null;
 
     /// principals of registered cross-canister stream sources
-    public func sourceCanisters() : [Principal] = Iter.toArray(Iter.map<(Principal, ?Nat), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
-
-    /// principals and id-s of registered cross-canister stream sources
-    public func canisterStreams() : [(Principal, ?Nat)] = Iter.toArray(List.toIter(sourceCanistersStreamMap));
+    public func sourceCanisters() : [Principal] = Iter.toArray(Iter.map<(Principal, Any), Principal>(List.toIter(sourceCanistersStreamMap), func(p, n) = p));
 
     /// principals of cross-canister stream sources with the priority. The priority value tells the caller with what probability they should
     /// chose that canister for their needs (sum of all values is not normalized). In the future this value will be used for
     /// load balancing, for now it returns either 0 or 1. Zero value means that stream is closed and the canister should not be used
-    public func prioritySourceCanisters() : [(Principal, Nat)] = Iter.toArray(
-      Iter.map<(Principal, ?Nat), (Principal, Nat)>(
+    public func prioritySourceCanisters(streamSlot : Nat) : [(Principal, Nat)] = Iter.toArray(
+      Iter.map<(Principal, [?Nat]), (Principal, Nat)>(
         List.toIter(sourceCanistersStreamMap),
         func(p, n) = (
           p,
-          switch (Option.map(n, getStream)) {
+          switch (
+            Option.map(
+              if (streamSlot < n.size()) { n[streamSlot] } else { null },
+              getStream,
+            )
+          ) {
             case (??stream) switch (stream.receiver) {
               case (?r) if (r.isStopped()) { 0 } else { 1 };
               case (null) 0;
@@ -105,35 +96,57 @@ module {
       switch (Vec.getOpt(streams_, streamId)) {
         case (null) null;
         case (?info) switch (info.source) {
-          case (#canister p) ?p;
+          case (#canister(_, p)) ?p;
           case (_) null;
         };
       };
+    };
+
+    private func closeStreamIfOpened(sid : Nat) = switch (Vec.getOpt(streams_, sid)) {
+      case (?s) {
+        switch (s.receiver) {
+          case (?rec) {
+            callbacks.onReceiverDeregistered(sid, rec, s.source);
+            s.receiver := null;
+          };
+          case (_) {};
+        };
+      };
+      case (_) {};
     };
 
     /// register new stream
     public func issueStreamId(source : StreamSource) : R.Result<Nat, { #NotRegistered }> {
       let id = Vec.size(streams_);
       switch (source) {
-        case (#canister p) {
-          let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ??id);
-          sourceCanistersStreamMap := map;
-          switch (oldValue) {
-            case (??sid) switch (Vec.getOpt(streams_, sid)) {
-              case (?s) {
-                switch (s.receiver) {
-                  case (?rec) {
-                    callbacks.onReceiverDeregistered(sid, rec, s.source);
-                    s.receiver := null;
+        case (#canister(slot, p)) {
+          let slots : [var ?Nat] = Array.init<?Nat>(streamsPerSourceCanister, null);
+          // patch with old slots
+          switch (AssocList.find<Principal, [?Nat]>(sourceCanistersStreamMap, p, Principal.equal)) {
+            case (null) Prim.trap("Principal " # Principal.toText(p) # " not registered as stream source");
+            case (?old) {
+              if (old.size() > streamsPerSourceCanister) {
+                // If contained more streams before upgrade and slots amount has changed
+                for (i in Iter.range(streamsPerSourceCanister, old.size() - 1)) {
+                  switch (old[i]) {
+                    case (?sid) closeStreamIfOpened(sid);
+                    case (_) {};
                   };
-                  case (_) {};
                 };
               };
-              case (_) {};
+              for (i in Iter.range(0, old.size() - 1)) {
+                slots[i] := old[i];
+              };
             };
-            case (?null) {};
-            case (null) Prim.trap("Principal " # Principal.toText(p) # " not registered as stream source");
           };
+          // update stream id in slot
+          switch (slots[slot]) {
+            case (?oldSid) closeStreamIfOpened(oldSid);
+            case (_) {};
+          };
+          slots[slot] := ?id;
+          let (map, _) = AssocList.replace<Principal, [?Nat]>(sourceCanistersStreamMap, p, Principal.equal, ?Array.freeze(slots));
+          sourceCanistersStreamMap := map;
         };
         case (#internal) {};
       };
@@ -151,7 +164,12 @@ module {
       switch (AssocList.find(sourceCanistersStreamMap, p, Principal.equal)) {
         case (?entry) {};
         case (_) {
-          let (map, _) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, ?null);
+          let (map, _) = AssocList.replace<Principal, [?Nat]>(
+            sourceCanistersStreamMap,
+            p,
+            Principal.equal,
+            ?Array.tabulate<?Nat>(streamsPerSourceCanister, func(n) = null),
+          );
           sourceCanistersStreamMap := map;
         };
       };
@@ -159,26 +177,15 @@ module {
 
     /// deregister cross-canister stream
     public func deregisterSourceCanister(p : Principal) : () {
-      let (map, oldValue) = AssocList.replace<Principal, ?Nat>(sourceCanistersStreamMap, p, Principal.equal, null);
+      let (map, oldValue) = AssocList.replace<Principal, [?Nat]>(sourceCanistersStreamMap, p, Principal.equal, null);
       switch (oldValue) {
-        case (?streamIdOpt) {
+        case (?streamIds) {
           sourceCanistersStreamMap := map;
-          switch (streamIdOpt) {
-            case (?streamId) {
-              switch (Vec.getOpt(streams_, streamId)) {
-                case (?s) {
-                  switch (s.receiver) {
-                    case (?rec) {
-                      callbacks.onReceiverDeregistered(streamId, rec, s.source);
-                      s.receiver := null;
-                    };
-                    case (_) {};
-                  };
-                };
-                case (_) {};
-              };
+          for (sidOpt in streamIds.vals()) {
+            switch (sidOpt) {
+              case (?sid) closeStreamIfOpened(sid);
+              case (null) {};
             };
-            case (null) {};
           };
         };
         case (null) {};
