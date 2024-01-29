@@ -268,7 +268,7 @@ module TokenHandler {
     (Nat, [(Principal, Nat)]),        // backlog
     Nat,                              // consolidatedFunds
     (Nat, Nat),                       // total debited/credited
-    ([var ?JournalRecord], Nat, Int)  // journal
+    ([var ?JournalRecord], Nat, Nat)  // journal
   );
 
   public class TokenHandler(

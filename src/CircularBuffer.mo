@@ -63,7 +63,7 @@ module CircularBuffer {
     };
 
     /// Share stable content
-    public func share() : ([var ?T], Nat, Int) = (array, last, pushes);
+    public func share() : ([var ?T], Nat, Nat) = (array, last, pushes);
 
     /// Unshare from stable content
     public func unshare(data : ([var ?T], Nat, Nat)) {
