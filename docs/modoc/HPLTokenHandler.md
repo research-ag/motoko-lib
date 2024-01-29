@@ -151,7 +151,7 @@ type JournalRecord = (Time.Time, Principal, {#credited : Nat; #debited : Nat; #e
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, StableInfo)], Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Int))
+type StableData = ([(Principal, StableInfo)], Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
 ```
 
 

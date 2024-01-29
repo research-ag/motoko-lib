@@ -130,7 +130,7 @@ module HPLTokenHandler {
     [(Principal, StableInfo)], // map
     Nat, // consolidatedFunds
     (Nat, Nat), // total debited/credited
-    ([var ?JournalRecord], Nat, Int) // journal
+    ([var ?JournalRecord], Nat, Nat) // journal
   );
 
   public class TokenHandler(
