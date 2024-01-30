@@ -56,16 +56,18 @@ module TokenHandler {
 
     assert size <= 29;
 
-    let a = Array.tabulate<Nat8>(32, func (i : Nat) : Nat8 {
-      if (i + size < 31) {
-        0;
-      } else
-      if (i + size == 31) {
-        Nat8.fromNat(size)
-      } else {
-        bytes[i + size - 32];
-      };
-    });
+    let a = Array.tabulate<Nat8>(
+      32,
+      func(i : Nat) : Nat8 {
+        if (i + size < 31) {
+          0;
+        } else if (i + size == 31) {
+          Nat8.fromNat(size);
+        } else {
+          bytes[i + size - 32];
+        };
+      },
+    );
     Blob.fromArray(a);
   };
 
@@ -94,7 +96,7 @@ module TokenHandler {
     ?Principal.fromBlob(Blob.fromArray(Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])));
   };
 
-  public func defaultHandlerStableData(): StableData = ([], (0, []),  0, (0, 0), ([var], 0, 0));
+  public func defaultHandlerStableData() : StableData = ([], (0, []), 0, (0, 0), ([var], 0, 0));
 
   public type Info = {
     var deposit : Nat; // the balance that is in the subaccount associated with the user
@@ -105,7 +107,7 @@ module TokenHandler {
     var lock : Bool; // lock flag. For internal usage only
   };
 
-  class Map(assertionFailureCallback: (text: Text) -> ()) {
+  class Map(assertionFailureCallback : (text : Text) -> ()) {
     var tree : RBTree.RBTree<Principal, InfoLock> = RBTree.RBTree<Principal, InfoLock>(Principal.compare);
 
     func clean(p : Principal, info : InfoLock) {
@@ -151,14 +153,14 @@ module TokenHandler {
     };
 
     public func unlock(p : Principal) = switch (tree.get(p)) {
-        case (null) {
-          assertionFailureCallback("Unlock not existent p");
-        };
-        case (?info) {
-          if (not info.lock) assertionFailureCallback("releasing lock that isn't locked");
-          info.lock := false;
-        };
+      case (null) {
+        assertionFailureCallback("Unlock not existent p");
       };
+      case (?info) {
+        if (not info.lock) assertionFailureCallback("releasing lock that isn't locked");
+        info.lock := false;
+      };
+    };
 
     public func share() : [(Principal, Info)] = Iter.toArray(
       Iter.filter<(Principal, InfoLock)>(
@@ -182,9 +184,9 @@ module TokenHandler {
       };
     };
 
-    public func items(): Iter.Iter<InfoLock> = Iter.map<(Principal, InfoLock), InfoLock>(
+    public func items() : Iter.Iter<InfoLock> = Iter.map<(Principal, InfoLock), InfoLock>(
       tree.entries(),
-      func (entry: (Principal, InfoLock)) : InfoLock = entry.1
+      func(entry : (Principal, InfoLock)) : InfoLock = entry.1,
     );
   };
 
@@ -194,7 +196,7 @@ module TokenHandler {
     var size_ : Nat = 0;
     var funds_ : Nat = 0;
 
-    public func push(p : Principal, amount: Nat) {
+    public func push(p : Principal, amount : Nat) {
       let (updated, prev) = AssocList.replace<Principal, Nat>(backlog, p, Principal.equal, ?amount);
       funds_ += amount;
       backlog := updated;
@@ -246,42 +248,46 @@ module TokenHandler {
       size_ := data.1.size();
       var i = size_;
       while (i > 0) {
-        backlog := ?(data.1[i - 1], backlog);
+        backlog := ?(data.1 [i - 1], backlog);
         i -= 1;
       };
     };
   };
 
-  public type JournalRecord = (Time.Time, Principal, {
-    #newDeposit: Nat;
-    #consolidated: { deducted: Nat; credited: Nat };
-    #debited: Nat;
-    #credited: Nat;
-    #feeUpdated: { old: Nat; new: Nat };
-    #error: Text;
-    #consolidationError: ICRC1.TransferError or { #CallIcrc1LedgerError };
-    #withdraw: { to: ICRC1.Account; amount: Nat };
-  });
+  public type JournalRecord = (
+    Time.Time,
+    Principal,
+    {
+      #newDeposit : Nat;
+      #consolidated : { deducted : Nat; credited : Nat };
+      #debited : Nat;
+      #credited : Nat;
+      #feeUpdated : { old : Nat; new : Nat };
+      #error : Text;
+      #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
+      #withdraw : { to : ICRC1.Account; amount : Nat };
+    },
+  );
 
   public type StableData = (
-    [(Principal, Info)],              // map
-    (Nat, [(Principal, Nat)]),        // backlog
-    Nat,                              // consolidatedFunds
-    (Nat, Nat),                       // total debited/credited
-    ([var ?JournalRecord], Nat, Nat)  // journal
+    [(Principal, Info)], // map
+    (Nat, [(Principal, Nat)]), // backlog
+    Nat, // consolidatedFunds
+    (Nat, Nat), // total debited/credited
+    ([var ?JournalRecord], Nat, Nat) // journal
   );
 
   public class TokenHandler(
     icrc1LedgerPrincipal_ : Principal,
     ownPrincipal : Principal,
-    journalSize: Nat,
+    journalSize : Nat,
   ) {
 
     let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal_)) : ICRC1.ICRC1Ledger;
 
     /// if some unexpected error happened, this flag turns true and handler stops doing anything until recreated
     var isFrozen_ : Bool = false;
-    func freezeTokenHandler(errorText: Text): () {
+    func freezeTokenHandler(errorText : Text) : () {
       isFrozen_ := true;
       journal.push((Time.now(), ownPrincipal, #error(errorText)));
     };
@@ -319,11 +325,11 @@ module TokenHandler {
     /// query journal for debug purposes. Returns:
     /// 1) array of all items in order, starting from the oldest record in journal, but no earlier than "startFrom" if provided
     /// 2) the index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
-    public func queryJournal(startFrom: ?Nat): ([JournalRecord], Nat) = (
+    public func queryJournal(startFrom : ?Nat) : ([JournalRecord], Nat) = (
       Iter.toArray(
         journal.slice(
           Int.abs(Int.max(Option.get(startFrom, 0), journal.pushesAmount() - journalSize)),
-          journal.pushesAmount()
+          journal.pushesAmount(),
         )
       ),
       journal.pushesAmount(),
@@ -399,7 +405,7 @@ module TokenHandler {
             ignore processBacklog();
           } catch (err) {
             // pass
-          }
+          };
         };
         map.unlock(p);
         if (latestBalance <= oldBalance) {
@@ -420,7 +426,10 @@ module TokenHandler {
     /// process first account from backlog
     public func processBacklog() : async () {
       func consolidate(p : Principal) : async* () {
-        func processConsolidationTransfer() : async* ?{ #Ok : Nat; #Err : ICRC1.TransferError or { #CallIcrc1LedgerError }; } {
+        func processConsolidationTransfer() : async* ?{
+          #Ok : Nat;
+          #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
+        } {
           if (latestBalance <= fee_) return null;
           let transferAmount = Int.abs(latestBalance - fee_);
           let transferResult = try {
@@ -446,7 +455,7 @@ module TokenHandler {
                   true;
                 },
               );
-              journal.push((Time.now(), p, #consolidated({ deducted = latestBalance; credited = transferAmount; })));
+              journal.push((Time.now(), p, #consolidated({ deducted = latestBalance; credited = transferAmount })));
             };
             case (#Err err) {
               journal.push((Time.now(), p, #consolidationError(err)));
@@ -462,16 +471,16 @@ module TokenHandler {
         ignore updateDeposit(p, latestBalance);
         let transferResult = await* processConsolidationTransfer();
         switch (transferResult) {
-          case (?#Err(#BadFee { expected_fee })) {
+          case (? #Err(#BadFee { expected_fee })) {
             journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
             fee_ := expected_fee;
             let retryResult = await* processConsolidationTransfer();
             switch (retryResult) {
-              case (?#Err err) backlog.push(p, latestBalance);
+              case (? #Err err) backlog.push(p, latestBalance);
               case (_) {};
             };
           };
-          case (?#Err _) backlog.push(p, latestBalance);
+          case (? #Err _) backlog.push(p, latestBalance);
           case (_) {};
         };
       };
@@ -486,8 +495,8 @@ module TokenHandler {
       assertBalancesIntegrity();
     };
 
-    /// send tokens to another account
-    public func withdraw(to : ICRC1.Account, amount: Nat): async* Result.Result<Nat, ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
+    /// send tokens to another account, return amount of transfered tokens
+    public func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<Nat, ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
       if (amount <= fee_) return #err(#TooLowQuantity);
       let callResult = try {
         await icrc1Ledger.icrc1_transfer({
@@ -502,17 +511,16 @@ module TokenHandler {
         #Err(#CallIcrc1LedgerError);
       };
       switch (callResult) {
-        case (#Ok balance) {
-          journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount; })));
-          #ok(balance);
+        case (#Ok _) {
+          journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
+          #ok(amount - fee_);
         };
         case (#Err err) #err(err);
       };
     };
 
     /// serialize tracking data
-    public func share() : StableData
-      = (map.share(), backlog.share(), consolidatedFunds_, (totalDebited, totalCredited), journal.share());
+    public func share() : StableData = (map.share(), backlog.share(), consolidatedFunds_, (totalDebited, totalCredited), journal.share());
 
     /// deserialize tracking data
     public func unshare(values : StableData) {
@@ -530,16 +538,20 @@ module TokenHandler {
         usableSum += usableBalance(info);
       };
       if (usableSum + fee_ * backlog.size() + totalDebited != consolidatedFunds_ + backlog.funds() + totalCredited) {
-        let values: [Text] = [
-          "Balances integrity failed", Nat.toText(usableSum), Nat.toText(fee_ * backlog.size()), Nat.toText(totalDebited),
-          Nat.toText(consolidatedFunds_), Nat.toText(backlog.funds()), Nat.toText(totalCredited)
+        let values : [Text] = [
+          "Balances integrity failed",
+          Nat.toText(usableSum),
+          Nat.toText(fee_ * backlog.size()),
+          Nat.toText(totalDebited),
+          Nat.toText(consolidatedFunds_),
+          Nat.toText(backlog.funds()),
+          Nat.toText(totalCredited),
         ];
         freezeTokenHandler(Text.join("; ", Iter.fromArray(values)));
-      }
+      };
     };
 
-    func usableBalanceForPrincipal(p: Principal) : Nat
-      = Option.get(Option.map<InfoLock, Nat>(map.get(p), usableBalance), 0);
+    func usableBalanceForPrincipal(p : Principal) : Nat = Option.get(Option.map<InfoLock, Nat>(map.get(p), usableBalance), 0);
 
     func usableBalance(item : Info) : Nat {
       let usableDeposit = Int.max(0, item.deposit - fee_);
@@ -552,11 +564,14 @@ module TokenHandler {
     // returns old deposit
     func updateDeposit(p : Principal, deposit : Nat) : Nat {
       var oldDeposit = 0;
-      ignore map.set(p, func(info) { 
-        oldDeposit := info.deposit;
-        info.deposit := deposit; 
-        true;
-      });
+      ignore map.set(
+        p,
+        func(info) {
+          oldDeposit := info.deposit;
+          info.deposit := deposit;
+          true;
+        },
+      );
       oldDeposit;
     };
 

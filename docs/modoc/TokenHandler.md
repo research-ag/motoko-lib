@@ -200,7 +200,7 @@ process first account from backlog
 func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<Nat, ICRC1.TransferError or {#CallIcrc1LedgerError; #TooLowQuantity}>
 ```
 
-send tokens to another account
+send tokens to another account, return amount of transfered tokens
 
 
 ### Function `share`
