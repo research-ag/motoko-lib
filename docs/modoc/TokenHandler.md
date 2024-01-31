@@ -197,10 +197,10 @@ process first account from backlog
 
 ### Function `withdraw`
 ``` motoko
-func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<Nat, ICRC1.TransferError or {#CallIcrc1LedgerError; #TooLowQuantity}>
+func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<(transactionIndex : Nat, withdrawnAmount : Nat), ICRC1.TransferError or {#CallIcrc1LedgerError; #TooLowQuantity}>
 ```
 
-send tokens to another account, return amount of transfered tokens
+send tokens to another account, return ICRC1 transaction index and amount of transferred tokens (fee excluded)
 
 
 ### Function `share`

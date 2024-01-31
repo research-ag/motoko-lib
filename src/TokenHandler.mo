@@ -495,25 +495,43 @@ module TokenHandler {
       assertBalancesIntegrity();
     };
 
-    /// send tokens to another account, return amount of transfered tokens
-    public func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<Nat, ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
-      if (amount <= fee_) return #err(#TooLowQuantity);
-      let callResult = try {
-        await icrc1Ledger.icrc1_transfer({
-          from_subaccount = null;
-          to = to;
-          amount = Int.abs(amount - fee_);
-          fee = ?fee_;
-          memo = null;
-          created_at_time = null;
-        });
-      } catch (err) {
-        #Err(#CallIcrc1LedgerError);
+    /// send tokens to another account, return ICRC1 transaction index and amount of transferred tokens (fee excluded)
+    public func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<(transactionIndex : Nat, withdrawnAmount : Nat), ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
+      let transfer = func() : async* {
+        #Ok : Nat;
+        #Err : ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity };
+      } {
+        if (amount <= fee_) return #Err(#TooLowQuantity);
+        let callResult = try {
+          await icrc1Ledger.icrc1_transfer({
+            from_subaccount = null;
+            to = to;
+            amount = Int.abs(amount - fee_);
+            fee = ?fee_;
+            memo = null;
+            created_at_time = null;
+          });
+        } catch (err) {
+          #Err(#CallIcrc1LedgerError);
+        };
       };
+      let callResult = await* transfer();
       switch (callResult) {
-        case (#Ok _) {
+        case (#Ok txIdx) {
           journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
-          #ok(amount - fee_);
+          #ok(txIdx, amount - fee_);
+        };
+        case (#Err(#BadFee { expected_fee })) {
+          journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
+          fee_ := expected_fee;
+          let retryResult = await* transfer();
+          switch (retryResult) {
+            case (#Ok txIdx) {
+              journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
+              #ok(txIdx, amount - fee_);
+            };
+            case (#Err err) #err(err);
+          };
         };
         case (#Err err) #err(err);
       };
