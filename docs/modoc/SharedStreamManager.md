@@ -80,6 +80,14 @@ func sourceCanisterPrincipal(streamId : Nat) : ?Principal
 get principal of stream source by stream id
 
 
+### Function `closeStreamIfOpened`
+``` motoko
+func closeStreamIfOpened(sid : Nat)
+```
+
+close stream by id. Do nothing if does not exist or already closed
+
+
 ### Function `issueStreamId`
 ``` motoko
 func issueStreamId(source : StreamSource) : R.Result<Nat, {#NotRegistered}>

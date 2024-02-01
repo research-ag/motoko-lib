@@ -103,7 +103,8 @@ module {
       };
     };
 
-    private func closeStreamIfOpened(sid : Nat) = switch (Vec.getOpt(streams_, sid)) {
+    /// close stream by id. Do nothing if does not exist or already closed
+    public func closeStreamIfOpened(sid : Nat) = switch (Vec.getOpt(streams_, sid)) {
       case (?s) {
         switch (s.receiver) {
           case (?rec) {
