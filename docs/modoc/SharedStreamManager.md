@@ -33,7 +33,7 @@ type Callbacks<T> = { onReceiverRegistered : (streamId : Nat, receiver : Receive
 ## Class `StreamsManager<T>`
 
 ``` motoko
-class StreamsManager<T>(streamsPerSourceCanister : Nat, itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Bool)
+class StreamsManager<T>(streamsPerSourceCanister : Nat, itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Bool, maxStreamLength : ?Nat)
 ```
 
 A manager, which is responsible for handling multiple incoming streams. Incapsulates a set of stream receivers

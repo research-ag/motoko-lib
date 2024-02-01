@@ -47,6 +47,7 @@ module {
   public class StreamsManager<T>(
     streamsPerSourceCanister : Nat,
     itemCallback : (streamId : Nat, item : ?T, index : Nat) -> Bool,
+    maxStreamLength : ?Nat,
   ) {
     public var callbacks : Callbacks<T> = {
       onReceiverRegistered = func(_) {};
@@ -239,16 +240,20 @@ module {
       sourceCanistersStreamMap := d.1;
     };
 
-    func createReceiver(streamId : Nat, source : StreamSource) : Receiver<T> = Receiver<T>(
-      func(pos : Nat, item : T) {
-        Vec.get(streams_, streamId).length += 1;
-        itemCallback(streamId, ?item, pos);
-      },
-      switch (source) {
-        case (#canister _) ?(TIMEOUT, Time.now);
-        case (#internal) null;
-      },
-    );
+    func createReceiver(streamId : Nat, source : StreamSource) : Receiver<T> {
+      let r = Receiver<T>(
+        func(pos : Nat, item : T) {
+          Vec.get(streams_, streamId).length += 1;
+          itemCallback(streamId, ?item, pos);
+        },
+        switch (source) {
+          case (#canister _) ?(TIMEOUT, Time.now);
+          case (#internal) null;
+        },
+      );
+      r.setMaxLength(maxStreamLength);
+      r;
+    };
   };
 
 };
