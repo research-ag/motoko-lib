@@ -262,6 +262,13 @@ module CircularBuffer {
       true;
     };
 
+    public func canPush(item : T) : Bool {
+      let s = state();
+      let blob = serialize(item);
+      let item_length = blob.size();
+      return not (s.count == capacity or length < item_length + s.count_data);
+    };
+
     /// Insert value into the buffer
     public func push(item : T) : Bool = push_(item, false);
 
