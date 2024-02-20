@@ -75,7 +75,7 @@ type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
 ```
 
 
@@ -158,6 +158,24 @@ func consolidatedFunds() : Nat
 ```
 
 retrieve the sum of all successful consolidations
+
+
+### Function `totalDeposit`
+``` motoko
+func totalDeposit() : Nat
+```
+
+retrieve the sum of all deposits. This value is nearly the same as backlogFunds(), but includes
+entries, which could not be added to backlog, for instance when balance less than fee
+
+
+### Function `totalUsableBalance`
+``` motoko
+func totalUsableBalance() : Nat
+```
+
+retrieve the sum of all user usable balances. It's tricky to cache it
+because of excluding deposits, smaller than fee, from the usable balance
 
 
 ### Function `debit`

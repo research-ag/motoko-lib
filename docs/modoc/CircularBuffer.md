@@ -114,6 +114,13 @@ func pop() : ?T
 
 
 
+### Function `canPush`
+``` motoko
+func canPush(item : T) : Bool
+```
+
+
+
 ### Function `push`
 ``` motoko
 func push(item : T) : Bool
