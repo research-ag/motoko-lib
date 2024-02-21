@@ -75,7 +75,7 @@ type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
 ```
 
 
@@ -144,6 +144,14 @@ func backlogSize() : Nat
 retrieve the current size of consolidation backlog
 
 
+### Function `totalConsolidated`
+``` motoko
+func totalConsolidated() : Nat
+```
+
+retrieve the sum of all successful consolidations
+
+
 ### Function `backlogFunds`
 ``` motoko
 func backlogFunds() : Nat
@@ -152,12 +160,31 @@ func backlogFunds() : Nat
 retrieve the estimated sum of all balances in the backlog
 
 
-### Function `consolidatedFunds`
+### Function `depositedFunds`
 ``` motoko
-func consolidatedFunds() : Nat
+func depositedFunds() : Nat
 ```
 
-retrieve the sum of all successful consolidations
+retrieve the sum of all deposits. This value is nearly the same as backlogFunds(), but includes
+entries, which could not be added to backlog, for instance when balance less than fee.
+It's always >= backlogFunds()
+
+
+### Function `creditedFunds`
+``` motoko
+func creditedFunds() : Int
+```
+
+retrieve the sum of all user credit balances.
+It can be negative because user can spend deposited funds before consolidation
+
+
+### Function `usableFunds`
+``` motoko
+func usableFunds() : Nat
+```
+
+retrieve the sum of all user usable balances
 
 
 ### Function `debit`
