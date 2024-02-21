@@ -144,9 +144,9 @@ func backlogSize() : Nat
 retrieve the current size of consolidation backlog
 
 
-### Function `consolidatedFunds`
+### Function `totalConsolidated`
 ``` motoko
-func consolidatedFunds() : Nat
+func totalConsolidated() : Nat
 ```
 
 retrieve the sum of all successful consolidations
