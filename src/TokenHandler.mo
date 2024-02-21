@@ -296,7 +296,7 @@ module TokenHandler {
     let backlog : BackLog = BackLog();
     var journal : CircularBuffer.CircularBuffer<JournalRecord> = CircularBuffer.CircularBuffer<JournalRecord>(journalSize);
     var consolidatedFunds_ : Nat = 0;
-    var totalDeposit_ : Nat = 0;
+    var depositedFunds_ : Nat = 0;
     let map : Map = Map(freezeTokenHandler);
     var fee_ : Nat = 0;
     var totalDebited : Nat = 0;
@@ -346,19 +346,24 @@ module TokenHandler {
     /// retrieve the current size of consolidation backlog
     public func backlogSize() : Nat = backlog.size();
 
-    /// retrieve the estimated sum of all balances in the backlog
-    public func backlogFunds() : Nat = backlog.funds();
-
     /// retrieve the sum of all successful consolidations
     public func consolidatedFunds() : Nat = consolidatedFunds_;
 
+    /// retrieve the estimated sum of all balances in the backlog
+    public func backlogFunds() : Nat = backlog.funds();
+
     /// retrieve the sum of all deposits. This value is nearly the same as backlogFunds(), but includes
-    /// entries, which could not be added to backlog, for instance when balance less than fee
-    public func totalDeposit() : Nat = totalDeposit_;
+    /// entries, which could not be added to backlog, for instance when balance less than fee.
+    /// It's always >= backlogFunds()
+    public func depositedFunds() : Nat = depositedFunds_;
+
+    /// retrieve the sum of all user credit balances.
+    /// It can be negative because user can spend deposited funds before consolidation
+    public func creditedFunds() : Int = consolidatedFunds_ + totalCredited - totalDebited;
 
     /// retrieve the sum of all user usable balances. It's tricky to cache it
-    /// because of excluding deposits, smaller than fee, from the usable balance
-    public func totalUsableBalance() : Nat {
+    /// because of excluding deposits, smaller than fee, from the usable balance.
+    public func usableFunds() : Nat {
       var usableSum = 0;
       for (info in map.items()) {
         usableSum += usableBalance(info);
@@ -554,21 +559,21 @@ module TokenHandler {
     };
 
     /// serialize tracking data
-    public func share() : StableData = (map.share(), backlog.share(), consolidatedFunds_, totalDeposit_, (totalDebited, totalCredited), journal.share());
+    public func share() : StableData = (map.share(), backlog.share(), consolidatedFunds_, depositedFunds_, (totalDebited, totalCredited), journal.share());
 
     /// deserialize tracking data
     public func unshare(values : StableData) {
       map.unshare(values.0);
       backlog.unshare(values.1);
       consolidatedFunds_ := values.2;
-      totalDeposit_ := values.3;
+      depositedFunds_ := values.3;
       totalDebited := values.4.0;
       totalCredited := values.4.1;
       journal.unshare(values.5);
     };
 
     func assertBalancesIntegrity() : () {
-      let usableSum = totalUsableBalance();
+      let usableSum = usableFunds();
       if (usableSum + fee_ * backlog.size() + totalDebited != consolidatedFunds_ + backlog.funds() + totalCredited) {
         let values : [Text] = [
           "Balances integrity failed",
@@ -604,8 +609,8 @@ module TokenHandler {
           true;
         },
       );
-      totalDeposit_ += deposit;
-      totalDeposit_ -= oldDeposit;
+      depositedFunds_ += deposit;
+      depositedFunds_ -= oldDeposit;
       oldDeposit;
     };
 

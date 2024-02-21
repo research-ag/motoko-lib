@@ -144,14 +144,6 @@ func backlogSize() : Nat
 retrieve the current size of consolidation backlog
 
 
-### Function `backlogFunds`
-``` motoko
-func backlogFunds() : Nat
-```
-
-retrieve the estimated sum of all balances in the backlog
-
-
 ### Function `consolidatedFunds`
 ``` motoko
 func consolidatedFunds() : Nat
@@ -160,22 +152,40 @@ func consolidatedFunds() : Nat
 retrieve the sum of all successful consolidations
 
 
-### Function `totalDeposit`
+### Function `backlogFunds`
 ``` motoko
-func totalDeposit() : Nat
+func backlogFunds() : Nat
+```
+
+retrieve the estimated sum of all balances in the backlog
+
+
+### Function `depositedFunds`
+``` motoko
+func depositedFunds() : Nat
 ```
 
 retrieve the sum of all deposits. This value is nearly the same as backlogFunds(), but includes
-entries, which could not be added to backlog, for instance when balance less than fee
+entries, which could not be added to backlog, for instance when balance less than fee.
+It's always >= backlogFunds()
 
 
-### Function `totalUsableBalance`
+### Function `creditedFunds`
 ``` motoko
-func totalUsableBalance() : Nat
+func creditedFunds() : Int
+```
+
+retrieve the sum of all user credit balances.
+It can be negative because user can spend deposited funds before consolidation
+
+
+### Function `usableFunds`
+``` motoko
+func usableFunds() : Nat
 ```
 
 retrieve the sum of all user usable balances. It's tricky to cache it
-because of excluding deposits, smaller than fee, from the usable balance
+because of excluding deposits, smaller than fee, from the usable balance.
 
 
 ### Function `debit`
