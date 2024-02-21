@@ -361,9 +361,9 @@ module TokenHandler {
     /// It can be negative because user can spend deposited funds before consolidation
     public func creditedFunds() : Int = totalConsolidated_ + totalCredited - totalDebited;
 
-    /// retrieve the sum of all user usable balances. It's tricky to cache it
-    /// because of excluding deposits, smaller than fee, from the usable balance.
+    /// retrieve the sum of all user usable balances
     public func usableFunds() : Nat {
+      // it's tricky to cache it because of excluding deposits, smaller than fee, from the usable balance.
       var usableSum = 0;
       for (info in map.items()) {
         usableSum += usableBalance(info);
@@ -574,15 +574,13 @@ module TokenHandler {
 
     func assertBalancesIntegrity() : () {
       let usableSum = usableFunds();
-      if (usableSum + fee_ * backlog.size() + totalDebited != totalConsolidated_ + backlog.funds() + totalCredited) {
+      if (usableSum + fee_ * backlog.size() != backlog.funds() + creditedFunds()) {
         let values : [Text] = [
           "Balances integrity failed",
           Nat.toText(usableSum),
           Nat.toText(fee_ * backlog.size()),
-          Nat.toText(totalDebited),
-          Nat.toText(totalConsolidated_),
           Nat.toText(backlog.funds()),
-          Nat.toText(totalCredited),
+          Int.toText(creditedFunds()),
         ];
         freezeTokenHandler(Text.join("; ", Iter.fromArray(values)));
       };

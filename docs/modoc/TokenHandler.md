@@ -184,8 +184,7 @@ It can be negative because user can spend deposited funds before consolidation
 func usableFunds() : Nat
 ```
 
-retrieve the sum of all user usable balances. It's tricky to cache it
-because of excluding deposits, smaller than fee, from the usable balance.
+retrieve the sum of all user usable balances
 
 
 ### Function `debit`
