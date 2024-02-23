@@ -89,6 +89,7 @@ module CircularBuffer {
     var count_data : Nat;
 
     var pushes : Nat;
+    var markedDeleteTo : Nat;
   };
 
   let PAGE_SIZE = 65536;
@@ -127,6 +128,7 @@ module CircularBuffer {
     public func reset() {
       let s = state();
       s.pushes := 0;
+      s.markedDeleteTo := 0;
       s.start := 0;
       s.count := 0;
       s.start_data := 0;
@@ -144,6 +146,7 @@ module CircularBuffer {
             index = Region.new();
             data = Region.new();
             var pushes = 0;
+            var markedDeleteTo = 0;
             var start = 0;
             var count = 0;
             var start_data = 0;
@@ -219,6 +222,12 @@ module CircularBuffer {
       for (i in Iter.range(0, index - l - 1)) {
         ignore pop_(s, false);
       };
+    };
+
+    public func markDeleteTo(index : Nat) {
+      let s = state();
+      assert index <= s.pushes;
+      s.markedDeleteTo := index;
     };
 
     public func pop() : ?T {
