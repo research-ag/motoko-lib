@@ -416,32 +416,28 @@ module TokenHandler {
     /// Returns the newly detected deposit and total usable balance if success, otherwise null
     public func notify(p : Principal) : async* ?(Nat, Nat) {
       if (isFrozen() or not map.lock(p)) return null;
-      try {
-        let latestBalance = await* loadBalance(p);
-        let oldBalance = updateDeposit(p, latestBalance);
-        if (latestBalance > fee_) {
-          // schedule consolidation for this p
-          backlog.push(p, latestBalance);
-          try {
-            ignore processBacklog();
-          } catch (err) {
-            // pass
-          };
-        };
-        map.unlock(p);
-        if (latestBalance <= oldBalance) {
-          if (latestBalance != oldBalance) {
-            freezeTokenHandler("latestBalance < oldBalance on notify");
-          };
-          return null;
-        };
-        let balanceDelta = Int.abs(latestBalance - oldBalance);
-        journal.push((Time.now(), p, #newDeposit(balanceDelta)));
-        ?(balanceDelta, usableBalanceForPrincipal(p));
+      let latestBalance = try {
+        await* loadBalance(p);
       } catch err {
         map.unlock(p);
         throw err;
       };
+      map.unlock(p);
+
+      let oldBalance = updateDeposit(p, latestBalance);
+      if (latestBalance < oldBalance) freezeTokenHandler("latestBalance < oldBalance on notify");
+
+      if (latestBalance > fee_) {
+        // schedule consolidation for this p
+        backlog.push(p, latestBalance);
+        // schedule a canister self-call to process the backlog
+        // we need try-catch so that we don't trap if scheduling fails synchronously
+        try ignore processBacklog() catch (_) {};
+      };
+
+      let balanceDelta = latestBalance - oldBalance : Nat;
+      if (balanceDelta > 0) journal.push((Time.now(), p, #newDeposit(balanceDelta)));
+      ?(balanceDelta, usableBalanceForPrincipal(p));
     };
 
     /// process first account from backlog
