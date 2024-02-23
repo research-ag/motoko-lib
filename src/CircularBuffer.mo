@@ -4,6 +4,7 @@ import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Blob "mo:base/Blob";
 import Nat32 "mo:base/Nat32";
+import Nat "mo:base/Nat";
 import Prim "mo:prim";
 
 module CircularBuffer {
@@ -227,7 +228,11 @@ module CircularBuffer {
     public func markDeleteTo(index : Nat) {
       let s = state();
       assert index <= s.pushes;
-      s.markedDeleteTo := index;
+      s.markedDeleteTo := Nat.max(s.markedDeleteTo, index);
+    };
+
+    public func markedDeleteTo() : Nat {
+      state().markedDeleteTo;
     };
 
     public func pop() : ?T {
