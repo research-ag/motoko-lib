@@ -4,7 +4,6 @@ import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Blob "mo:base/Blob";
 import Nat32 "mo:base/Nat32";
-import Nat "mo:base/Nat";
 import Prim "mo:prim";
 
 module CircularBuffer {
@@ -90,7 +89,6 @@ module CircularBuffer {
     var count_data : Nat;
 
     var pushes : Nat;
-    var markedDeleteTo : Nat;
   };
 
   let PAGE_SIZE = 65536;
@@ -129,7 +127,6 @@ module CircularBuffer {
     public func reset() {
       let s = state();
       s.pushes := 0;
-      s.markedDeleteTo := 0;
       s.start := 0;
       s.count := 0;
       s.start_data := 0;
@@ -147,7 +144,6 @@ module CircularBuffer {
             index = Region.new();
             data = Region.new();
             var pushes = 0;
-            var markedDeleteTo = 0;
             var start = 0;
             var count = 0;
             var start_data = 0;
@@ -225,16 +221,6 @@ module CircularBuffer {
       };
     };
 
-    public func markDeleteTo(index : Nat) {
-      let s = state();
-      assert index <= s.pushes;
-      s.markedDeleteTo := Nat.max(s.markedDeleteTo, index);
-    };
-
-    public func markedDeleteTo() : Nat {
-      state().markedDeleteTo;
-    };
-
     public func pop() : ?T {
       let s = state();
       if (s.count == 0) return null;
@@ -252,13 +238,8 @@ module CircularBuffer {
         while (s.count == capacity or length < item_length + s.count_data) {
           ignore pop_(s, false);
         };
-      } else {
-        while ((s.count == capacity or length < item_length + s.count_data) and (s.pushes - s.markedDeleteTo : Nat) < s.count) {
-          ignore pop_(s, false);
-        };
-        if ((s.count == capacity or length < item_length + s.count_data) and (s.pushes - s.markedDeleteTo : Nat) >= s.count) {
-          return false;
-        };
+      } else if (s.count == capacity or length < item_length + s.count_data) {
+        return false;
       };
 
       if (item_length > 0) {
@@ -285,7 +266,7 @@ module CircularBuffer {
       let s = state();
       let blob = serialize(item);
       let item_length = blob.size();
-      return not ((s.count == capacity or length < item_length + s.count_data) and (s.pushes - s.markedDeleteTo : Nat) >= s.count);
+      return not (s.count == capacity or length < item_length + s.count_data);
     };
 
     /// Insert value into the buffer
