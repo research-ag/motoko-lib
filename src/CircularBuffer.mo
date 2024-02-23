@@ -252,8 +252,13 @@ module CircularBuffer {
         while (s.count == capacity or length < item_length + s.count_data) {
           ignore pop_(s, false);
         };
-      } else if (s.count == capacity or length < item_length + s.count_data) {
-        return false;
+      } else {
+        while ((s.count == capacity or length < item_length + s.count_data) and (s.pushes - s.markedDeleteTo : Nat) < s.count) {
+          ignore pop_(s, false);
+        };
+        if ((s.count == capacity or length < item_length + s.count_data) and (s.pushes - s.markedDeleteTo : Nat) >= s.count) {
+          return false;
+        };
       };
 
       if (item_length > 0) {
@@ -280,7 +285,7 @@ module CircularBuffer {
       let s = state();
       let blob = serialize(item);
       let item_length = blob.size();
-      return not (s.count == capacity or length < item_length + s.count_data);
+      return not ((s.count == capacity or length < item_length + s.count_data) and (s.pushes - s.markedDeleteTo : Nat) >= s.count);
     };
 
     /// Insert value into the buffer
