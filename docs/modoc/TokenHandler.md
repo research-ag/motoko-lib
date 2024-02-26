@@ -75,7 +75,7 @@ type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Nat, Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
 ```
 
 
@@ -150,6 +150,22 @@ func totalConsolidated() : Nat
 ```
 
 retrieve the sum of all successful consolidations
+
+
+### Function `totalWithdrawnFromMain`
+``` motoko
+func totalWithdrawnFromMain() : Nat
+```
+
+retrieve the sum of all deductions from main account of the token handler
+
+
+### Function `handlerMainAccountFunds`
+``` motoko
+func handlerMainAccountFunds() : Nat
+```
+
+retrieve the calculated balance of main account of the token handler
 
 
 ### Function `backlogFunds`
