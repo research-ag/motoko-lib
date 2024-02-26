@@ -96,7 +96,7 @@ module TokenHandler {
     ?Principal.fromBlob(Blob.fromArray(Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])));
   };
 
-  public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, (0, 0), ([var], 0, 0));
+  public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, 0, (0, 0), ([var], 0, 0));
 
   public type Info = {
     var deposit : Nat; // the balance that is in the subaccount associated with the user
@@ -273,6 +273,7 @@ module TokenHandler {
     [(Principal, Info)], // map
     (Nat, [(Principal, Nat)]), // backlog
     Nat, // totalConsolidated
+    Nat, // totalWithdrawnFromMain
     Nat, // depositedFunds_
     (Nat, Nat), // totalDebited, totalCredited
     ([var ?JournalRecord], Nat, Nat) // journal
@@ -296,6 +297,7 @@ module TokenHandler {
     let backlog : BackLog = BackLog();
     var journal : CircularBuffer.CircularBuffer<JournalRecord> = CircularBuffer.CircularBuffer<JournalRecord>(journalSize);
     var totalConsolidated_ : Nat = 0;
+    var totalWithdrawnFromMain_ : Nat = 0;
     let map : Map = Map(freezeTokenHandler);
     var fee_ : Nat = 0;
     var totalDebited : Nat = 0;
@@ -348,6 +350,12 @@ module TokenHandler {
 
     /// retrieve the sum of all successful consolidations
     public func totalConsolidated() : Nat = totalConsolidated_;
+
+    /// retrieve the sum of all deductions from main account of the token handler
+    public func totalWithdrawnFromMain() : Nat = totalWithdrawnFromMain_;
+
+    /// retrieve the calculated balance of main account of the token handler
+    public func handlerMainAccountFunds() : Nat = totalConsolidated_ - totalWithdrawnFromMain_;
 
     /// retrieve the estimated sum of all balances in the backlog
     public func backlogFunds() : Nat = backlog.funds();
@@ -539,6 +547,7 @@ module TokenHandler {
       let callResult = await* transfer();
       switch (callResult) {
         case (#Ok txIdx) {
+          totalWithdrawnFromMain_ += amount;
           journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
           #ok(txIdx, amount - fee_);
         };
@@ -548,6 +557,7 @@ module TokenHandler {
           let retryResult = await* transfer();
           switch (retryResult) {
             case (#Ok txIdx) {
+              totalWithdrawnFromMain_ += amount;
               journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
               #ok(txIdx, amount - fee_);
             };
@@ -559,17 +569,26 @@ module TokenHandler {
     };
 
     /// serialize tracking data
-    public func share() : StableData = (map.share(), backlog.share(), totalConsolidated_, depositedFunds_, (totalDebited, totalCredited), journal.share());
+    public func share() : StableData = (
+      map.share(),
+      backlog.share(),
+      totalConsolidated_,
+      totalWithdrawnFromMain_,
+      depositedFunds_,
+      (totalDebited, totalCredited),
+      journal.share(),
+    );
 
     /// deserialize tracking data
     public func unshare(values : StableData) {
       map.unshare(values.0);
       backlog.unshare(values.1);
       totalConsolidated_ := values.2;
-      depositedFunds_ := values.3;
-      totalDebited := values.4.0;
-      totalCredited := values.4.1;
-      journal.unshare(values.5);
+      totalWithdrawnFromMain_ := values.3;
+      depositedFunds_ := values.4;
+      totalDebited := values.5.0;
+      totalCredited := values.5.1;
+      journal.unshare(values.6);
     };
 
     func assertBalancesIntegrity() : () {
