@@ -152,17 +152,17 @@ func totalConsolidated() : Nat
 retrieve the sum of all successful consolidations
 
 
-### Function `totalWithdrawnFromMain`
+### Function `totalWithdrawn`
 ``` motoko
-func totalWithdrawnFromMain() : Nat
+func totalWithdrawn() : Nat
 ```
 
 retrieve the sum of all deductions from main account of the token handler
 
 
-### Function `handlerMainAccountFunds`
+### Function `consolidatedFunds`
 ``` motoko
-func handlerMainAccountFunds() : Nat
+func consolidatedFunds() : Nat
 ```
 
 retrieve the calculated balance of main account of the token handler
