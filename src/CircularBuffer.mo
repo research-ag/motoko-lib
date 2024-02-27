@@ -214,7 +214,8 @@ module CircularBuffer {
 
     public func deleteTo(index : Nat) {
       let (l, r) = available();
-      assert l < index and index <= r;
+      assert l <= index and index <= r;
+      if (l == index) return;
       let s = state();
       for (i in Iter.range(0, index - l - 1)) {
         ignore pop_(s, false);
