@@ -308,11 +308,11 @@ module TokenHandler {
     public func getFee() : Nat = fee_;
 
     /// query the usable balance
-    public func balance(p : Principal) : Nat = info(p).usable_balance;
+    public func balance(p : Principal) : Int = info(p).usable_balance;
 
     /// query all tracked balances for debug purposes
     public func info(p : Principal) : Info and {
-      var usable_balance : Nat;
+      var usable_balance : Int;
     } {
       let ?item = map.get(p) else return {
         var deposit = 0;
@@ -370,9 +370,9 @@ module TokenHandler {
     public func creditedFunds() : Int = totalConsolidated_ + totalCredited - totalDebited;
 
     /// retrieve the sum of all user usable balances
-    public func usableFunds() : Nat {
+    public func usableFunds() : Int {
       // it's tricky to cache it because of excluding deposits, smaller than fee, from the usable balance.
-      var usableSum = 0;
+      var usableSum : Int = 0;
       for (info in map.items()) {
         usableSum += usableBalance(info);
       };
@@ -422,7 +422,7 @@ module TokenHandler {
     /// to the last balance seen. If it has increased then it will adjust the deposit (and hence the usable_balance).
     /// It will also schedule or trigger a “consolidation”, i.e. moving the newly deposited funds from S:P to S:0.
     /// Returns the newly detected deposit and total usable balance if success, otherwise null
-    public func notify(p : Principal) : async* ?(Nat, Nat) {
+    public func notify(p : Principal) : async* ?(Nat, Int) {
       if (isFrozen() or not map.lock(p)) return null;
       let latestBalance = try {
         await* loadBalance(p);
@@ -592,7 +592,7 @@ module TokenHandler {
       if (usableSum + fee_ * backlog.size() != backlog.funds() + creditedFunds()) {
         let values : [Text] = [
           "Balances integrity failed",
-          Nat.toText(usableSum),
+          Int.toText(usableSum),
           Nat.toText(fee_ * backlog.size()),
           Nat.toText(backlog.funds()),
           Int.toText(creditedFunds()),
@@ -601,14 +601,11 @@ module TokenHandler {
       };
     };
 
-    func usableBalanceForPrincipal(p : Principal) : Nat = Option.get(Option.map<InfoLock, Nat>(map.get(p), usableBalance), 0);
+    func usableBalanceForPrincipal(p : Principal) : Int = Option.get(Option.map<InfoLock, Int>(map.get(p), usableBalance), 0);
 
-    func usableBalance(item : Info) : Nat {
+    func usableBalance(item : Info) : Int {
       let usableDeposit = Int.max(0, item.deposit - fee_);
-      if (item.credit + usableDeposit < 0) {
-        freezeTokenHandler("item.credit + Int.max(0, item.deposit - fee) < 0");
-      };
-      Int.abs(item.credit + usableDeposit);
+      item.credit + usableDeposit;
     };
 
     // returns old deposit
