@@ -227,6 +227,13 @@ module TokenHandler {
     /// retrieve the estimated sum of all balances in the backlog
     public func funds() : Nat = funds_;
 
+    public func peek() : ?(Principal, Nat) {
+      switch (backlog) {
+        case (null) null;
+        case (?(item, list)) ?item;
+      };
+    };
+
     public func pop() : ?Principal {
       switch (backlog) {
         case (null) null;
@@ -527,9 +534,15 @@ module TokenHandler {
       if (isFrozen()) {
         return;
       };
-      let ?p = backlog.pop() else return;
-      if (not map.lock(p)) return;
+      let ?(p, funds) = backlog.peek() else return;
+      if (not map.lock(p)) {
+        // move record to the end of backlog
+        ignore backlog.pop();
+        backlog.push(p, funds);
+        return;
+      };
       await* consolidate(p);
+      ignore backlog.pop();
       map.unlock(p);
       assertBalancesIntegrity();
     };
