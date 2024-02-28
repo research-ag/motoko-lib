@@ -195,16 +195,17 @@ module TokenHandler {
     // a backlog of principals, waiting for consolidation
     var backlog : AssocList.AssocList<Principal, Nat> = null;
     var size_ : Nat = 0;
-    var funds_ : Nat = 0;
+    var queuedFunds_ : Nat = 0;
+    var underwayFunds_ : Nat = 0;
 
     public func push(p : Principal, amount : Nat) {
       let (updated, prev) = AssocList.replace<Principal, Nat>(backlog, p, Principal.equal, ?amount);
-      funds_ += amount;
+      queuedFunds_ += amount;
       backlog := updated;
       switch (prev) {
         case (null) size_ += 1;
         case (?prevAmount) {
-          funds_ -= prevAmount;
+          queuedFunds_ -= prevAmount;
         };
       };
     };
@@ -216,7 +217,7 @@ module TokenHandler {
         case (null) {};
         case (?prevAmount) {
           size_ -= 1;
-          funds_ -= prevAmount;
+          queuedFunds_ -= prevAmount;
         };
       };
     };
@@ -224,35 +225,34 @@ module TokenHandler {
     /// retrieve the current size of consolidation backlog
     public func size() : Nat = size_;
 
-    /// retrieve the estimated sum of all balances in the backlog
-    public func funds() : Nat = funds_;
+    /// retrieve the sum of all balances in the backlog
+    public func funds() : Nat = queuedFunds_ + underwayFunds_;
 
-    public func peek() : ?(Principal, Nat) {
-      switch (backlog) {
-        case (null) null;
-        case (?(item, list)) ?item;
-      };
-    };
-
-    public func pop() : ?Principal {
+    public func pop() : ?(p : Principal, consolidatedCallback : () -> ()) {
       switch (backlog) {
         case (null) null;
         case (?((p, amount), list)) {
           backlog := list;
           size_ -= 1;
-          funds_ -= amount;
-          ?p;
+          queuedFunds_ -= amount;
+          underwayFunds_ += amount;
+          ?(
+            p,
+            func() = underwayFunds_ -= amount,
+          );
         };
       };
     };
 
     public func share() : (Nat, [(Principal, Nat)]) {
-      (funds_, List.toArray(backlog));
+      // underway funds have to be zero when upgrading canister
+      (queuedFunds_, List.toArray(backlog));
     };
 
     public func unshare(data : (Nat, [(Principal, Nat)])) {
       backlog := null;
-      funds_ := data.0;
+      queuedFunds_ := data.0;
+      // underway funds have to be zero when upgrading canister
       size_ := data.1.size();
       var i = size_;
       while (i > 0) {
@@ -534,15 +534,10 @@ module TokenHandler {
       if (isFrozen()) {
         return;
       };
-      let ?(p, funds) = backlog.peek() else return;
-      if (not map.lock(p)) {
-        // move record to the end of backlog
-        ignore backlog.pop();
-        backlog.push(p, funds);
-        return;
-      };
+      let ?(p, cb) = backlog.pop() else return;
+      if (not map.lock(p)) return;
       await* consolidate(p);
-      ignore backlog.pop();
+      cb();
       map.unlock(p);
       assertBalancesIntegrity();
     };
