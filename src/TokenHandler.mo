@@ -39,6 +39,7 @@ module TokenHandler {
       #GenericError : { error_code : Nat; message : Text };
     };
     public type ICRC1Ledger = actor {
+      icrc1_fee : () -> async (Nat);
       icrc1_balance_of : (Account) -> async (Nat);
       icrc1_transfer : (TransferArgs) -> async ({
         #Ok : Nat;
@@ -96,7 +97,7 @@ module TokenHandler {
     ?Principal.fromBlob(Blob.fromArray(Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])));
   };
 
-  public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, 0, (0, 0), ([var], 0, 0));
+  public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, 0, 0, (0, 0), ([var], 0, 0));
 
   public type Info = {
     var deposit : Nat; // the balance that is in the subaccount associated with the user
@@ -272,6 +273,7 @@ module TokenHandler {
   public type StableData = (
     [(Principal, Info)], // map
     (Nat, [(Principal, Nat)]), // backlog
+    Nat, // fee
     Nat, // totalConsolidated
     Nat, // totalWithdrawn
     Nat, // depositedFunds_
@@ -306,6 +308,18 @@ module TokenHandler {
 
     /// query the fee
     public func getFee() : Nat = fee_;
+
+    /// load fee from ICRC1 ledger. Returns actual fee if successful
+    public func updateFee() : async* ?Nat = async* try {
+      let newFee = await icrc1Ledger.icrc1_fee();
+      if (fee_ != newFee) {
+        journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
+        fee_ := newFee;
+      };
+      ?newFee;
+    } catch (err) {
+      null;
+    };
 
     /// query the usable balance
     public func balance(p : Principal) : Int = info(p).usable_balance;
@@ -568,6 +582,7 @@ module TokenHandler {
     public func share() : StableData = (
       map.share(),
       backlog.share(),
+      fee_,
       totalConsolidated_,
       totalWithdrawn_,
       depositedFunds_,
@@ -579,12 +594,13 @@ module TokenHandler {
     public func unshare(values : StableData) {
       map.unshare(values.0);
       backlog.unshare(values.1);
-      totalConsolidated_ := values.2;
-      totalWithdrawn_ := values.3;
-      depositedFunds_ := values.4;
-      totalDebited := values.5.0;
-      totalCredited := values.5.1;
-      journal.unshare(values.6);
+      fee_ := values.2;
+      totalConsolidated_ := values.3;
+      totalWithdrawn_ := values.4;
+      depositedFunds_ := values.5;
+      totalDebited := values.6.0;
+      totalCredited := values.6.1;
+      journal.unshare(values.7);
     };
 
     func assertBalancesIntegrity() : () {
