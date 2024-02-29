@@ -316,16 +316,14 @@ module TokenHandler {
     /// query the fee
     public func getFee() : Nat = fee_;
 
-    /// load fee from ICRC1 ledger. Returns actual fee if successful
-    public func updateFee() : async* ?Nat = async* try {
+    /// load fee from ICRC1 ledger. Returns actual fee
+    public func updateFee() : async* Nat {
       let newFee = await icrc1Ledger.icrc1_fee();
       if (fee_ != newFee) {
         journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
         fee_ := newFee;
       };
-      ?newFee;
-    } catch (err) {
-      null;
+      newFee;
     };
 
     /// query the usable balance
@@ -534,8 +532,14 @@ module TokenHandler {
       if (isFrozen()) {
         return;
       };
-      let ?(p, cb) = backlog.pop() else return;
-      if (not map.lock(p)) return;
+      func getNext() : ?(Principal, () -> ()) {
+        while true {
+          let ?(p, cb) = backlog.pop() else return null;
+          if (map.lock(p)) return ?(p, cb);
+        };
+        null;
+      };
+      let ?(p, cb) = getNext() else return;
       await* consolidate(p);
       cb();
       map.unlock(p);
