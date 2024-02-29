@@ -7,4 +7,4 @@ memory-region = "0.1.1"
 
 [toolchain]
 moc = "0.10.4"
-wasmtime = "17.0.2"
+wasmtime = "16.0.0"
