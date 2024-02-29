@@ -37,7 +37,7 @@ type TransferError = {#BadFee : { expected_fee : Nat }; #BadBurn : { min_burn_am
 
 ### Type `ICRC1Ledger`
 ``` motoko
-type ICRC1Ledger = actor { icrc1_balance_of : shared (Account) -> async (Nat); icrc1_transfer : shared (TransferArgs) -> async ({#Ok : Nat; #Err : TransferError}) }
+type ICRC1Ledger = actor { icrc1_fee : shared () -> async (Nat); icrc1_balance_of : shared (Account) -> async (Nat); icrc1_transfer : shared (TransferArgs) -> async ({#Ok : Nat; #Err : TransferError}) }
 ```
 
 
@@ -75,7 +75,7 @@ type JournalRecord = (Time.Time, Principal, {#newDeposit : Nat; #consolidated : 
 
 ## Type `StableData`
 ``` motoko
-type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Nat, Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
+type StableData = ([(Principal, Info)], (Nat, [(Principal, Nat)]), Nat, Nat, Nat, Nat, (Nat, Nat), ([var ?JournalRecord], Nat, Nat))
 ```
 
 
@@ -94,9 +94,17 @@ func getFee() : Nat
 query the fee
 
 
+### Function `updateFee`
+``` motoko
+func updateFee() : async* Nat
+```
+
+load fee from ICRC1 ledger. Returns actual fee
+
+
 ### Function `balance`
 ``` motoko
-func balance(p : Principal) : Nat
+func balance(p : Principal) : Int
 ```
 
 query the usable balance
@@ -104,7 +112,7 @@ query the usable balance
 
 ### Function `info`
 ``` motoko
-func info(p : Principal) : Info and { var usable_balance : Nat }
+func info(p : Principal) : Info and { var usable_balance : Int }
 ```
 
 query all tracked balances for debug purposes
@@ -197,7 +205,7 @@ It can be negative because user can spend deposited funds before consolidation
 
 ### Function `usableFunds`
 ``` motoko
-func usableFunds() : Nat
+func usableFunds() : Int
 ```
 
 retrieve the sum of all user usable balances
@@ -221,7 +229,7 @@ func credit(p : Principal, amount : Nat) : Bool
 
 ### Function `notify`
 ``` motoko
-func notify(p : Principal) : async* ?(Nat, Nat)
+func notify(p : Principal) : async* ?(Nat, Int)
 ```
 
 The handler will call icrc1_balance(S:P) to query the balance. It will detect if it has increased compared

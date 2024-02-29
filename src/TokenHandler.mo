@@ -39,6 +39,7 @@ module TokenHandler {
       #GenericError : { error_code : Nat; message : Text };
     };
     public type ICRC1Ledger = actor {
+      icrc1_fee : () -> async (Nat);
       icrc1_balance_of : (Account) -> async (Nat);
       icrc1_transfer : (TransferArgs) -> async ({
         #Ok : Nat;
@@ -96,7 +97,7 @@ module TokenHandler {
     ?Principal.fromBlob(Blob.fromArray(Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])));
   };
 
-  public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, 0, (0, 0), ([var], 0, 0));
+  public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, 0, 0, (0, 0), ([var], 0, 0));
 
   public type Info = {
     var deposit : Nat; // the balance that is in the subaccount associated with the user
@@ -194,16 +195,17 @@ module TokenHandler {
     // a backlog of principals, waiting for consolidation
     var backlog : AssocList.AssocList<Principal, Nat> = null;
     var size_ : Nat = 0;
-    var funds_ : Nat = 0;
+    var queuedFunds_ : Nat = 0;
+    var underwayFunds_ : Nat = 0;
 
     public func push(p : Principal, amount : Nat) {
       let (updated, prev) = AssocList.replace<Principal, Nat>(backlog, p, Principal.equal, ?amount);
-      funds_ += amount;
+      queuedFunds_ += amount;
       backlog := updated;
       switch (prev) {
         case (null) size_ += 1;
         case (?prevAmount) {
-          funds_ -= prevAmount;
+          queuedFunds_ -= prevAmount;
         };
       };
     };
@@ -215,7 +217,7 @@ module TokenHandler {
         case (null) {};
         case (?prevAmount) {
           size_ -= 1;
-          funds_ -= prevAmount;
+          queuedFunds_ -= prevAmount;
         };
       };
     };
@@ -223,28 +225,34 @@ module TokenHandler {
     /// retrieve the current size of consolidation backlog
     public func size() : Nat = size_;
 
-    /// retrieve the estimated sum of all balances in the backlog
-    public func funds() : Nat = funds_;
+    /// retrieve the sum of all balances in the backlog
+    public func funds() : Nat = queuedFunds_ + underwayFunds_;
 
-    public func pop() : ?Principal {
+    public func pop() : ?(p : Principal, consolidatedCallback : () -> ()) {
       switch (backlog) {
         case (null) null;
         case (?((p, amount), list)) {
           backlog := list;
           size_ -= 1;
-          funds_ -= amount;
-          ?p;
+          queuedFunds_ -= amount;
+          underwayFunds_ += amount;
+          ?(
+            p,
+            func() = underwayFunds_ -= amount,
+          );
         };
       };
     };
 
     public func share() : (Nat, [(Principal, Nat)]) {
-      (funds_, List.toArray(backlog));
+      // underway funds have to be zero when upgrading canister
+      (queuedFunds_, List.toArray(backlog));
     };
 
     public func unshare(data : (Nat, [(Principal, Nat)])) {
       backlog := null;
-      funds_ := data.0;
+      queuedFunds_ := data.0;
+      // underway funds have to be zero when upgrading canister
       size_ := data.1.size();
       var i = size_;
       while (i > 0) {
@@ -272,6 +280,7 @@ module TokenHandler {
   public type StableData = (
     [(Principal, Info)], // map
     (Nat, [(Principal, Nat)]), // backlog
+    Nat, // fee
     Nat, // totalConsolidated
     Nat, // totalWithdrawn
     Nat, // depositedFunds_
@@ -306,6 +315,16 @@ module TokenHandler {
 
     /// query the fee
     public func getFee() : Nat = fee_;
+
+    /// load fee from ICRC1 ledger. Returns actual fee
+    public func updateFee() : async* Nat {
+      let newFee = await icrc1Ledger.icrc1_fee();
+      if (fee_ != newFee) {
+        journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
+        fee_ := newFee;
+      };
+      newFee;
+    };
 
     /// query the usable balance
     public func balance(p : Principal) : Int = info(p).usable_balance;
@@ -513,9 +532,12 @@ module TokenHandler {
       if (isFrozen()) {
         return;
       };
-      let ?p = backlog.pop() else return;
-      if (not map.lock(p)) return;
+      let (p, cb) = label L : (Principal, () -> ()) loop {
+        let ?v = backlog.pop() else return;
+        if (map.lock(v.0)) break L v;
+      };
       await* consolidate(p);
+      cb();
       map.unlock(p);
       assertBalancesIntegrity();
     };
@@ -573,6 +595,7 @@ module TokenHandler {
     public func share() : StableData = (
       map.share(),
       backlog.share(),
+      fee_,
       totalConsolidated_,
       totalWithdrawn_,
       depositedFunds_,
@@ -584,12 +607,13 @@ module TokenHandler {
     public func unshare(values : StableData) {
       map.unshare(values.0);
       backlog.unshare(values.1);
-      totalConsolidated_ := values.2;
-      totalWithdrawn_ := values.3;
-      depositedFunds_ := values.4;
-      totalDebited := values.5.0;
-      totalCredited := values.5.1;
-      journal.unshare(values.6);
+      fee_ := values.2;
+      totalConsolidated_ := values.3;
+      totalWithdrawn_ := values.4;
+      depositedFunds_ := values.5;
+      totalDebited := values.6.0;
+      totalCredited := values.6.1;
+      journal.unshare(values.7);
     };
 
     func assertBalancesIntegrity() : () {
