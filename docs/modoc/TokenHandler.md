@@ -96,10 +96,10 @@ query the fee
 
 ### Function `updateFee`
 ``` motoko
-func updateFee() : async* ?Nat
+func updateFee() : async* Nat
 ```
 
-load fee from ICRC1 ledger. Returns actual fee if successful
+load fee from ICRC1 ledger. Returns actual fee
 
 
 ### Function `balance`

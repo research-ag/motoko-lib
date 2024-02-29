@@ -532,14 +532,10 @@ module TokenHandler {
       if (isFrozen()) {
         return;
       };
-      func getNext() : ?(Principal, () -> ()) {
-        while true {
-          let ?(p, cb) = backlog.pop() else return null;
-          if (map.lock(p)) return ?(p, cb);
-        };
-        null;
+      let (p, cb) = label L : (Principal, () -> ()) loop {
+        let ?v = backlog.pop() else return;
+        if (map.lock(v.0)) break L v;
       };
-      let ?(p, cb) = getNext() else return;
       await* consolidate(p);
       cb();
       map.unlock(p);
