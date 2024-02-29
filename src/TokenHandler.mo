@@ -540,10 +540,10 @@ module TokenHandler {
           #Err(#CallIcrc1LedgerError);
         };
       };
+      totalWithdrawn_ += amount;
       let callResult = await* transfer();
       switch (callResult) {
         case (#Ok txIdx) {
-          totalWithdrawn_ += amount;
           journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
           #ok(txIdx, amount - fee_);
         };
@@ -553,14 +553,19 @@ module TokenHandler {
           let retryResult = await* transfer();
           switch (retryResult) {
             case (#Ok txIdx) {
-              totalWithdrawn_ += amount;
               journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
               #ok(txIdx, amount - fee_);
             };
-            case (#Err err) #err(err);
+            case (#Err err) {
+              totalWithdrawn_ -= amount;
+              #err(err);
+            };
           };
         };
-        case (#Err err) #err(err);
+        case (#Err err) {
+          totalWithdrawn_ -= amount;
+          #err(err);
+        };
       };
     };
 
