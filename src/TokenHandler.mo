@@ -553,7 +553,6 @@ module TokenHandler {
           let retryResult = await* transfer();
           switch (retryResult) {
             case (#Ok txIdx) {
-              totalWithdrawn_ += amount;
               journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
               #ok(txIdx, amount - fee_);
             };
