@@ -19,6 +19,4 @@ jobs:
         run: mops toolchain bin moc || mops toolchain use moc latest
 
       - name: run tests
-        run: |
-          mops install
-          mops test
+        run: mops test
