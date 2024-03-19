@@ -57,7 +57,7 @@ module TokenHandler {
 
     assert size <= 29;
 
-    let a = Array.tabulate<Nat8>(
+    Array.tabulate<Nat8>(
       32,
       func(i : Nat) : Nat8 {
         if (i + size < 31) {
@@ -68,8 +68,7 @@ module TokenHandler {
           bytes[i + size - 32];
         };
       },
-    );
-    Blob.fromArray(a);
+    ) |> Blob.fromArray(_);
   };
 
   /// Convert ICRC1.Subaccount to Principal
@@ -93,8 +92,7 @@ module TokenHandler {
 
     let size = Nat8.toNat(bytes[size_index]);
     if (size_index + size != 31) return null;
-
-    ?Principal.fromBlob(Blob.fromArray(Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])));
+    Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index]) |> ?Principal.fromBlob(Blob.fromArray(_));
   };
 
   public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, 0, 0, (0, 0), ([var], 0, 0));
@@ -349,11 +347,11 @@ module TokenHandler {
     /// 1) array of all items in order, starting from the oldest record in journal, but no earlier than "startFrom" if provided
     /// 2) the index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
     public func queryJournal(startFrom : ?Nat) : ([JournalRecord], Nat) = (
-      Iter.toArray(
-        journal.slice(
-          Int.abs(Int.max(Option.get(startFrom, 0), journal.pushesAmount() - journalSize)),
-          journal.pushesAmount(),
-        )
+      (
+        Option.get(startFrom, 0)
+        |> Int.abs(Int.max(_, journal.pushesAmount() - journalSize))
+        |> journal.slice(_, journal.pushesAmount())
+        |> Iter.toArray(_)
       ),
       journal.pushesAmount(),
     );
