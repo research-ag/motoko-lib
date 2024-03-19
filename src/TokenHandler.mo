@@ -92,7 +92,9 @@ module TokenHandler {
 
     let size = Nat8.toNat(bytes[size_index]);
     if (size_index + size != 31) return null;
-    Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index]) |> ?Principal.fromBlob(Blob.fromArray(_));
+    Array.tabulate(size, func(i : Nat) : Nat8 = bytes[i + 1 + size_index])
+    |> Blob.fromArray(_)
+    |> ?Principal.fromBlob(_);
   };
 
   public func defaultHandlerStableData() : StableData = ([], (0, []), 0, 0, 0, 0, (0, 0), ([var], 0, 0));
