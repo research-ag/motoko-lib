@@ -21,6 +21,4 @@ jobs:
       - name: run tests
         run: |
           mops install
-          ls -la /home/runner/work/motoko-lib/motoko-lib/.mops/
-          ls -la /home/runner/work/motoko-lib/motoko-lib/.mops/_tmp
           mops test
