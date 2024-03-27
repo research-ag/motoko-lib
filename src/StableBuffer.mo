@@ -19,12 +19,13 @@ module Buffer {
 
     func requiredPages(bytes : Nat64) : Nat64 = ((bytes + ((1 << 16) - 1)) / (1 << 16));
 
-    func regionEnsureSizeBytes(r : Region, new_pages : Nat64) {
+    func regionEnsureSizeBytes(r : Region, new_pages : Nat64) : Bool {
       let pages = Region.size(r);
       if (new_pages > pages) {
         let add_pages = new_pages - pages;
-        assert Region.grow(r, add_pages) == pages;
+        return Region.grow(r, add_pages) == pages;
       };
+      true;
     };
 
     func state() : StableData {
@@ -63,12 +64,12 @@ module Buffer {
 
       let elem_pos = self.bytes_count;
 
-      regionEnsureSizeBytes(self.bytes, new_bytes_pages);
+      if (not regionEnsureSizeBytes(self.bytes, new_bytes_pages)) return false;
+      if (not regionEnsureSizeBytes(self.elems, new_elems_pages)) return false;
+
       if (blob.size() != 0) {
         Region.storeBlob(self.bytes, elem_pos, blob);
       };
-
-      regionEnsureSizeBytes(self.elems, new_elems_pages);
       let elem_i = self.elems_count * ELEMENT_SIZE;
       Region.storeNat64(self.elems, elem_i + 0, elem_pos);
       Region.storeNat64(self.elems, elem_i + 8, blob_size);
