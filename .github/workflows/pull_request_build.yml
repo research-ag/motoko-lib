@@ -16,7 +16,9 @@ jobs:
       - uses: ZenVoich/setup-mops@v1
 
       - name: make sure moc is installed
-        run: mops toolchain bin moc || mops toolchain use moc latest
+        run: | 
+          mops install
+          mops toolchain bin moc || mops toolchain use moc latest
 
       - name: run tests
         run: mops test
