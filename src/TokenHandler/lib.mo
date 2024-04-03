@@ -6,6 +6,7 @@ import Int "mo:base/Int";
 import Iter "mo:base/Iter";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
+import Debug "mo:base/Debug";
 
 import CircularBuffer "../CircularBuffer";
 import Mapping "Mapping";
@@ -44,6 +45,12 @@ module {
   );
 
   public func defaultStableData() : StableData = ([], (0, []), 0, 0, 0, 0, (0, 0), ([var], 0, 0));
+
+  /// Converts `Principal` to `ICRC1.Subaccount`.
+  public func toSubaccount(p : Principal) : ICRC1.Subaccount = Mapping.toSubaccount(p);
+
+  /// Converts `ICRC1.Subaccount` to `Principal`.
+  public func toPrincipal(subaccount : ICRC1.Subaccount) : ?Principal = Mapping.toPrincipal(subaccount);
 
   public class TokenHandler(
     icrc1LedgerPrincipal_ : Principal,
@@ -259,6 +266,8 @@ module {
       if (deposit <= fee_) return null;
       let transferAmount = Int.abs(deposit - fee_);
       let transferResult = try {
+        // Debug.print("transfer p " # debug_show p);
+        // Debug.print("transfer p blob " # debug_show Mapping.toSubaccount(p));
         await icrc1Ledger.icrc1_transfer({
           from_subaccount = ?Mapping.toSubaccount(p);
           to = { owner = ownPrincipal; subaccount = null };
@@ -299,11 +308,13 @@ module {
       };
       ignore updateDeposit(p, latestDeposit);
       let transferResult = await* processConsolidationTransfer(p, latestDeposit);
+      // Debug.print("transferResult " # debug_show transferResult);
       switch (transferResult) {
         case (? #Err(#BadFee { expected_fee })) {
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
           fee_ := expected_fee;
           let retryResult = await* processConsolidationTransfer(p, latestDeposit);
+          Debug.print("retryResult " # debug_show retryResult);
           switch (retryResult) {
             case (? #Err _) backlog.push(p, latestDeposit);
             case (_) {};
@@ -322,7 +333,11 @@ module {
       };
       let (p, cb) = label L : (Principal, () -> ()) loop {
         let ?v = backlog.pop() else return;
-        if (balanceRegistry.lock(v.0)) break L v;
+        if (balanceRegistry.lock(v.0)) {
+          break L v;
+        } else {
+          v.1 ();
+        };
       };
       await* consolidate(p);
       cb();

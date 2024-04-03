@@ -8,6 +8,7 @@ import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
+import Debug "mo:base/Debug";
 
 actor class Ledger(
   init : {
@@ -351,6 +352,11 @@ actor class Ledger(
       };
 
       let debitBalance = balance(transfer.from, log);
+      Debug.print("---");
+      Debug.print("debitBalance: " # debug_show debitBalance);
+      Debug.print("transfer.from: " # debug_show transfer.from);
+      Debug.print("transfer.amount: " # debug_show transfer.amount);
+      Debug.print("---");
       if (debitBalance < transfer.amount + effectiveFee) {
         return #Err(#InsufficientFunds { balance = debitBalance });
       };
@@ -392,6 +398,7 @@ actor class Ledger(
     memo : ?Memo;
     created_at_time : ?Timestamp;
   }) : async Result<TxIndex, TransferError> {
+    Debug.print("caller: " # debug_show caller);
     applyTransfer({
       spender = caller;
       source = #Icrc1Transfer;

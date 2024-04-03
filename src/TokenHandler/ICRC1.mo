@@ -24,8 +24,8 @@ module {
   };
 
   public type ICRC1Ledger = actor {
-    icrc1_fee : () -> async (Nat);
-    icrc1_balance_of : (Account) -> async (Nat);
+    icrc1_fee : query () -> async (Nat);
+    icrc1_balance_of : query (Account) -> async (Nat);
     icrc1_transfer : (TransferArgs) -> async ({
       #Ok : Nat;
       #Err : TransferError;
