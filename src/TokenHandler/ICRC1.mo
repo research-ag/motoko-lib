@@ -30,5 +30,6 @@ module {
       #Ok : Nat;
       #Err : TransferError;
     });
+    whoAmI : () -> async ();
   };
 };
