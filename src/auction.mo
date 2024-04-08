@@ -72,3 +72,7 @@ func auction(asks : [Order], bids : [Order]) : (Float, Nat, Nat, Nat) {
   auction([(2.0, 100)], [(inf, 100)]), // => (2, 100, 1, 1) the market order gave the buyer a better price (!)
   auction([(0.0, 100)], [(3.0, 100)]), // => (3, 100, 1, 1) the market order gave the seller a better price (!)
 ];
+
+// Note: In some circumstances a market order may give a better price than a limit order.
+// That is ok. The trade off is that with market orders there are no guarantees and the order book is hidden.
+
