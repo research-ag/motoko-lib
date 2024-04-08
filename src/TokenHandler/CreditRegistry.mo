@@ -26,9 +26,6 @@ module {
     public func get(p : Principal) : Int = Option.get(map.get(p), 0);
 
     /// Deducts amount from P’s usable balance.
-    /// Returns false if the balance is insufficient.
-
-    /// Deducts amount from P’s usable balance.
     /// The flag `strict` enables checking the availability of sufficient funds.
     func debit_(p : Principal, amount : Nat, strict : Bool) : Bool {
       if (isFrozen()) {
