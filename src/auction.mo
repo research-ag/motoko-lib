@@ -15,36 +15,29 @@ let inf : Float = 1 / 0; // +inf
 // Return values:
 // the auction price, auction volume, number of executed asks, number of executed bids
 func auction(asks : [Order], bids : [Order]) : (Float, Nat, Nat, Nat) {
-  assert (asks.size() > 0 and bids.size() > 0);
 
   var i = 0; // number of executed ask orders (at least partially executed)
   var j = 0; // number of executed buy orders (at least partially executed)
   var ask_volume = 0;
   var bid_volume = 0;
 
-  label L loop {
+  let res = label L : (Nat, Nat) loop {
+    let orig = (i, j);
     let inc_ask = ask_volume <= bid_volume;
     let inc_bid = bid_volume <= ask_volume;
-    let i_new = if (inc_ask) {
-      if (i >= asks.size()) break L;
-      i + 1;
-    } else i;
-    let j_new = if (inc_bid) {
-      if (j >= bids.size()) break L;
-      j + 1;
-    } else j;
-    let (ask, bid) = (asks[i_new - 1], bids[j_new - 1]);
-    if (ask.0 > bid.0) break L;
+    if (inc_ask) i += 1;
+    if (inc_bid) j += 1;
+    if (i > asks.size() or j > bids.size()) break L orig;
+    let (ask, bid) = (asks[i - 1], bids[j - 1]);
+    if (ask.0 > bid.0) break L orig;
     if (inc_ask) ask_volume += ask.1;
     if (inc_bid) bid_volume += bid.1;
-    i := i_new;
-    j := j_new;
   };
 
-  if (i == 0) return (0.0, 0, 0, 0); // highest bid was lower than lowest ask
+  if (res.0 == 0) return (0.0, 0, 0, 0); // highest bid was lower than lowest ask
   // Note: i > 0 implies j > 0
 
-  let (ask, bid) = (asks[i - 1], bids[j - 1]);
+  let (ask, bid) = (asks[res.0 - 1], bids[res.1 - 1]);
   let price : Float = switch (ask.0 == 0.0, bid.0 == inf) {
     case (true, true) return (0.0, 0, 0, 0); // market sell against market buy => no execution
     case (true, _) bid.0; // market sell against highest bid => use bid price
@@ -54,11 +47,12 @@ func auction(asks : [Order], bids : [Order]) : (Float, Nat, Nat, Nat) {
 
   let volume = Nat.min(ask_volume, bid_volume);
 
-  (price, volume, i, j);
+  (price, volume, res.0, res.1);
 };
 
 // Note: An ask of (0.0, _) is a market sell order. This is what the ledger uses to sell its fees.
 [
+  auction([], []), // => (0,0,0,0) auction failed
   auction([(0.0, 100)], [(inf, 100)]), // => (0, 0, 0, 0) auction failed
   auction([(0.0, 100)], [(inf, 100), (2.5, 100)]), // still fails because market buy absorbs all the supply
   auction([(0.0, 100)], [(inf, 99), (2.5, 100)]), // => (2.5, 100, 1, 2) all supply bought
@@ -75,4 +69,3 @@ func auction(asks : [Order], bids : [Order]) : (Float, Nat, Nat, Nat) {
 
 // Note: In some circumstances a market order may give a better price than a limit order.
 // That is ok. The trade off is that with market orders there are no guarantees and the order book is hidden.
-
