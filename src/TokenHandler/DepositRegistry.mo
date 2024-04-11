@@ -6,9 +6,6 @@ module {
   /// Represents the deposit information associated with the user.
   public type DepositInfo = {
     var deposit : Nat; // The balance that is in the subaccount associated with the user.
-    var queued : Nat; // The funds queued for consolidation.
-    var underway : Nat; // The funds currently undergoing consolidation.
-    var dust : Nat; // The funds that are less than the fee and insufficient for consolidation.
     var lock : Bool; // Flag indicating if the balance is locked.
   };
 
@@ -26,12 +23,11 @@ module {
       };
     };
 
-    /// Modifies the deposit information for a user based on a provided callback.
-    public func set(p : Principal, f : (DepositInfo) -> Bool) : Bool {
+    /// Modifies the deposit for a specific principal.
+    public func setDeposit(p : Principal, deposit : Nat) : () {
       let info = getOrCreate(p, true);
-      let changed = f(info);
+      info.deposit := deposit;
       clean(p, info);
-      changed;
     };
 
     /// Gets the deposit information for a specific principal.
@@ -45,9 +41,6 @@ module {
       case (null) {
         let info = {
           var deposit = 0;
-          var queued = 0;
-          var underway = 0;
-          var dust = 0;
           var lock = false;
         };
         if (insert) {
@@ -86,7 +79,7 @@ module {
     public func share() : StableData = Iter.toArray(
       Iter.filter<(Principal, DepositInfo)>(
         tree.entries(),
-        func((p, info)) = info.deposit != 0 or info.queued != 0 or info.underway != 0 or info.dust != 0,
+        func((p, info)) = info.deposit != 0,
       )
     );
 
@@ -98,9 +91,6 @@ module {
           p,
           {
             var deposit = value.deposit;
-            var queued = value.queued;
-            var underway = 0;
-            var dust = 0;
             var lock = false;
           },
         );

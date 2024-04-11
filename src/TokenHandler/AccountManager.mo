@@ -7,7 +7,7 @@ import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
 
 import ICRC1 "ICRC1";
-import Backlog "Backlog";
+import PrincipalSet "PrincipalSet";
 import DepositRegistry "DepositRegistry";
 import Mapping "Mapping";
 import Journal "Journal";
@@ -16,7 +16,8 @@ import CreditRegistry "CreditRegistry";
 module {
   public type StableData = (
     DepositRegistry.StableData, // depositRegistry
-    Backlog.StableData, // backlog
+    PrincipalSet.StableData, // backlog
+    PrincipalSet.StableData, // dust
     Nat, // fee_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
@@ -41,8 +42,11 @@ module {
     /// Manages deposit balances for each user.
     let depositRegistry : DepositRegistry.DepositRegistry = DepositRegistry.DepositRegistry(freezeCallback);
 
-    /// Manages acklog of principals waiting for processing.
-    let backlog : Backlog.Backlog = Backlog.Backlog();
+    /// Manages set of principals waiting for consolidation.
+    let backlog : PrincipalSet.PrincipalSet = PrincipalSet.PrincipalSet();
+
+    /// Manages set of principals with dust deposits.
+    let dust : PrincipalSet.PrincipalSet = PrincipalSet.PrincipalSet();
 
     /// Current fee amount.
     var fee_ : Nat = initialFee;
@@ -82,6 +86,7 @@ module {
       if (fee_ != newFee) {
         journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
         recalculateBacklog(fee_, newFee);
+        recalculateDust();
         fee_ := newFee;
       };
       newFee;
@@ -128,44 +133,33 @@ module {
 
       if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
 
-      let depositInfo = depositRegistry.get(p);
-
       // precredit deposit funds
       if (latestDeposit > fee_) {
-        if (depositInfo.dust == 0) {
+        if (not dust.has(p)) {
           // in case previous deposit is credited
           // then credit incremental difference
           ignore credit(p, latestDeposit - prevDeposit);
+          // schedule consolidation for this p
+          pushToBacklog(p, latestDeposit, prevDeposit);
         } else {
           ignore credit(p, latestDeposit - fee_);
-
           // reset dust deposit
-          ignore depositRegistry.set(
-            p,
-            func(info) {
-              dustFunds -= info.dust;
-              info.dust := 0;
-              true;
-            },
-          );
+          dust.remove(p);
+          dustFunds -= prevDeposit;
+          // schedule consolidation for this p
+          pushToBacklog(p, latestDeposit, 0);
         };
-
-        // schedule consolidation for this p
-        pushToBacklog(p, latestDeposit);
 
         // schedule a canister self-call to process the backlog
         // we need try-catch so that we don't trap if scheduling fails synchronously
         try ignore processBacklog() catch (_) {};
       } else {
         // update dust when the deposit is not sufficient
-        ignore depositRegistry.set(
-          p,
-          func(info) {
-            dustFunds += latestDeposit - info.dust;
-            info.dust := latestDeposit;
-            true;
-          },
-        );
+        if (not dust.has(p)) {
+          pushToDust(p, latestDeposit, 0);
+        } else {
+          pushToDust(p, latestDeposit, prevDeposit);
+        };
       };
 
       let depositDelta = latestDeposit - prevDeposit : Nat;
@@ -214,7 +208,7 @@ module {
     /// Attempts to consolidate the funds for a particular principal.
     func consolidate(p : Principal) : async* () {
       let latestDeposit = try { await* loadDeposit(p) } catch (err) {
-        pushToBacklog(p, 0);
+        pushToBacklog(p, 0, depositRegistry.get(p).deposit);
         return;
       };
 
@@ -222,14 +216,7 @@ module {
 
       ignore credit(p, latestDeposit - prevDeposit);
 
-      ignore depositRegistry.set(
-        p,
-        func(info) {
-          underwayFunds += latestDeposit - info.underway;
-          info.underway := latestDeposit;
-          true;
-        },
-      );
+      underwayFunds += latestDeposit - prevDeposit;
 
       let transferResult = await* processConsolidationTransfer(p, latestDeposit);
 
@@ -240,20 +227,13 @@ module {
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
 
           recalculateBacklog(fee_, expected_fee);
+          recalculateDust();
 
           fee_ := expected_fee;
 
           if (latestDeposit <= fee_) {
-            ignore depositRegistry.set(
-              p,
-              func(info) {
-                underwayFunds -= info.underway;
-                info.underway := 0;
-                dustFunds += info.deposit;
-                info.dust := info.deposit;
-                true;
-              },
-            );
+            underwayFunds -= latestDeposit;
+            pushToDust(p, latestDeposit, 0);
             return;
           };
 
@@ -262,25 +242,18 @@ module {
           let retryResult = await* processConsolidationTransfer(p, latestDeposit);
           switch (retryResult) {
             case (#Err _) {
-              pushToBacklog(p, latestDeposit);
+              pushToBacklog(p, latestDeposit, prevDeposit);
             };
             case (_) {};
           };
         };
         case (#Err _) {
-          pushToBacklog(p, latestDeposit);
+          pushToBacklog(p, latestDeposit, prevDeposit);
         };
         case (_) {};
       };
 
-      ignore depositRegistry.set(
-        p,
-        func(info) {
-          underwayFunds -= info.underway;
-          info.underway := 0;
-          true;
-        },
-      );
+      underwayFunds -= latestDeposit;
     };
 
     /// Processes the backlog by selecting the first encountered principal for consolidation.
@@ -303,17 +276,9 @@ module {
         case (null) { return };
         case (?p) {
           ignore depositRegistry.lock(p);
-          ignore depositRegistry.set(
-            p,
-            func(info) {
-              let amount = info.queued;
-              info.queued := 0;
-              queuedFunds -= amount;
-              info.underway := amount;
-              underwayFunds += amount;
-              true;
-            },
-          );
+          let deposit = depositRegistry.get(p).deposit;
+          queuedFunds -= deposit;
+          underwayFunds += deposit;
           await* consolidate(p);
           depositRegistry.unlock(p);
           assertIntegrity();
@@ -358,6 +323,7 @@ module {
         case (#Err(#BadFee { expected_fee })) {
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
           recalculateBacklog(fee_, expected_fee);
+          recalculateDust();
           fee_ := expected_fee;
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
@@ -392,38 +358,44 @@ module {
       creditRegistry.debit(p, amount);
     };
 
-    /// Pushes a principal to the backlog and synchronizes the deposit registry.
-    func pushToBacklog(p : Principal, deposit : Nat) {
-      ignore depositRegistry.set(
-        p,
-        func(info) {
-          queuedFunds += deposit - info.queued;
-          info.queued := deposit;
-          true;
-        },
-      );
-
+    /// Pushes a principal to the backlog with `dusts` and `queuedFunds` synchronization.
+    func pushToBacklog(p : Principal, deposit : Nat, prevQueued : Nat) {
+      queuedFunds += deposit - prevQueued;
       backlog.push(p);
+      dust.remove(p);
+    };
+
+    /// Pushes a principal to the dust with `backlog` and `dustFunds` synchronization.
+    func pushToDust(p : Principal, deposit : Nat, prevDust : Nat) {
+      dustFunds += deposit - prevDust;
+      dust.push(p);
+      backlog.remove(p);
     };
 
     /// Recalculates the backlog after the fee change.
     /// Reason: Some amounts in the backlog can be insufficient for consolidation.
     func recalculateBacklog(prevFee : Nat, newFee : Nat) {
       label L for (p in backlog.iter()) {
-        let depositInfo = depositRegistry.get(p);
-        if (depositInfo.queued <= newFee) {
+        let deposit = depositRegistry.get(p).deposit;
+        if (deposit <= newFee) {
           backlog.remove(p);
-          ignore debit(p, depositInfo.queued - prevFee);
-          ignore depositRegistry.set(
-            p,
-            func(info) {
-              queuedFunds -= info.queued;
-              info.queued := 0;
-              dustFunds += info.deposit;
-              info.dust := info.deposit;
-              true;
-            },
-          );
+          ignore debit(p, deposit - prevFee);
+          queuedFunds -= deposit;
+          pushToDust(p, deposit, 0);
+        };
+      };
+    };
+
+    /// Recalculates the dust after the fee change.
+    /// Reason: Some amounts in the backlog can be sufficient for consolidation.
+    func recalculateDust() {
+      label L for (p in dust.iter()) {
+        let deposit = depositRegistry.get(p).deposit;
+        if (deposit > fee_) {
+          dust.remove(p);
+          ignore credit(p, deposit - fee_);
+          dustFunds -= deposit;
+          pushToBacklog(p, deposit, 0);
         };
       };
     };
@@ -456,15 +428,8 @@ module {
 
     /// Updates the specified principal's deposit. Returns previous deposit.
     func updateDeposit(p : Principal, deposit : Nat) : Nat {
-      var prevDeposit = 0;
-      ignore depositRegistry.set(
-        p,
-        func(info) {
-          prevDeposit := info.deposit;
-          info.deposit := deposit;
-          true;
-        },
-      );
+      var prevDeposit = depositRegistry.get(p).deposit;
+      depositRegistry.setDeposit(p, deposit);
       depositedFunds_ += deposit;
       depositedFunds_ -= prevDeposit;
       prevDeposit;
@@ -482,6 +447,7 @@ module {
     public func share() : StableData = (
       depositRegistry.share(),
       backlog.share(),
+      dust.share(),
       fee_,
       totalConsolidated_,
       totalWithdrawn_,
@@ -493,11 +459,12 @@ module {
     public func unshare(values : StableData) {
       depositRegistry.unshare(values.0);
       backlog.unshare(values.1);
-      fee_ := values.2;
-      totalConsolidated_ := values.3;
-      totalWithdrawn_ := values.4;
-      depositedFunds_ := values.5;
-      queuedFunds := values.6;
+      dust.unshare(values.2);
+      fee_ := values.3;
+      totalConsolidated_ := values.4;
+      totalWithdrawn_ := values.5;
+      depositedFunds_ := values.6;
+      queuedFunds := values.7;
     };
   };
 };
