@@ -2,10 +2,9 @@ import Principal "mo:base/Principal";
 import Blob "mo:base/Blob";
 import Array "mo:base/Array";
 import Nat8 "mo:base/Nat8";
-import Debug "mo:base/Debug";
 
 import TokenHandler "../../src/TokenHandler";
-import Ledger "./Ledger";
+import MockLedger "./MockLedger";
 
 actor class Agent() = this {
   type Item = {
@@ -13,33 +12,8 @@ actor class Agent() = this {
     amount : Nat;
   };
 
-  func delay() {
-    var i = 0;
-    while (i < 1_000_000) {
-      i += 1;
-    };
-  };
-
-  func mint(args : { ledger : Ledger.Ledger; minting_sub : Blob; own_principal : Principal; sub_blob : Blob; amount : Nat }) : async* () {
-    let { ledger; minting_sub; own_principal; sub_blob; amount } = args;
-
-    ignore await ledger.icrc1_transfer({
-      from_subaccount = ?minting_sub;
-      to = {
-        owner = own_principal;
-        subaccount = ?sub_blob;
-      };
-      amount;
-      fee = null;
-      memo = null;
-      created_at_time = null;
-    });
-  };
-
   public func init() : async () {
     let own_principal = Principal.fromActor(this);
-
-    Debug.print("own_principal " # debug_show own_principal);
 
     let n = 10;
 
@@ -53,59 +27,53 @@ actor class Agent() = this {
       func(i) = TokenHandler.toSubaccount(sub_principal[i]),
     );
 
-    let minting_sub = sub_blob[9];
-
-    let fee = 1;
+    let fee = 5;
 
     // Ledger initialization
-    let ledger = await Ledger.Ledger({
-      initial_mints = Array.tabulate<Item>(
-        n,
-        func(i) = {
-          account = {
-            owner = own_principal;
-            subaccount = ?sub_blob[i];
-          };
-          amount = 100;
-        },
-      );
-      minting_account = { owner = own_principal; subaccount = ?minting_sub };
-      token_name = "ABC";
-      token_symbol = "ABC";
-      decimals = 0;
+    let ledger = await MockLedger.MockLedger({
       transfer_fee = fee;
     });
 
     let ledger_principal = Principal.fromActor(ledger);
 
     // Handler initialization
-    let handler = TokenHandler.TokenHandler(ledger_principal, own_principal, fee);
+    let handler = TokenHandler.TokenHandler(ledger_principal, own_principal, 1000, fee);
 
+    // Credit funds
     ignore handler.credit(sub_principal[0], 100);
+    var info0 = handler.info(sub_principal[0]);
+    assert info0.credit == 100;
 
-    await* mint({
-      ledger;
-      minting_sub;
-      own_principal;
-      sub_blob = sub_blob[0];
-      amount = 200;
-    });
+    // Debit funds
+    ignore handler.debitStrict(sub_principal[0], 50);
+    info0 := handler.info(sub_principal[0]);
+    assert info0.credit == 50;
 
-    // Debug.print("backlogFunds before " # debug_show (handler.backlogFunds()));
-    // Debug.print("consolidatedFunds before " # debug_show (handler.consolidatedFunds()));
+    // Make deposit less than fee
+    info0 := handler.info(sub_principal[0]);
+    let deposit_1 = 2;
+    await ledger.makeDeposit(sub_blob[0], deposit_1);
+    var nr0 = await* handler.notify(sub_principal[0]);
+    await* handler.processBacklog();
+    assert nr0 != null;
+    ignore do ? {
+      assert (nr0!).0 == deposit_1;
+      assert (nr0!).1 == info0.credit;
+    };
 
-    ignore await* handler.notify(sub_principal[0]);
-    delay();
+    // Make deposit greater than fee in result
+    let deposit_2 = 5;
+    await ledger.makeDeposit(sub_blob[0], deposit_2);
+    nr0 := await* handler.notify(sub_principal[0]);
+    await* handler.processBacklog();
+    assert nr0 != null;
+    ignore do ? {
+      assert (nr0!).0 == deposit_2;
+      assert (nr0!).1 == info0.credit + (deposit_1 + deposit_2 - fee : Int);
+    };
 
-    // Debug.print("info " # debug_show (handler.info(sub_principal[0])));
-    Debug.print("backlogFunds after " # debug_show (handler.backlogFunds()));
-    // Debug.print("consolidatedFunds after " # debug_show (handler.consolidatedFunds()));
-
-    // let totalSupply = await ledger.icrc1_total_supply();
-
-    // Debug.print("totalSupply " # debug_show (totalSupply));
-
-    assert true;
+    // Assert the token handler is not frozen
+    assert not handler.isFrozen();
   };
 };
 
