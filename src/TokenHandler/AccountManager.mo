@@ -85,8 +85,7 @@ module {
       let newFee = await icrc1Ledger.icrc1_fee();
       if (fee_ != newFee) {
         journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
-        recalculateBacklog(fee_, newFee);
-        recalculateDust();
+        handleFeeChange(fee_, newFee);
         fee_ := newFee;
       };
       newFee;
@@ -226,8 +225,7 @@ module {
 
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
 
-          recalculateBacklog(fee_, expected_fee);
-          recalculateDust();
+          handleFeeChange(fee_, expected_fee);
 
           fee_ := expected_fee;
 
@@ -322,8 +320,7 @@ module {
         };
         case (#Err(#BadFee { expected_fee })) {
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
-          recalculateBacklog(fee_, expected_fee);
-          recalculateDust();
+          handleFeeChange(fee_, expected_fee);
           fee_ := expected_fee;
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
@@ -370,6 +367,15 @@ module {
       dustFunds += deposit - prevDust;
       dust.push(p);
       backlog.remove(p);
+    };
+
+    /// Does recalculations of the backlog and the dust based on previous and new fees.
+    func handleFeeChange(prevFee : Nat, newFee : Nat) {
+      if (prevFee > newFee) {
+        recalculateDust();
+      } else {
+        recalculateBacklog(prevFee, newFee);
+      };
     };
 
     /// Recalculates the backlog after the fee change.
