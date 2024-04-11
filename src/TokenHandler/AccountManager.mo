@@ -128,11 +128,9 @@ module {
 
       if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
 
-      let depositInfo = depositRegistry.get(p);
-
       // precredit deposit funds
       if (latestDeposit > fee_) {
-        if (depositInfo.dust == 0) {
+        if (prevDeposit > fee_) {
           // in case previous deposit is credited
           // then credit incremental difference
           ignore credit(p, latestDeposit - prevDeposit);
@@ -143,8 +141,7 @@ module {
           ignore depositRegistry.set(
             p,
             func(info) {
-              dustDeposits -= info.dust;
-              info.dust := 0;
+              dustDeposits -= prevDeposit;
               true;
             },
           );
@@ -161,8 +158,7 @@ module {
         ignore depositRegistry.set(
           p,
           func(info) {
-            dustDeposits += latestDeposit - info.dust;
-            info.dust := latestDeposit;
+            dustDeposits += latestDeposit - prevDeposit;
             true;
           },
         );
@@ -250,7 +246,6 @@ module {
                 underwayFunds -= info.underway;
                 info.underway := 0;
                 dustDeposits += info.deposit;
-                info.dust := info.deposit;
                 true;
               },
             );
@@ -420,7 +415,6 @@ module {
               queuedFunds -= info.queued;
               info.queued := 0;
               dustDeposits += info.deposit;
-              info.dust := info.deposit;
               true;
             },
           );

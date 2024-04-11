@@ -8,7 +8,6 @@ module {
     var deposit : Nat; // The balance that is in the subaccount associated with the user.
     var queued : Nat; // The funds queued for consolidation.
     var underway : Nat; // The funds currently undergoing consolidation.
-    var dust : Nat; // The funds that are less than the fee and insufficient for consolidation.
     var lock : Bool; // Flag indicating if the balance is locked.
   };
 
@@ -86,7 +85,7 @@ module {
     public func share() : StableData = Iter.toArray(
       Iter.filter<(Principal, DepositInfo)>(
         tree.entries(),
-        func((p, info)) = info.deposit != 0 or info.queued != 0 or info.underway != 0 or info.dust != 0,
+        func((p, info)) = info.deposit != 0 or info.queued != 0 or info.underway != 0,
       )
     );
 
@@ -100,7 +99,6 @@ module {
             var deposit = value.deposit;
             var queued = value.queued;
             var underway = 0;
-            var dust = 0;
             var lock = false;
           },
         );
