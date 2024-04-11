@@ -2,6 +2,9 @@ import Principal "mo:base/Principal";
 import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Result "mo:base/Result";
+import Text "mo:base/Text";
+import Nat "mo:base/Nat";
+import Iter "mo:base/Iter";
 
 import ICRC1 "ICRC1";
 import Backlog "Backlog";
@@ -27,6 +30,7 @@ module {
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
     journal : Journal.Journal,
+    initialFee : Nat,
     isFrozen : () -> Bool,
     freezeCallback : (text : Text) -> (),
     creditRegistry : CreditRegistry.CreditRegistry,
@@ -41,7 +45,7 @@ module {
     let backlog : Backlog.Backlog = Backlog.Backlog();
 
     /// Current fee amount.
-    var fee_ : Nat = 0;
+    var fee_ : Nat = initialFee;
 
     /// Total deposited funds across all accounts.
     var depositedFunds_ : Nat = 0;
@@ -58,6 +62,17 @@ module {
     /// Total funds underway for consolidation.
     var underwayFunds : Nat = 0;
 
+    /// Total dust deposits (i.e. those that are less than the fee and insufficient for consolidation).
+    var dustDeposits : Nat = 0;
+
+    /// Total funds credited within deposit tracking and consolidation.
+    /// Accumulated value.
+    var totalCredited : Nat = 0;
+
+    /// Total funds debited within deposit tracking and consolidation.
+    /// Accumulated value.
+    var totalDebited : Nat = 0;
+
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
@@ -66,8 +81,8 @@ module {
       let newFee = await icrc1Ledger.icrc1_fee();
       if (fee_ != newFee) {
         journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
+        recalculateBacklog(fee_, newFee);
         fee_ := newFee;
-        recalculateBacklog();
       };
       newFee;
     };
@@ -92,6 +107,9 @@ module {
     /// Returns the sum of all deposits in the backlog.
     public func backlogFunds() : Nat = queuedFunds + underwayFunds;
 
+    /// Retrieves the deposit of a principal.
+    public func getDeposit(p : Principal) : Nat = depositRegistry.get(p).deposit;
+
     /// Notifies of a deposit and schedules backlog processing.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
@@ -110,14 +128,44 @@ module {
 
       if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
 
+      let depositInfo = depositRegistry.get(p);
+
+      // precredit deposit funds
       if (latestDeposit > fee_) {
-        // precredit deposit funds
-        ignore creditRegistry.credit(p, latestDeposit - fee_);
+        if (depositInfo.dust == 0) {
+          // in case previous deposit is credited
+          // then credit incremental difference
+          ignore credit(p, latestDeposit - prevDeposit);
+        } else {
+          ignore credit(p, latestDeposit - fee_);
+
+          // reset dust deposit
+          ignore depositRegistry.set(
+            p,
+            func(info) {
+              dustDeposits -= info.dust;
+              info.dust := 0;
+              true;
+            },
+          );
+        };
+
         // schedule consolidation for this p
         pushToBacklog(p, latestDeposit);
+
         // schedule a canister self-call to process the backlog
         // we need try-catch so that we don't trap if scheduling fails synchronously
         try ignore processBacklog() catch (_) {};
+      } else {
+        // update dust when the deposit is not sufficient
+        ignore depositRegistry.set(
+          p,
+          func(info) {
+            dustDeposits += latestDeposit - info.dust;
+            info.dust := latestDeposit;
+            true;
+          },
+        );
       };
 
       let depositDelta = latestDeposit - prevDeposit : Nat;
@@ -132,11 +180,8 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or {
         #CallIcrc1LedgerError;
-        #InsufficientDeposit;
       };
     } {
-      if (deposit <= fee_) return #Err(#InsufficientDeposit);
-
       let transferAmount : Nat = Int.abs(deposit - fee_);
 
       let transferResult = try {
@@ -173,13 +218,15 @@ module {
         return;
       };
 
-      ignore updateDeposit(p, latestDeposit);
+      let prevDeposit = updateDeposit(p, latestDeposit);
+
+      ignore credit(p, latestDeposit - prevDeposit);
 
       ignore depositRegistry.set(
         p,
         func(info) {
-          info.underway := latestDeposit;
           underwayFunds += latestDeposit - info.underway;
+          info.underway := latestDeposit;
           true;
         },
       );
@@ -187,45 +234,50 @@ module {
       let transferResult = await* processConsolidationTransfer(p, latestDeposit);
 
       switch (transferResult) {
-        case (#Err(#InsufficientDeposit)) {
-          ignore creditRegistry.debit(p, latestDeposit - fee_);
-        };
         case (#Err(#BadFee { expected_fee })) {
-
-          ignore creditRegistry.debit(p, latestDeposit - fee_);
-          ignore creditRegistry.credit(p, latestDeposit - expected_fee);
-
-          fee_ := expected_fee;
+          ignore debit(p, latestDeposit - fee_);
 
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
 
-          recalculateBacklog();
+          recalculateBacklog(fee_, expected_fee);
+
+          fee_ := expected_fee;
+
+          if (latestDeposit <= fee_) {
+            ignore depositRegistry.set(
+              p,
+              func(info) {
+                underwayFunds -= info.underway;
+                info.underway := 0;
+                dustDeposits += info.deposit;
+                info.dust := info.deposit;
+                true;
+              },
+            );
+            return;
+          };
+
+          ignore credit(p, latestDeposit - expected_fee);
 
           let retryResult = await* processConsolidationTransfer(p, latestDeposit);
           switch (retryResult) {
-            case (#Err(#InsufficientDeposit)) {
-              ignore creditRegistry.debit(p, latestDeposit - fee_);
-            };
             case (#Err _) {
-              ignore creditRegistry.debit(p, latestDeposit - fee_);
               pushToBacklog(p, latestDeposit);
             };
             case (_) {};
           };
         };
         case (#Err _) {
-          ignore creditRegistry.debit(p, latestDeposit - fee_);
           pushToBacklog(p, latestDeposit);
         };
         case (_) {};
-
       };
 
       ignore depositRegistry.set(
         p,
         func(info) {
+          underwayFunds -= info.underway;
           info.underway := 0;
-          underwayFunds -= latestDeposit;
           true;
         },
       );
@@ -264,6 +316,7 @@ module {
           );
           await* consolidate(p);
           depositRegistry.unlock(p);
+          assertIntegrity();
         };
       };
     };
@@ -304,8 +357,8 @@ module {
         };
         case (#Err(#BadFee { expected_fee })) {
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
+          recalculateBacklog(fee_, expected_fee);
           fee_ := expected_fee;
-          recalculateBacklog();
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
             case (#Ok txIdx) {
@@ -325,12 +378,26 @@ module {
       };
     };
 
+    /// Increases the credit amount associated with a specific principal.
+    /// For internal use only - within deposit tracking and consolidation.
+    func credit(p : Principal, amount : Nat) : Bool {
+      totalCredited += amount;
+      creditRegistry.credit(p, amount);
+    };
+
+    /// Deducts the credit amount associated with a specific principal.
+    /// For internal use only - within deposit tracking and consolidation.
+    func debit(p : Principal, amount : Nat) : Bool {
+      totalDebited += amount;
+      creditRegistry.debit(p, amount);
+    };
+
+    /// Pushes a principal to the backlog and synchronizes the deposit registry.
     func pushToBacklog(p : Principal, deposit : Nat) {
       ignore depositRegistry.set(
         p,
         func(info) {
-          queuedFunds -= info.queued;
-          queuedFunds += deposit;
+          queuedFunds += deposit - info.queued;
           info.queued := deposit;
           true;
         },
@@ -339,23 +406,51 @@ module {
       backlog.push(p);
     };
 
-    /// Recalculate the backlog after the fee change.
+    /// Recalculates the backlog after the fee change.
     /// Reason: Some amounts in the backlog can be insufficient for consolidation.
-    func recalculateBacklog() {
+    func recalculateBacklog(prevFee : Nat, newFee : Nat) {
       label L for (p in backlog.iter()) {
-        let ?depositInfo = depositRegistry.get(p) else continue L;
-        if (depositInfo.queued <= fee_) {
+        let depositInfo = depositRegistry.get(p);
+        if (depositInfo.queued <= newFee) {
           backlog.remove(p);
-          ignore creditRegistry.debit(p, depositInfo.queued - fee_);
+          ignore debit(p, depositInfo.queued - prevFee);
           ignore depositRegistry.set(
             p,
             func(info) {
-              info.queued := 0;
               queuedFunds -= info.queued;
+              info.queued := 0;
+              dustDeposits += info.deposit;
+              info.dust := info.deposit;
               true;
             },
           );
         };
+      };
+    };
+
+    func assertIntegrity() {
+      let backlogFunds_ : Int = backlogFunds() - fee_ * backlog.size(); // backlog with fees subtracted
+      if (totalCredited != totalConsolidated_ + backlogFunds_ + totalDebited) {
+        let values : [Text] = [
+          "Balances integrity failed",
+          "totalCredited=" # Nat.toText(totalCredited),
+          "totalDebited=" # Nat.toText(totalDebited),
+          "totalConsolidated_=" # Nat.toText(totalConsolidated_),
+          "backlogFunds_=" # Int.toText(backlogFunds_),
+        ];
+        freezeCallback(Text.join("; ", Iter.fromArray(values)));
+        return;
+      };
+
+      if (depositedFunds_ != queuedFunds + underwayFunds + dustDeposits) {
+        let values : [Text] = [
+          "Balances integrity failed",
+          "depositedFunds_=" # Nat.toText(depositedFunds_),
+          "queuedFunds=" # Nat.toText(queuedFunds),
+          "underwayFunds=" # Nat.toText(underwayFunds),
+          "dustDeposits=" # Int.toText(dustDeposits),
+        ];
+        freezeCallback(Text.join("; ", Iter.fromArray(values)));
       };
     };
 

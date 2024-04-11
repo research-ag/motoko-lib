@@ -18,6 +18,11 @@ module {
     Journal.StableData // journal
   );
 
+  public type AccountInfo = {
+    deposit : Nat;
+    credit : Int;
+  };
+
   public func defaultStableData() : StableData = (([], #leaf, 0, 0, 0, 0, 0), (0, []), ([var], 0, 0));
 
   /// Converts `Principal` to `ICRC1.Subaccount`.
@@ -30,6 +35,7 @@ module {
     icrc1LedgerPrincipal_ : Principal,
     ownPrincipal : Principal,
     journalCapacity : Nat,
+    initialFee : Nat,
   ) {
 
     /// If some unexpected error happened, this flag turns true and handler stops doing anything until recreated.
@@ -60,6 +66,7 @@ module {
       icrc1LedgerPrincipal_,
       ownPrincipal,
       journal,
+      initialFee,
       isFrozen,
       freezeTokenHandler,
       creditRegistry,
@@ -71,6 +78,12 @@ module {
     /// Fetches and updates the fee from the ICRC1 ledger.
     public func updateFee() : async* Nat {
       await* accountManager.updateFee();
+    };
+
+    /// Returns balances info for a principal - for debug purposes.
+    public func info(p : Principal) : AccountInfo = {
+      deposit = accountManager.getDeposit(p);
+      credit = creditRegistry.get(p);
     };
 
     /// Queries the journal records starting from a specific index - for debug purposes.
@@ -126,6 +139,11 @@ module {
     public func notify(p : Principal) : async* ?(Nat, Int) {
       let ?depositDelta = await* accountManager.notify(p) else return null;
       ?(depositDelta, creditRegistry.get(p));
+    };
+
+    /// Processes the backlog by selecting the first encountered principal for consolidation.
+    public func processBacklog() : async* () {
+      await* accountManager.processBacklog();
     };
 
     /// Initiates a withdrawal by transferring tokens to another account.
