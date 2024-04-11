@@ -63,7 +63,7 @@ module {
     var underwayFunds : Nat = 0;
 
     /// Total dust deposits (i.e. those that are less than the fee and insufficient for consolidation).
-    var dustDeposits : Nat = 0;
+    var dustFunds : Nat = 0;
 
     /// Total funds credited within deposit tracking and consolidation.
     /// Accumulated value.
@@ -143,7 +143,7 @@ module {
           ignore depositRegistry.set(
             p,
             func(info) {
-              dustDeposits -= info.dust;
+              dustFunds -= info.dust;
               info.dust := 0;
               true;
             },
@@ -161,7 +161,7 @@ module {
         ignore depositRegistry.set(
           p,
           func(info) {
-            dustDeposits += latestDeposit - info.dust;
+            dustFunds += latestDeposit - info.dust;
             info.dust := latestDeposit;
             true;
           },
@@ -249,7 +249,7 @@ module {
               func(info) {
                 underwayFunds -= info.underway;
                 info.underway := 0;
-                dustDeposits += info.deposit;
+                dustFunds += info.deposit;
                 info.dust := info.deposit;
                 true;
               },
@@ -419,7 +419,7 @@ module {
             func(info) {
               queuedFunds -= info.queued;
               info.queued := 0;
-              dustDeposits += info.deposit;
+              dustFunds += info.deposit;
               info.dust := info.deposit;
               true;
             },
@@ -442,13 +442,13 @@ module {
         return;
       };
 
-      if (depositedFunds_ != queuedFunds + underwayFunds + dustDeposits) {
+      if (depositedFunds_ != queuedFunds + underwayFunds + dustFunds) {
         let values : [Text] = [
           "Balances integrity failed",
           "depositedFunds_=" # Nat.toText(depositedFunds_),
           "queuedFunds=" # Nat.toText(queuedFunds),
           "underwayFunds=" # Nat.toText(underwayFunds),
-          "dustDeposits=" # Int.toText(dustDeposits),
+          "dustFunds=" # Int.toText(dustFunds),
         ];
         freezeCallback(Text.join("; ", Iter.fromArray(values)));
       };
