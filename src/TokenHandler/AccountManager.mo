@@ -134,7 +134,7 @@ module {
 
       // precredit deposit funds
       if (latestDeposit > fee_) {
-        if (not dust.has(p)) {
+        if (prevDeposit > fee_) {
           // in case previous deposit is credited
           // then credit incremental difference
           ignore credit(p, latestDeposit - prevDeposit);
@@ -154,7 +154,7 @@ module {
         try ignore processBacklog() catch (_) {};
       } else {
         // update dust when the deposit is not sufficient
-        if (not dust.has(p)) {
+        if (prevDeposit > fee_) {
           pushToDust(p, latestDeposit, 0);
         } else {
           pushToDust(p, latestDeposit, prevDeposit);
