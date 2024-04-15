@@ -17,7 +17,6 @@ module {
   public type StableData = (
     DepositRegistry.StableData, // depositRegistry
     PrincipalSet.StableData, // backlog
-    PrincipalSet.StableData, // dust
     Nat, // fee_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
@@ -45,9 +44,6 @@ module {
     /// Manages set of principals waiting for consolidation.
     let backlog : PrincipalSet.PrincipalSet = PrincipalSet.PrincipalSet();
 
-    /// Manages set of principals with dust deposits.
-    let dust : PrincipalSet.PrincipalSet = PrincipalSet.PrincipalSet();
-
     /// Current fee amount.
     var fee_ : Nat = initialFee;
 
@@ -66,9 +62,6 @@ module {
     /// Total funds underway for consolidation.
     var underwayFunds : Nat = 0;
 
-    /// Total dust deposits (i.e. those that are less than the fee and insufficient for consolidation).
-    var dustFunds : Nat = 0;
-
     /// Total funds credited within deposit tracking and consolidation.
     /// Accumulated value.
     var totalCredited : Nat = 0;
@@ -85,7 +78,7 @@ module {
       let newFee = await icrc1Ledger.icrc1_fee();
       if (fee_ != newFee) {
         journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
-        handleFeeChange(fee_, newFee);
+        recalculateBacklog(newFee, fee_);
         fee_ := newFee;
       };
       newFee;
@@ -128,38 +121,23 @@ module {
 
       depositRegistry.unlock(p);
 
+      if (latestDeposit <= fee_) {
+        return ?(latestDeposit - depositRegistry.get(p).deposit);
+      };
+
       let prevDeposit = updateDeposit(p, latestDeposit);
 
       if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
 
-      // precredit deposit funds
-      if (latestDeposit > fee_) {
-        if (prevDeposit > fee_) {
-          // in case previous deposit is credited
-          // then credit incremental difference
-          ignore credit(p, latestDeposit - prevDeposit);
-          // schedule consolidation for this p
-          pushToBacklog(p, latestDeposit, prevDeposit);
-        } else {
-          ignore credit(p, latestDeposit - fee_);
-          // reset dust deposit
-          dust.remove(p);
-          dustFunds -= prevDeposit;
-          // schedule consolidation for this p
-          pushToBacklog(p, latestDeposit, 0);
-        };
+      // precredit incremental difference
+      ignore credit(p, latestDeposit - prevDeposit);
 
-        // schedule a canister self-call to process the backlog
-        // we need try-catch so that we don't trap if scheduling fails synchronously
-        try ignore processBacklog() catch (_) {};
-      } else {
-        // update dust when the deposit is not sufficient
-        if (prevDeposit > fee_) {
-          pushToDust(p, latestDeposit, 0);
-        } else {
-          pushToDust(p, latestDeposit, prevDeposit);
-        };
-      };
+      // schedule consolidation for this p
+      pushToBacklog(p, latestDeposit, prevDeposit);
+
+      // schedule a canister self-call to process the backlog
+      // we need try-catch so that we don't trap if scheduling fails synchronously
+      try ignore processBacklog() catch (_) {};
 
       let depositDelta = latestDeposit - prevDeposit : Nat;
 
@@ -225,13 +203,13 @@ module {
 
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
 
-          handleFeeChange(fee_, expected_fee);
+          recalculateBacklog(expected_fee, fee_);
 
           fee_ := expected_fee;
 
           if (latestDeposit <= fee_) {
             underwayFunds -= latestDeposit;
-            pushToDust(p, latestDeposit, 0);
+            ignore updateDeposit(p, 0);
             return;
           };
 
@@ -320,7 +298,7 @@ module {
         };
         case (#Err(#BadFee { expected_fee })) {
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
-          handleFeeChange(fee_, expected_fee);
+          recalculateBacklog(expected_fee, fee_);
           fee_ := expected_fee;
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
@@ -359,49 +337,20 @@ module {
     func pushToBacklog(p : Principal, deposit : Nat, prevQueued : Nat) {
       queuedFunds += deposit - prevQueued;
       backlog.push(p);
-      dust.remove(p);
-    };
-
-    /// Pushes a principal to the dust with `backlog` and `dustFunds` synchronization.
-    func pushToDust(p : Principal, deposit : Nat, prevDust : Nat) {
-      dustFunds += deposit - prevDust;
-      dust.push(p);
-      backlog.remove(p);
-    };
-
-    /// Does recalculations of the backlog and the dust based on previous and new fees.
-    func handleFeeChange(prevFee : Nat, newFee : Nat) {
-      if (prevFee > newFee) {
-        recalculateDust();
-      } else {
-        recalculateBacklog(prevFee, newFee);
-      };
     };
 
     /// Recalculates the backlog after the fee change.
     /// Reason: Some amounts in the backlog can be insufficient for consolidation.
-    func recalculateBacklog(prevFee : Nat, newFee : Nat) {
-      label L for (p in backlog.iter()) {
-        let deposit = depositRegistry.get(p).deposit;
-        if (deposit <= newFee) {
-          backlog.remove(p);
-          ignore debit(p, deposit - prevFee);
-          queuedFunds -= deposit;
-          pushToDust(p, deposit, 0);
-        };
-      };
-    };
-
-    /// Recalculates the dust after the fee change.
-    /// Reason: Some amounts in the backlog can be sufficient for consolidation.
-    func recalculateDust() {
-      label L for (p in dust.iter()) {
-        let deposit = depositRegistry.get(p).deposit;
-        if (deposit > fee_) {
-          dust.remove(p);
-          ignore credit(p, deposit - fee_);
-          dustFunds -= deposit;
-          pushToBacklog(p, deposit, 0);
+    func recalculateBacklog(newFee : Nat, prevFee : Nat) {
+      if (newFee > prevFee) {
+        label L for (p in backlog.iter()) {
+          let deposit = depositRegistry.get(p).deposit;
+          if (deposit <= newFee) {
+            backlog.remove(p);
+            ignore updateDeposit(p, 0);
+            ignore debit(p, deposit - prevFee);
+            queuedFunds -= deposit;
+          };
         };
       };
     };
@@ -420,13 +369,12 @@ module {
         return;
       };
 
-      if (depositedFunds_ != queuedFunds + underwayFunds + dustFunds) {
+      if (depositedFunds_ != queuedFunds + underwayFunds) {
         let values : [Text] = [
           "Balances integrity failed",
           "depositedFunds_=" # Nat.toText(depositedFunds_),
           "queuedFunds=" # Nat.toText(queuedFunds),
           "underwayFunds=" # Nat.toText(underwayFunds),
-          "dustFunds=" # Int.toText(dustFunds),
         ];
         freezeCallback(Text.join("; ", Iter.fromArray(values)));
       };
@@ -453,7 +401,6 @@ module {
     public func share() : StableData = (
       depositRegistry.share(),
       backlog.share(),
-      dust.share(),
       fee_,
       totalConsolidated_,
       totalWithdrawn_,
@@ -465,12 +412,11 @@ module {
     public func unshare(values : StableData) {
       depositRegistry.unshare(values.0);
       backlog.unshare(values.1);
-      dust.unshare(values.2);
-      fee_ := values.3;
-      totalConsolidated_ := values.4;
-      totalWithdrawn_ := values.5;
-      depositedFunds_ := values.6;
-      queuedFunds := values.7;
+      fee_ := values.2;
+      totalConsolidated_ := values.3;
+      totalWithdrawn_ := values.4;
+      depositedFunds_ := values.5;
+      queuedFunds := values.6;
     };
   };
 };
