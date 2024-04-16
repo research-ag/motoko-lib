@@ -7,23 +7,23 @@ import Iter "mo:base/Iter";
 import Journal "Journal";
 
 module {
-  public type StableData = (Nat, [(Principal, Nat)]);
+  public type StableData = (Int, [(Principal, Int)]);
 
   /// Tracks credited funds (usable balance) associated with each principal.
   public class CreditRegistry(
     journal : Journal.Journal,
     isFrozen : () -> Bool,
   ) {
-    var map : RBTree.RBTree<Principal, Nat> = RBTree.RBTree<Principal, Nat>(Principal.compare);
+    var map : RBTree.RBTree<Principal, Int> = RBTree.RBTree<Principal, Int>(Principal.compare);
 
     /// Total sum of credited funds in the credit registry.
-    var creditTotal_ : Nat = 0;
+    var creditTotal_ : Int = 0;
 
     /// Retrieves the total credited funds in the credit registry.
-    public func creditTotal() : Nat = creditTotal_;
+    public func creditTotal() : Int = creditTotal_;
 
     /// Gets the current credit amount associated with a specific principal.
-    public func get(p : Principal) : Nat = Option.get(map.get(p), 0);
+    public func get(p : Principal) : Int = Option.get(map.get(p), 0);
 
     /// Deducts amount from P’s usable balance.
     /// The flag `strict` enables checking the availability of sufficient funds.
@@ -38,7 +38,14 @@ module {
         return false;
       };
 
-      map.put(p, currentCredit - amount);
+      let nextCredit = currentCredit - amount;
+
+      if (nextCredit != 0) {
+        map.put(p, nextCredit);
+      } else {
+        map.delete(p);
+      };
+
       creditTotal_ -= amount;
       journal.push((Time.now(), p, #debited(amount)));
       true;
@@ -61,7 +68,14 @@ module {
 
       let currentCredit = Option.get(map.get(p), 0);
 
-      map.put(p, currentCredit + amount);
+      let nextCredit = currentCredit + amount;
+
+      if (nextCredit != 0) {
+        map.put(p, nextCredit);
+      } else {
+        map.delete(p);
+      };
+
       creditTotal_ += amount;
       journal.push((Time.now(), p, #credited(amount)));
       true;
@@ -78,7 +92,7 @@ module {
     /// Deserializes the credit registry data.
     public func unshare(values : StableData) {
       creditTotal_ := values.0;
-      map := RBTree.RBTree<Principal, Nat>(Principal.compare);
+      map := RBTree.RBTree<Principal, Int>(Principal.compare);
       for ((p, value) in values.1.vals()) {
         map.put(p, value);
       };
