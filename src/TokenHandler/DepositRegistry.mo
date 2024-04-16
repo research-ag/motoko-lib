@@ -16,17 +16,22 @@ module {
     /// Maps user principals to their deposit info.
     var tree : RBTree.RBTree<Principal, DepositInfo> = RBTree.RBTree<Principal, DepositInfo>(Principal.compare);
 
-    /// Size of the deposit registry.
-    var size_ : Nat = 0;
-
     /// Retrieves size of the deposit registry.
-    public func size() : Nat = size_;
+    /// It's a bit tricky to cache because when lock, then new zero-deposit record can be created.
+    public func size() : Nat {
+      var size_ = 0;
+      for ((p, depositInfo) in entries()) {
+        if (depositInfo.deposit != 0) {
+          size_ += 1;
+        };
+      };
+      size_;
+    };
 
     /// Cleans up the deposit info if there is no deposit for a user (and if not locked).
     func clean(p : Principal, info : DepositInfo) {
       if (info.deposit == 0 and not info.lock) {
         tree.delete(p);
-        size_ -= 1;
       };
     };
 
@@ -52,7 +57,6 @@ module {
         };
         if (insert) {
           tree.put(p, info);
-          size_ += 1;
         };
         info;
       };
@@ -65,14 +69,9 @@ module {
     };
 
     /// Locks the deposit info for a specific user to prevent changes.
-    public func lock(p : Principal) = switch (tree.get(p)) {
-      case (null) {
-        freezeCallback("Lock not existent p");
-      };
-      case (?info) {
-        if (info.lock) freezeCallback("Lock already locked p");
-        info.lock := true;
-      };
+    public func lock(p : Principal) {
+      let info = getOrCreate(p, true);
+      info.lock := true;
     };
 
     /// Unlocks the deposit info for a particular principal to allow modifications.
@@ -83,6 +82,7 @@ module {
       case (?info) {
         if (not info.lock) freezeCallback("Releasing lock that isn't locked");
         info.lock := false;
+        clean(p, info);
       };
     };
 
@@ -108,7 +108,6 @@ module {
             var lock = false;
           },
         );
-        size_ += 1;
       };
     };
   };

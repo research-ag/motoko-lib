@@ -63,30 +63,26 @@ actor class MockLedger(
     #Ok : Nat;
     #Err : TransferError;
   } {
-    switch (transfer.from_subaccount) {
-      case (null) {
-        #Ok(0);
-      };
-      case (?from_subaccount) {
-        let effectiveFee = init.transfer_fee;
-        if (Option.get(transfer.fee, effectiveFee) != effectiveFee) {
-          return #Err(#BadFee { expected_fee = init.transfer_fee });
-        };
+    let effectiveFee = init.transfer_fee;
 
-        let debitBalance : Nat = getBalance(?from_subaccount);
-
-        if (debitBalance < transfer.amount + effectiveFee) {
-          return #Err(#InsufficientFunds { balance = debitBalance });
-        };
-
-        let creditBalance : Nat = getBalance(transfer.to.subaccount);
-
-        putBalance(?from_subaccount, debitBalance - transfer.amount);
-        putBalance(transfer.to.subaccount, creditBalance + transfer.amount);
-
-        return #Ok(0);
-      };
+    if (Option.get(transfer.fee, effectiveFee) != effectiveFee) {
+      return #Err(#BadFee { expected_fee = init.transfer_fee });
     };
+
+    let debitBalance : Nat = getBalance(transfer.from_subaccount);
+
+    if (debitBalance < transfer.amount + effectiveFee) {
+      return #Err(#InsufficientFunds { balance = debitBalance });
+    };
+
+    putBalance(transfer.from_subaccount, debitBalance - transfer.amount);
+
+    if (transfer.to.subaccount == null) {
+      let creditBalance : Nat = getBalance(transfer.to.subaccount);
+      putBalance(transfer.to.subaccount, creditBalance + transfer.amount);
+    };
+
+    return #Ok(0);
   };
 
   public func makeDeposit(sub : Subaccount, deposit : Nat) : async () {

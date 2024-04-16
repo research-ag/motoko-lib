@@ -122,7 +122,11 @@ module {
       if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
 
       // precredit incremental difference
-      ignore credit(p, latestDeposit - prevDeposit);
+      if (prevDeposit == 0) {
+        ignore credit(p, latestDeposit - fee_);
+      } else {
+        ignore credit(p, latestDeposit - prevDeposit);
+      };
 
       queuedFunds += latestDeposit - prevDeposit;
 
