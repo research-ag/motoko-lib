@@ -23,7 +23,7 @@ module {
     credit : Int;
   };
 
-  public func defaultStableData() : StableData = (([], #leaf, 0, 0, 0, 0, 0), (0, []), ([var], 0, 0));
+  public func defaultStableData() : StableData = (([], 0, 0, 0, 0, 0), (0, []), ([var], 0, 0));
 
   /// Converts `Principal` to `ICRC1.Subaccount`.
   public func toSubaccount(p : Principal) : ICRC1.Subaccount = Mapping.toSubaccount(p);
@@ -96,9 +96,7 @@ module {
     /// Returns the ICRC1 ledger principal.
     public func icrc1LedgerPrincipal() : Principal = icrc1LedgerPrincipal_;
 
-    /// Retrieves the sum of all current deposits. This value is nearly the same as backlogFunds(), but includes
-    /// entries, which could not be added to backlog, for instance when balance less than fee.
-    /// It's always >= backlogFunds()
+    /// Retrieves the sum of all current deposits.
     public func depositedFunds() : Nat = accountManager.depositedFunds();
 
     /// Retrieves the sum of all successful consolidations
@@ -110,11 +108,8 @@ module {
     /// Retrieves the calculated balance of the main account.
     public func consolidatedFunds() : Nat = accountManager.consolidatedFunds();
 
-    /// Returns the size of the consolidation backlog.
-    public func backlogSize() : Nat = accountManager.backlogSize();
-
-    /// Returns the sum of all deposits in the backlog.
-    public func backlogFunds() : Nat = accountManager.backlogFunds();
+    /// Returns the size of the deposit registry.
+    public func depositsNumber() : Nat = accountManager.depositsNumber();
 
     /// Retrieves the total credited funds in the credit registry.
     public func creditTotal() : Int = creditRegistry.creditTotal();
@@ -134,16 +129,16 @@ module {
     /// (the credit is created out of thin air).
     public func credit(p : Principal, amount : Nat) : Bool = creditRegistry.credit(p, amount);
 
-    /// Notifies of a deposit and schedules backlog processing.
+    /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit and credit funds if successful, otherwise null.
     public func notify(p : Principal) : async* ?(Nat, Int) {
       let ?depositDelta = await* accountManager.notify(p) else return null;
       ?(depositDelta, creditRegistry.get(p));
     };
 
-    /// Processes the backlog by selecting the first encountered principal for consolidation.
-    public func processBacklog() : async* () {
-      await* accountManager.processBacklog();
+    /// Triggers the proccessing first encountered deposit.
+    public func trigger() : async* () {
+      await* accountManager.trigger();
     };
 
     /// Initiates a withdrawal by transferring tokens to another account.
