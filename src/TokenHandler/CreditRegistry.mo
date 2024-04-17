@@ -9,12 +9,41 @@ import Journal "Journal";
 module {
   public type StableData = (Int, [(Principal, Int)]);
 
+  /// Credit map being used internally in the credit registry.
+  /// Handles zero-amounts removing them from the map when setting value.
+  class CreditMap() {
+    var map : RBTree.RBTree<Principal, Int> = RBTree.RBTree<Principal, Int>(Principal.compare);
+
+    /// Gets the current credit amount associated with a specific principal.
+    public func get(p : Principal) : Int = Option.get(map.get(p), 0);
+
+    /// Sets the credit amount associated with a specific principal.
+    public func set(p : Principal, amount : Int) {
+      if (amount != 0) {
+        map.put(p, amount);
+      } else {
+        map.delete(p);
+      };
+    };
+
+    /// Serializes the credit map.
+    public func share() : [(Principal, Int)] = Iter.toArray(map.entries());
+
+    /// Deserializes the credit map.
+    public func unshare(data : [(Principal, Int)]) {
+      map := RBTree.RBTree<Principal, Int>(Principal.compare);
+      for ((p, value) in data.vals()) {
+        map.put(p, value);
+      };
+    };
+  };
+
   /// Tracks credited funds (usable balance) associated with each principal.
   public class CreditRegistry(
     journal : Journal.Journal,
     isFrozen : () -> Bool,
   ) {
-    var map : RBTree.RBTree<Principal, Int> = RBTree.RBTree<Principal, Int>(Principal.compare);
+    var map : CreditMap = CreditMap();
 
     /// Total sum of credited funds in the credit registry.
     var creditTotal_ : Int = 0;
@@ -23,7 +52,7 @@ module {
     public func creditTotal() : Int = creditTotal_;
 
     /// Gets the current credit amount associated with a specific principal.
-    public func get(p : Principal) : Int = Option.get(map.get(p), 0);
+    public func get(p : Principal) : Int = map.get(p);
 
     /// Deducts amount from P’s usable balance.
     /// The flag `strict` enables checking the availability of sufficient funds.
@@ -32,7 +61,7 @@ module {
         return false;
       };
 
-      let currentCredit = get(p);
+      let currentCredit = map.get(p);
 
       if (strict and currentCredit < amount) {
         return false;
@@ -40,11 +69,7 @@ module {
 
       let nextCredit = currentCredit - amount;
 
-      if (nextCredit != 0) {
-        map.put(p, nextCredit);
-      } else {
-        map.delete(p);
-      };
+      map.set(p, nextCredit);
 
       creditTotal_ -= amount;
       journal.push((Time.now(), p, #debited(amount)));
@@ -66,15 +91,11 @@ module {
         return false;
       };
 
-      let currentCredit = Option.get(map.get(p), 0);
+      let currentCredit = map.get(p);
 
       let nextCredit = currentCredit + amount;
 
-      if (nextCredit != 0) {
-        map.put(p, nextCredit);
-      } else {
-        map.delete(p);
-      };
+      map.set(p, nextCredit);
 
       creditTotal_ += amount;
       journal.push((Time.now(), p, #credited(amount)));
@@ -85,17 +106,14 @@ module {
     public func share() : StableData {
       return (
         creditTotal_,
-        Iter.toArray(map.entries()),
+        map.share(),
       );
     };
 
     /// Deserializes the credit registry data.
     public func unshare(values : StableData) {
       creditTotal_ := values.0;
-      map := RBTree.RBTree<Principal, Int>(Principal.compare);
-      for ((p, value) in values.1.vals()) {
-        map.put(p, value);
-      };
+      map.unshare(values.1);
     };
   };
 };
