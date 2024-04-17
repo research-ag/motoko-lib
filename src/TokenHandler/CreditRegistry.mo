@@ -1,11 +1,8 @@
 import RBTree "mo:base/RBTree";
 import Principal "mo:base/Principal";
-import Time "mo:base/Time";
 import Option "mo:base/Option";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
-
-import Journal "Journal";
 
 module {
   public type StableData = [(Principal, Int)];
@@ -44,7 +41,7 @@ module {
 
   /// Tracks credited funds (usable balance) associated with each principal.
   public class CreditRegistry(
-    journal : Journal.Journal
+    log : (Principal, { #credited : Nat; #debited : Nat }) -> ()
   ) {
     var map : IntMap<Principal> = IntMap<Principal>(Principal.compare);
 
@@ -60,7 +57,7 @@ module {
       let current = map.get(p);
       if (amount > current) return false;
       map.set(p, current - amount);
-      journal.push((Time.now(), p, #debited(amount)));
+      log(p, #debited(amount));
       true;
     };
 
@@ -68,14 +65,14 @@ module {
     /// Without checking the availability of sufficient funds.
     public func debit(p : Principal, amount : Nat) {
       map.add(p, -amount);
-      journal.push((Time.now(), p, #debited(amount)));
+      log(p, #debited(amount));
     };
 
     /// Increases the credit amount associated with a specific principal
     /// (the credit is created out of thin air).
     public func credit(p : Principal, amount : Nat) {
       map.add(p, amount);
-      journal.push((Time.now(), p, #credited(amount)));
+      log(p, #credited(amount));
     };
 
     /// Serializes the credit registry data.

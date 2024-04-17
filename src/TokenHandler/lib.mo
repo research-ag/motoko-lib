@@ -56,7 +56,7 @@ module {
 
     /// Tracks credited funds (usable balance) associated with each principal.
     let creditRegistry : CreditRegistry.CreditRegistry = CreditRegistry.CreditRegistry(
-      journal
+      func(p : Principal, e : { #credited : Nat; #debited : Nat }) = journal.push(Time.now(), p, e)
     );
 
     /// Manages accounts and funds for users.

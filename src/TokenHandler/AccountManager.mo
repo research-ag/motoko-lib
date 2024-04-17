@@ -302,14 +302,14 @@ module {
     /// For internal use only - within deposit tracking and consolidation.
     func credit(p : Principal, amount : Nat) {
       totalCredited += amount;
-      ignore creditRegistry.credit(p, amount);
+      creditRegistry.credit(p, amount);
     };
 
     /// Deducts the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
     func debit(p : Principal, amount : Nat) {
       totalDebited += amount;
-      ignore creditRegistry.debit(p, amount);
+      creditRegistry.debit(p, amount);
     };
 
     /// Recalculates the deposit registry after the fee change.
