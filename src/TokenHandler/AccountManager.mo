@@ -123,9 +123,9 @@ module {
 
       // precredit incremental difference
       if (prevDeposit == 0) {
-        ignore credit(p, latestDeposit - fee_);
+        credit(p, latestDeposit - fee_);
       } else {
-        ignore credit(p, latestDeposit - prevDeposit);
+        credit(p, latestDeposit - prevDeposit);
       };
 
       queuedFunds += latestDeposit - prevDeposit;
@@ -185,7 +185,7 @@ module {
 
       switch (transferResult) {
         case (#Err(#BadFee { expected_fee })) {
-          ignore debit(p, deposit - fee_);
+          debit(p, deposit - fee_);
 
           journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
 
@@ -199,7 +199,7 @@ module {
             return;
           };
 
-          ignore credit(p, deposit - expected_fee);
+          credit(p, deposit - expected_fee);
 
           let retryResult = await* processConsolidationTransfer(p, deposit);
           switch (retryResult) {
@@ -300,16 +300,16 @@ module {
 
     /// Increases the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
-    func credit(p : Principal, amount : Nat) : Bool {
+    func credit(p : Principal, amount : Nat) {
       totalCredited += amount;
-      creditRegistry.credit(p, amount);
+      ignore creditRegistry.credit(p, amount);
     };
 
     /// Deducts the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
-    func debit(p : Principal, amount : Nat) : Bool {
+    func debit(p : Principal, amount : Nat) {
       totalDebited += amount;
-      creditRegistry.debit(p, amount);
+      ignore creditRegistry.debit(p, amount);
     };
 
     /// Recalculates the deposit registry after the fee change.
@@ -320,7 +320,7 @@ module {
           let deposit = depositInfo.deposit;
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
-            ignore debit(p, deposit - prevFee);
+            debit(p, deposit - prevFee);
             queuedFunds -= deposit;
           };
         };

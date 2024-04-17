@@ -44,8 +44,7 @@ module {
 
   /// Tracks credited funds (usable balance) associated with each principal.
   public class CreditRegistry(
-    journal : Journal.Journal,
-    isFrozen : () -> Bool,
+    journal : Journal.Journal
   ) {
     var map : IntMap<Principal> = IntMap<Principal>(Principal.compare);
 
@@ -55,32 +54,28 @@ module {
     /// Gets the current credit amount associated with a specific principal.
     public func get(p : Principal) : Int = map.get(p);
 
-    /// Deducts amount from P’s usable balance.
-    /// The flag `strict` enables checking the availability of sufficient funds.
-    func debit_(p : Principal, amount : Nat, strict : Bool) : Bool {
-      if (isFrozen()) return false;
+    /// Deducts amount from P’s credit.
+    /// With checking the availability of sufficient funds.
+    public func debitStrict(p : Principal, amount : Nat) : Bool {
       let current = map.get(p);
-      if (strict and amount > current) return false;
+      if (amount > current) return false;
       map.set(p, current - amount);
       journal.push((Time.now(), p, #debited(amount)));
       true;
     };
 
     /// Deducts amount from P’s credit.
-    /// With checking the availability of sufficient funds.
-    public func debitStrict(p : Principal, amount : Nat) : Bool = debit_(p, amount, true);
-
-    /// Deducts amount from P’s credit.
     /// Without checking the availability of sufficient funds.
-    public func debit(p : Principal, amount : Nat) : Bool = debit_(p, amount, false);
+    public func debit(p : Principal, amount : Nat) {
+      map.add(p, -amount);
+      journal.push((Time.now(), p, #debited(amount)));
+    };
 
     /// Increases the credit amount associated with a specific principal
     /// (the credit is created out of thin air).
-    public func credit(p : Principal, amount : Nat) : Bool {
-      if (isFrozen()) return false;
+    public func credit(p : Principal, amount : Nat) {
       map.add(p, amount);
       journal.push((Time.now(), p, #credited(amount)));
-      true;
     };
 
     /// Serializes the credit registry data.

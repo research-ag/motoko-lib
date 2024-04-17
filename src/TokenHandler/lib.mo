@@ -56,8 +56,7 @@ module {
 
     /// Tracks credited funds (usable balance) associated with each principal.
     let creditRegistry : CreditRegistry.CreditRegistry = CreditRegistry.CreditRegistry(
-      journal,
-      isFrozen,
+      journal
     );
 
     /// Manages accounts and funds for users.
@@ -123,11 +122,11 @@ module {
 
     /// Deducts amount from P’s usable balance.
     /// Without checking the availability of sufficient funds.
-    public func debit(p : Principal, amount : Nat) : Bool = creditRegistry.debit(p, amount);
+    public func debit(p : Principal, amount : Nat) = creditRegistry.debit(p, amount);
 
     /// Increases the credit amount associated with a specific principal
     /// (the credit is created out of thin air).
-    public func credit(p : Principal, amount : Nat) : Bool = creditRegistry.credit(p, amount);
+    public func credit(p : Principal, amount : Nat) = creditRegistry.credit(p, amount);
 
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit and credit funds if successful, otherwise null.
