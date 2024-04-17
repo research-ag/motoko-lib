@@ -3,38 +3,42 @@ import Principal "mo:base/Principal";
 import Time "mo:base/Time";
 import Option "mo:base/Option";
 import Iter "mo:base/Iter";
+import Int "mo:base/Int";
 
 import Journal "Journal";
 
 module {
-  public type StableData = (Int, [(Principal, Int)]);
+  public type StableData = [(Principal, Int)];
 
-  /// Credit map being used internally in the credit registry.
-  /// Handles zero-amounts removing them from the map when setting value.
-  class CreditMap() {
-    var map : RBTree.RBTree<Principal, Int> = RBTree.RBTree<Principal, Int>(Principal.compare);
+  /// IntMap is a full (not partial) map from K to Int with default value 0 for all keys.
+  class IntMap<K>(compare : (K, K) -> { #equal; #less; #greater }) {
+    var map : RBTree.RBTree<K, Int> = RBTree.RBTree<K, Int>(compare);
+    var sum_ : Int = 0;
 
-    /// Gets the current credit amount associated with a specific principal.
-    public func get(p : Principal) : Int = Option.get(map.get(p), 0);
+    /// Get a value.
+    public func get(x : K) : Int = map.get(x) |> Option.get(_, 0);
 
-    /// Sets the credit amount associated with a specific principal.
-    public func set(p : Principal, amount : Int) {
-      if (amount != 0) {
-        map.put(p, amount);
-      } else {
-        map.delete(p);
-      };
+    /// Set a value.
+    public func set(x : K, v : Int) {
+      let old_v = (if (v == 0) map.remove(x) else map.replace(x, v))
+      |> Option.get(_, 0);
+      sum_ += v - old_v;
     };
 
-    /// Serializes the credit map.
-    public func share() : [(Principal, Int)] = Iter.toArray(map.entries());
+    /// Set a value.
+    public func add(x : K, d : Int) = set(x, get(x) + d);
 
-    /// Deserializes the credit map.
-    public func unshare(data : [(Principal, Int)]) {
-      map := RBTree.RBTree<Principal, Int>(Principal.compare);
-      for ((p, value) in data.vals()) {
-        map.put(p, value);
-      };
+    /// Get the sum of all values.
+    public func sum() : Int = sum_;
+
+    /// Serializes the map.
+    public func share() : [(K, Int)] = Iter.toArray(map.entries());
+
+    /// Deserializes the map.
+    public func unshare(data : [(K, Int)]) {
+      map := RBTree.RBTree<K, Int>(compare);
+      sum_ := 0;
+      for ((k, v) in data.vals()) set(k, v);
     };
   };
 
@@ -43,13 +47,10 @@ module {
     journal : Journal.Journal,
     isFrozen : () -> Bool,
   ) {
-    var map : CreditMap = CreditMap();
-
-    /// Total sum of credited funds in the credit registry.
-    var creditTotal_ : Int = 0;
+    var map : IntMap<Principal> = IntMap<Principal>(Principal.compare);
 
     /// Retrieves the total credited funds in the credit registry.
-    public func creditTotal() : Int = creditTotal_;
+    public func creditTotal() : Int = map.sum();
 
     /// Gets the current credit amount associated with a specific principal.
     public func get(p : Principal) : Int = map.get(p);
@@ -57,63 +58,35 @@ module {
     /// Deducts amount from P’s usable balance.
     /// The flag `strict` enables checking the availability of sufficient funds.
     func debit_(p : Principal, amount : Nat, strict : Bool) : Bool {
-      if (isFrozen()) {
-        return false;
-      };
-
-      let currentCredit = map.get(p);
-
-      if (strict and currentCredit < amount) {
-        return false;
-      };
-
-      let nextCredit = currentCredit - amount;
-
-      map.set(p, nextCredit);
-
-      creditTotal_ -= amount;
+      if (isFrozen()) return false;
+      let current = map.get(p);
+      if (strict and amount > current) return false;
+      map.set(p, current - amount);
       journal.push((Time.now(), p, #debited(amount)));
       true;
     };
 
-    /// Deducts amount from P’s usable balance.
+    /// Deducts amount from P’s credit.
     /// With checking the availability of sufficient funds.
     public func debitStrict(p : Principal, amount : Nat) : Bool = debit_(p, amount, true);
 
-    /// Deducts amount from P’s usable balance.
+    /// Deducts amount from P’s credit.
     /// Without checking the availability of sufficient funds.
     public func debit(p : Principal, amount : Nat) : Bool = debit_(p, amount, false);
 
     /// Increases the credit amount associated with a specific principal
     /// (the credit is created out of thin air).
     public func credit(p : Principal, amount : Nat) : Bool {
-      if (isFrozen()) {
-        return false;
-      };
-
-      let currentCredit = map.get(p);
-
-      let nextCredit = currentCredit + amount;
-
-      map.set(p, nextCredit);
-
-      creditTotal_ += amount;
+      if (isFrozen()) return false;
+      map.add(p, amount);
       journal.push((Time.now(), p, #credited(amount)));
       true;
     };
 
     /// Serializes the credit registry data.
-    public func share() : StableData {
-      return (
-        creditTotal_,
-        map.share(),
-      );
-    };
+    public func share() : StableData = map.share();
 
     /// Deserializes the credit registry data.
-    public func unshare(values : StableData) {
-      creditTotal_ := values.0;
-      map.unshare(values.1);
-    };
+    public func unshare(values : StableData) = map.unshare(values);
   };
 };
