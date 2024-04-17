@@ -32,7 +32,7 @@ module {
         return false;
       };
 
-      let ?currentCredit = map.get(p) else return false;
+      let currentCredit = get(p);
 
       if (strict and currentCredit < amount) {
         return false;
