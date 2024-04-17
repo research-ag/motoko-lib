@@ -29,7 +29,6 @@ module {
     ownPrincipal : Principal,
     journal : Journal.Journal,
     initialFee : Nat,
-    isFrozen : () -> Bool,
     freezeCallback : (text : Text) -> (),
     creditRegistry : CreditRegistry.CreditRegistry,
   ) {
@@ -100,7 +99,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      if (isFrozen() or depositRegistry.isLock(p)) return null;
+      if (depositRegistry.isLock(p)) return null;
 
       depositRegistry.lock(p);
 
@@ -214,10 +213,6 @@ module {
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
-      if (isFrozen()) {
-        return;
-      };
-
       var entry : ?(Principal, DepositRegistry.DepositInfo) = null;
 
       label L for (v in depositRegistry.entries()) {

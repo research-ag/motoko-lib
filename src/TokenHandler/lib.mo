@@ -66,7 +66,6 @@ module {
       ownPrincipal,
       journal,
       initialFee,
-      isFrozen,
       freezeTokenHandler,
       creditRegistry,
     );
@@ -131,12 +130,14 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit and credit funds if successful, otherwise null.
     public func notify(p : Principal) : async* ?(Nat, Int) {
+      if isFrozen_ return null;
       let ?depositDelta = await* accountManager.notify(p) else return null;
       ?(depositDelta, creditRegistry.get(p));
     };
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
+      if isFrozen_ return;
       await* accountManager.trigger();
     };
 
