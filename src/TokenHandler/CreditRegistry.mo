@@ -1,5 +1,5 @@
 import Principal "mo:base/Principal";
-import IntMap "IntMap";
+import IntMap "./IntMap";
 
 module {
   public type StableData = [(Principal, Int)];
