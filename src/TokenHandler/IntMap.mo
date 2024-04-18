@@ -13,13 +13,23 @@ module {
 
     /// Set a value.
     public func set(x : K, v : Int) {
-      let old_v = (if (v == 0) map.remove(x) else map.replace(x, v))
-      |> Option.get(_, 0);
-      sum_ += v - old_v;
+      (
+        if (v != 0) map.replace(x, v) else map.remove(x)
+      )
+      |> Option.get(_, 0)
+      |> (sum_ += v - _);
     };
 
-    /// Set a value.
+    /// Add to a value.
     public func add(x : K, d : Int) = set(x, get(x) + d);
+
+    /// Conditionally add to a value.
+    public func addIf(x : K, d : Int, p : Int -> Bool) : Bool {
+      let current = get(x);
+      let res = p(current);
+      if (res) set(x, current + d);
+      res
+    };
 
     /// Get the sum of all values.
     public func sum() : Int = sum_;

@@ -19,11 +19,9 @@ module {
     /// Deducts amount from P’s credit.
     /// With checking the availability of sufficient funds.
     public func debitStrict(p : Principal, amount : Nat) : Bool {
-      let current = map.get(p);
-      if (amount > current) return false;
-      map.set(p, current - amount);
-      log(p, #debited(amount));
-      true;
+      let res = map.addIf(p, -amount, func x = x >= amount);
+      if (res) log(p, #debited(amount));
+      res
     };
 
     /// Deducts amount from P’s credit.
