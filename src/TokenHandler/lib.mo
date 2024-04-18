@@ -64,7 +64,8 @@ module {
       journal.push,
       initialFee,
       freezeTokenHandler,
-      creditRegistry,
+      creditRegistry.credit,
+      creditRegistry.debit,
     );
 
     /// Returns the fee.

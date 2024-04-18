@@ -8,7 +8,6 @@ import Iter "mo:base/Iter";
 import ICRC1 "ICRC1";
 import DepositRegistry "DepositRegistry";
 import Mapping "Mapping";
-import CreditRegistry "CreditRegistry";
 
 module {
   public type StableData = (
@@ -36,7 +35,8 @@ module {
     log : (Principal, LogEvent) -> (),
     initialFee : Nat,
     freezeCallback : (text : Text) -> (),
-    creditRegistry : CreditRegistry.CreditRegistry,
+    credit_ : (Principal, Nat) -> (),
+    debit_ : (Principal, Nat) -> (),
   ) {
 
     let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1.ICRC1Ledger;
@@ -303,14 +303,14 @@ module {
     /// For internal use only - within deposit tracking and consolidation.
     func credit(p : Principal, amount : Nat) {
       totalCredited += amount;
-      creditRegistry.credit(p, amount);
+      credit_(p, amount);
     };
 
     /// Deducts the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
     func debit(p : Principal, amount : Nat) {
       totalDebited += amount;
-      creditRegistry.debit(p, amount);
+      debit_(p, amount);
     };
 
     /// Recalculates the deposit registry after the fee change.
