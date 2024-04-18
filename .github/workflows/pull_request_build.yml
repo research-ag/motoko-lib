@@ -24,7 +24,6 @@ jobs:
         run: |
           mops --version
           $(mops toolchain bin moc) --version
-          ls /home/runner/work/motoko-lib/motoko-lib/src/TokenHandler
 
       - name: run tests
         run: mops test
