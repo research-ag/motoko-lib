@@ -1,6 +1,5 @@
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
-import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
@@ -52,19 +51,17 @@ module {
 
     /// Collection of logs capturing events like deposits, withdrawals, fee updates, errors, etc.
     /// The journal provides a chronological history of actions taken by the handler.
-    var journal : Journal.Journal = Journal.Journal(journalCapacity);
+    var journal = Journal.Journal(journalCapacity);
 
     /// Tracks credited funds (usable balance) associated with each principal.
-    let creditRegistry : CreditRegistry.CreditRegistry = CreditRegistry.CreditRegistry(
-      func(p : Principal, e : Journal.CreditRegistryEvent) = journal.push(p, e)
-    );
+    let creditRegistry = CreditRegistry.CreditRegistry(journal.push);
 
     /// Manages accounts and funds for users.
     /// Handles deposit, withdrawal, and consolidation operations.
-    let accountManager : AccountManager.AccountManager = AccountManager.AccountManager(
+    let accountManager = AccountManager.AccountManager(
       icrc1LedgerPrincipal_,
       ownPrincipal,
-      func(p : Principal, e : Journal.AccountManagerEvent) = journal.push(p, e),
+      journal.push,
       initialFee,
       freezeTokenHandler,
       creditRegistry,

@@ -4,10 +4,10 @@ import IntMap "IntMap";
 module {
   public type StableData = [(Principal, Int)];
 
+  public type LogEvent = { #credited : Nat; #debited : Nat };
+
   /// Tracks credited funds (usable balance) associated with each principal.
-  public class CreditRegistry(
-    log : (Principal, { #credited : Nat; #debited : Nat }) -> ()
-  ) {
+  public class CreditRegistry(log : (Principal, LogEvent) -> ()) {
     var map = IntMap.Map<Principal>(Principal.compare);
 
     /// Retrieves the total credited funds in the credit registry.

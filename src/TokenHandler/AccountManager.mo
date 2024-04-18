@@ -20,21 +20,20 @@ module {
     Nat, // queuedFunds
   );
 
+  public type LogEvent = {
+    #feeUpdated : { old : Nat; new : Nat };
+    #newDeposit : Nat;
+    #consolidated : { deducted : Nat; credited : Nat };
+    #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
+    #withdraw : { to : ICRC1.Account; amount : Nat };
+  };
+
   /// Manages accounts and funds for users.
   /// Handles deposit, withdrawal, and consolidation operations.
   public class AccountManager(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
-    log : (
-      Principal,
-      {
-        #feeUpdated : { old : Nat; new : Nat };
-        #newDeposit : Nat;
-        #consolidated : { deducted : Nat; credited : Nat };
-        #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
-        #withdraw : { to : ICRC1.Account; amount : Nat };
-      },
-    ) -> (),
+    log : (Principal, LogEvent) -> (),
     initialFee : Nat,
     freezeCallback : (text : Text) -> (),
     creditRegistry : CreditRegistry.CreditRegistry,

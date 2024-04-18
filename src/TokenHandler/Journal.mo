@@ -4,23 +4,13 @@ import Option "mo:base/Option";
 import Int "mo:base/Int";
 
 import CircularBuffer "../CircularBuffer";
-import ICRC1 "./ICRC1";
+import CreditRegistry "CreditRegistry";
+import AccountManager "AccountManager";
 
 module {
   public type StableData = ([var ?JournalRecord], Nat, Nat);
 
-  public type AccountManagerEvent = {
-    #newDeposit : Nat;
-    #consolidated : { deducted : Nat; credited : Nat };
-    #feeUpdated : { old : Nat; new : Nat };
-    #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
-    #withdraw : { to : ICRC1.Account; amount : Nat };
-  };
-  public type CreditRegistryEvent = {
-    #debited : Nat;
-    #credited : Nat;
-  };
-  public type Event = AccountManagerEvent or CreditRegistryEvent or {
+  public type Event = AccountManager.LogEvent or CreditRegistry.LogEvent or {
     #error : Text;
   };
   public type JournalRecord = (Time.Time, Principal, Event);
