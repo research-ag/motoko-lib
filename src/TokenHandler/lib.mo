@@ -1,6 +1,5 @@
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
-import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
@@ -23,7 +22,7 @@ module {
     credit : Int;
   };
 
-  public func defaultStableData() : StableData = (([], 0, 0, 0, 0, 0), (0, []), ([var], 0, 0));
+  public func defaultStableData() : StableData = (([], 0, 0, 0, 0, 0), ([]), ([var], 0, 0));
 
   /// Converts `Principal` to `ICRC1.Subaccount`.
   public func toSubaccount(p : Principal) : ICRC1.Subaccount = Mapping.toSubaccount(p);
@@ -47,29 +46,26 @@ module {
     /// Freezes the handler in case of unexpected errors and logs the error message to the journal.
     func freezeTokenHandler(errorText : Text) : () {
       isFrozen_ := true;
-      journal.push((Time.now(), ownPrincipal, #error(errorText)));
+      journal.push(ownPrincipal, #error(errorText));
     };
 
     /// Collection of logs capturing events like deposits, withdrawals, fee updates, errors, etc.
     /// The journal provides a chronological history of actions taken by the handler.
-    var journal : Journal.Journal = Journal.Journal(journalCapacity);
+    var journal = Journal.Journal(journalCapacity);
 
     /// Tracks credited funds (usable balance) associated with each principal.
-    let creditRegistry : CreditRegistry.CreditRegistry = CreditRegistry.CreditRegistry(
-      journal,
-      isFrozen,
-    );
+    let creditRegistry = CreditRegistry.CreditRegistry(journal.push);
 
     /// Manages accounts and funds for users.
     /// Handles deposit, withdrawal, and consolidation operations.
-    let accountManager : AccountManager.AccountManager = AccountManager.AccountManager(
+    let accountManager = AccountManager.AccountManager(
       icrc1LedgerPrincipal_,
       ownPrincipal,
-      journal,
+      journal.push,
       initialFee,
-      isFrozen,
       freezeTokenHandler,
-      creditRegistry,
+      creditRegistry.credit,
+      creditRegistry.debit,
     );
 
     /// Returns the fee.
@@ -123,21 +119,23 @@ module {
 
     /// Deducts amount from P’s usable balance.
     /// Without checking the availability of sufficient funds.
-    public func debit(p : Principal, amount : Nat) : Bool = creditRegistry.debit(p, amount);
+    public func debit(p : Principal, amount : Nat) = creditRegistry.debit(p, amount);
 
     /// Increases the credit amount associated with a specific principal
     /// (the credit is created out of thin air).
-    public func credit(p : Principal, amount : Nat) : Bool = creditRegistry.credit(p, amount);
+    public func credit(p : Principal, amount : Nat) = creditRegistry.credit(p, amount);
 
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit and credit funds if successful, otherwise null.
     public func notify(p : Principal) : async* ?(Nat, Int) {
+      if isFrozen_ return null;
       let ?depositDelta = await* accountManager.notify(p) else return null;
       ?(depositDelta, creditRegistry.get(p));
     };
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
+      if isFrozen_ return;
       await* accountManager.trigger();
     };
 

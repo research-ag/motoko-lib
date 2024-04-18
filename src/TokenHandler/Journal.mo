@@ -4,25 +4,16 @@ import Option "mo:base/Option";
 import Int "mo:base/Int";
 
 import CircularBuffer "../CircularBuffer";
-import ICRC1 "./ICRC1";
+import CreditRegistry "CreditRegistry";
+import AccountManager "AccountManager";
 
 module {
   public type StableData = ([var ?JournalRecord], Nat, Nat);
 
-  public type JournalRecord = (
-    Time.Time,
-    Principal,
-    {
-      #newDeposit : Nat;
-      #consolidated : { deducted : Nat; credited : Nat };
-      #debited : Nat;
-      #credited : Nat;
-      #feeUpdated : { old : Nat; new : Nat };
-      #error : Text;
-      #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
-      #withdraw : { to : ICRC1.Account; amount : Nat };
-    },
-  );
+  public type Event = AccountManager.LogEvent or CreditRegistry.LogEvent or {
+    #error : Text;
+  };
+  public type JournalRecord = (Time.Time, Principal, Event);
 
   /// Manages journal records and provides methods to interact with them.
   /// Plays a critical role in logging and maintaining transaction records within the token handler.
@@ -31,8 +22,8 @@ module {
     let journal : CircularBuffer.CircularBuffer<JournalRecord> = CircularBuffer.CircularBuffer<JournalRecord>(journalCapacity);
 
     /// Adds a new journal record to the journal.
-    public func push(record : JournalRecord) {
-      journal.push(record);
+    public func push(p : Principal, e : Event) {
+      journal.push(Time.now(), p, e);
     };
 
     /// Queries the journal records starting from a specific index - for debug purposes.

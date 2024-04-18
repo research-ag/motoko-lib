@@ -1,5 +1,4 @@
 import Principal "mo:base/Principal";
-import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
@@ -9,8 +8,6 @@ import Iter "mo:base/Iter";
 import ICRC1 "ICRC1";
 import DepositRegistry "DepositRegistry";
 import Mapping "Mapping";
-import Journal "Journal";
-import CreditRegistry "CreditRegistry";
 
 module {
   public type StableData = (
@@ -22,16 +19,24 @@ module {
     Nat, // queuedFunds
   );
 
+  public type LogEvent = {
+    #feeUpdated : { old : Nat; new : Nat };
+    #newDeposit : Nat;
+    #consolidated : { deducted : Nat; credited : Nat };
+    #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
+    #withdraw : { to : ICRC1.Account; amount : Nat };
+  };
+
   /// Manages accounts and funds for users.
   /// Handles deposit, withdrawal, and consolidation operations.
   public class AccountManager(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
-    journal : Journal.Journal,
+    log : (Principal, LogEvent) -> (),
     initialFee : Nat,
-    isFrozen : () -> Bool,
     freezeCallback : (text : Text) -> (),
-    creditRegistry : CreditRegistry.CreditRegistry,
+    credit_ : (Principal, Nat) -> (),
+    debit_ : (Principal, Nat) -> (),
   ) {
 
     let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1.ICRC1Ledger;
@@ -72,7 +77,7 @@ module {
     public func updateFee() : async* Nat {
       let newFee = await icrc1Ledger.icrc1_fee();
       if (fee_ != newFee) {
-        journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
+        log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
         recalculateDepositRegistry(newFee, fee_);
         fee_ := newFee;
       };
@@ -100,7 +105,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      if (isFrozen() or depositRegistry.isLock(p)) return null;
+      if (depositRegistry.isLock(p)) return null;
 
       depositRegistry.lock(p);
 
@@ -123,9 +128,9 @@ module {
 
       // precredit incremental difference
       if (prevDeposit == 0) {
-        ignore credit(p, latestDeposit - fee_);
+        credit(p, latestDeposit - fee_);
       } else {
-        ignore credit(p, latestDeposit - prevDeposit);
+        credit(p, latestDeposit - prevDeposit);
       };
 
       queuedFunds += latestDeposit - prevDeposit;
@@ -136,7 +141,7 @@ module {
 
       let depositDelta = latestDeposit - prevDeposit : Nat;
 
-      if (depositDelta > 0) journal.push((Time.now(), p, #newDeposit(depositDelta)));
+      if (depositDelta > 0) log(p, #newDeposit(depositDelta));
 
       return ?depositDelta;
     };
@@ -167,10 +172,10 @@ module {
         case (#Ok _) {
           ignore updateDeposit(p, 0);
           totalConsolidated_ += transferAmount;
-          journal.push((Time.now(), p, #consolidated({ deducted = deposit; credited = transferAmount })));
+          log(p, #consolidated({ deducted = deposit; credited = transferAmount }));
         };
         case (#Err err) {
-          journal.push((Time.now(), p, #consolidationError(err)));
+          log(p, #consolidationError(err));
         };
       };
 
@@ -185,9 +190,9 @@ module {
 
       switch (transferResult) {
         case (#Err(#BadFee { expected_fee })) {
-          ignore debit(p, deposit - fee_);
+          debit(p, deposit - fee_);
 
-          journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
+          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
 
           recalculateDepositRegistry(expected_fee, fee_);
 
@@ -199,7 +204,7 @@ module {
             return;
           };
 
-          ignore credit(p, deposit - expected_fee);
+          credit(p, deposit - expected_fee);
 
           let retryResult = await* processConsolidationTransfer(p, deposit);
           switch (retryResult) {
@@ -214,10 +219,6 @@ module {
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
-      if (isFrozen()) {
-        return;
-      };
-
       var entry : ?(Principal, DepositRegistry.DepositInfo) = null;
 
       label L for (v in depositRegistry.entries()) {
@@ -272,17 +273,17 @@ module {
 
       switch (callResult) {
         case (#Ok txIdx) {
-          journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
+          log(ownPrincipal, #withdraw({ to = to; amount = amount }));
           #ok(txIdx, amount - fee_);
         };
         case (#Err(#BadFee { expected_fee })) {
-          journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
+          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
           recalculateDepositRegistry(expected_fee, fee_);
           fee_ := expected_fee;
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
             case (#Ok txIdx) {
-              journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
+              log(ownPrincipal, #withdraw({ to = to; amount = amount }));
               #ok(txIdx, amount - fee_);
             };
             case (#Err err) {
@@ -300,16 +301,16 @@ module {
 
     /// Increases the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
-    func credit(p : Principal, amount : Nat) : Bool {
+    func credit(p : Principal, amount : Nat) {
       totalCredited += amount;
-      creditRegistry.credit(p, amount);
+      credit_(p, amount);
     };
 
     /// Deducts the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
-    func debit(p : Principal, amount : Nat) : Bool {
+    func debit(p : Principal, amount : Nat) {
       totalDebited += amount;
-      creditRegistry.debit(p, amount);
+      debit_(p, amount);
     };
 
     /// Recalculates the deposit registry after the fee change.
@@ -320,7 +321,7 @@ module {
           let deposit = depositInfo.deposit;
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
-            ignore debit(p, deposit - prevFee);
+            debit(p, deposit - prevFee);
             queuedFunds -= deposit;
           };
         };
