@@ -1,5 +1,4 @@
 import Principal "mo:base/Principal";
-import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
@@ -9,7 +8,6 @@ import Iter "mo:base/Iter";
 import ICRC1 "ICRC1";
 import DepositRegistry "DepositRegistry";
 import Mapping "Mapping";
-import Journal "Journal";
 import CreditRegistry "CreditRegistry";
 
 module {
@@ -27,7 +25,16 @@ module {
   public class AccountManager(
     icrc1LedgerPrincipal : Principal,
     ownPrincipal : Principal,
-    journal : Journal.Journal,
+    log : (
+      Principal,
+      {
+        #feeUpdated : { old : Nat; new : Nat };
+        #newDeposit : Nat;
+        #consolidated : { deducted : Nat; credited : Nat };
+        #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
+        #withdraw : { to : ICRC1.Account; amount : Nat };
+      },
+    ) -> (),
     initialFee : Nat,
     freezeCallback : (text : Text) -> (),
     creditRegistry : CreditRegistry.CreditRegistry,
@@ -71,7 +78,7 @@ module {
     public func updateFee() : async* Nat {
       let newFee = await icrc1Ledger.icrc1_fee();
       if (fee_ != newFee) {
-        journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = newFee })));
+        log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
         recalculateDepositRegistry(newFee, fee_);
         fee_ := newFee;
       };
@@ -135,7 +142,7 @@ module {
 
       let depositDelta = latestDeposit - prevDeposit : Nat;
 
-      if (depositDelta > 0) journal.push((Time.now(), p, #newDeposit(depositDelta)));
+      if (depositDelta > 0) log(p, #newDeposit(depositDelta));
 
       return ?depositDelta;
     };
@@ -166,10 +173,10 @@ module {
         case (#Ok _) {
           ignore updateDeposit(p, 0);
           totalConsolidated_ += transferAmount;
-          journal.push((Time.now(), p, #consolidated({ deducted = deposit; credited = transferAmount })));
+          log(p, #consolidated({ deducted = deposit; credited = transferAmount }));
         };
         case (#Err err) {
-          journal.push((Time.now(), p, #consolidationError(err)));
+          log(p, #consolidationError(err));
         };
       };
 
@@ -186,7 +193,7 @@ module {
         case (#Err(#BadFee { expected_fee })) {
           debit(p, deposit - fee_);
 
-          journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
+          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
 
           recalculateDepositRegistry(expected_fee, fee_);
 
@@ -267,17 +274,17 @@ module {
 
       switch (callResult) {
         case (#Ok txIdx) {
-          journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
+          log(ownPrincipal, #withdraw({ to = to; amount = amount }));
           #ok(txIdx, amount - fee_);
         };
         case (#Err(#BadFee { expected_fee })) {
-          journal.push((Time.now(), ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee })));
+          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
           recalculateDepositRegistry(expected_fee, fee_);
           fee_ := expected_fee;
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
             case (#Ok txIdx) {
-              journal.push((Time.now(), ownPrincipal, #withdraw({ to = to; amount = amount })));
+              log(ownPrincipal, #withdraw({ to = to; amount = amount }));
               #ok(txIdx, amount - fee_);
             };
             case (#Err err) {

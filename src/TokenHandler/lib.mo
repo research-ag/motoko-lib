@@ -47,7 +47,7 @@ module {
     /// Freezes the handler in case of unexpected errors and logs the error message to the journal.
     func freezeTokenHandler(errorText : Text) : () {
       isFrozen_ := true;
-      journal.push((Time.now(), ownPrincipal, #error(errorText)));
+      journal.push(ownPrincipal, #error(errorText));
     };
 
     /// Collection of logs capturing events like deposits, withdrawals, fee updates, errors, etc.
@@ -56,7 +56,7 @@ module {
 
     /// Tracks credited funds (usable balance) associated with each principal.
     let creditRegistry : CreditRegistry.CreditRegistry = CreditRegistry.CreditRegistry(
-      func(p : Principal, e : { #credited : Nat; #debited : Nat }) = journal.push(Time.now(), p, e)
+      func(p : Principal, e : Journal.CreditRegistryEvent) = journal.push(p, e)
     );
 
     /// Manages accounts and funds for users.
@@ -64,7 +64,7 @@ module {
     let accountManager : AccountManager.AccountManager = AccountManager.AccountManager(
       icrc1LedgerPrincipal_,
       ownPrincipal,
-      journal,
+      func(p : Principal, e : Journal.AccountManagerEvent) = journal.push(p, e),
       initialFee,
       freezeTokenHandler,
       creditRegistry,
