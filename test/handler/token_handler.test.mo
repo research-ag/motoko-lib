@@ -47,7 +47,7 @@ actor class TestActor() = this {
     assert handler.fee() == ledger_fee;
 
     // Credit funds
-    ignore handler.credit(test_principal, 100);
+    handler.credit(test_principal, 100);
     assert handler.balance(test_principal) == 100;
 
     // Debit funds
