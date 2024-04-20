@@ -205,11 +205,6 @@ module {
           };
 
           credit(p, deposit - expected_fee);
-
-          let retryResult = await* processConsolidationTransfer(p, deposit);
-          switch (retryResult) {
-            case (_) {};
-          };
         };
         case (_) {};
       };
