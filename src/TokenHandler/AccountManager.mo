@@ -317,8 +317,9 @@ module {
     /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee > prevFee) {
-        label L for ((p, depositInfo) in depositRegistry.entries()) {
-          let deposit = depositInfo.deposit;
+        label L for ((p, info) in depositRegistry.entries()) {
+          if (info.lock) continue L;
+          let deposit = info.deposit;
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
             debit(p, deposit - prevFee);
