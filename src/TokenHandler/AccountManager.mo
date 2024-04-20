@@ -76,12 +76,16 @@ module {
     /// Updates the fee amount based on the ICRC1 ledger.
     public func updateFee() : async* Nat {
       let newFee = await icrc1Ledger.icrc1_fee();
+      setNewFee(newFee);
+      newFee;
+    };
+
+    func setNewFee(newFee : Nat) {
       if (fee_ != newFee) {
         log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
         recalculateDepositRegistry(newFee, fee_);
         fee_ := newFee;
       };
-      newFee;
     };
 
     /// Retrieves the sum of all current deposits.
@@ -191,12 +195,7 @@ module {
       switch (transferResult) {
         case (#Err(#BadFee { expected_fee })) {
           debit(p, deposit - fee_);
-
-          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
-
-          recalculateDepositRegistry(expected_fee, fee_);
-
-          fee_ := expected_fee;
+          setNewFee(expected_fee);
 
           if (deposit <= fee_) {
             underwayFunds -= deposit;
@@ -272,9 +271,7 @@ module {
           #ok(txIdx, amount - fee_);
         };
         case (#Err(#BadFee { expected_fee })) {
-          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
-          recalculateDepositRegistry(expected_fee, fee_);
-          fee_ := expected_fee;
+          setNewFee(expected_fee);
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
             case (#Ok txIdx) {

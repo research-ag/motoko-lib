@@ -53,9 +53,6 @@ actor class TestActor() = this {
       assert (nr!).1 == 1;
     };
     await* handler.trigger();
-    Debug.print(debug_show handler.info(test_principal));
-    Debug.print(debug_show handler.fee());
-    Debug.print(debug_show handler.depositedFunds());
     var info = handler.info(test_principal);
     assert info.deposit == 0;
     assert handler.depositedFunds() == 0;
