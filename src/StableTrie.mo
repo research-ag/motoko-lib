@@ -3,9 +3,10 @@ import Region "mo:base/Region";
 import Nat64 "mo:base/Nat64";
 import Nat8 "mo:base/Nat8";
 import Iter "mo:base/Iter";
+import Debug "mo:base/Debug";
 
 module {
-  let CHILDERN_NUMBER = 256;
+  let CHILDREN_NUMBER = 256;
   let POINTER_SIZE = 8;
 
   type StableTrieState = {
@@ -18,7 +19,7 @@ module {
 
     func newInternalNode(state : StableTrieState) : Node {
       let old_size = state.size;
-      let new_size = state.size + Nat64.fromNat(CHILDERN_NUMBER * POINTER_SIZE);
+      let new_size = state.size + Nat64.fromNat(CHILDREN_NUMBER * POINTER_SIZE);
       if (new_size > Region.size(state.region) * 2 ** 16) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
       };
@@ -28,8 +29,8 @@ module {
 
     func newLeaf(state : StableTrieState, value : Blob) : Node {
       let old_size = state.size;
-      let new_size = state.size + Nat64.fromNat(value.size());
-      if (new_size > Region.size(state.region) * 2 ** 16) {
+      let new_size = old_size + Nat64.fromNat(value.size());
+      if (new_size >= Region.size(state.region) * 2 ** 16) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
       };
       Region.storeBlob(state.region, old_size, value);
@@ -40,19 +41,23 @@ module {
     class Node(state : StableTrieState, o : Nat64) {
       public let offset = o;
 
+      func getOffset(number : Nat8) : Nat64 {
+        offset + Nat64.fromNat(Nat8.toNat(number) * POINTER_SIZE);
+      };
+
       public func getChild(number : Nat8) : ?Node {
-        let child = Region.loadNat64(state.region, offset + Nat64.fromNat(Nat8.toNat(number)));
+        let child = Region.loadNat64(state.region, getOffset(number));
         if (child == 0) null else ?Node(state, child);
       };
 
       public func getOrCreateChild(number : Nat8) : Node {
-        let childOffset = offset + Nat64.fromNat(Nat8.toNat(number));
+        let childOffset = getOffset(number);
         let child = Region.loadNat64(state.region, childOffset);
         if (child != 0) {
           return Node(state, child);
         };
         let old_size = state.size;
-        let new_size = state.size + Nat64.fromNat(CHILDERN_NUMBER * POINTER_SIZE);
+        let new_size = old_size + Nat64.fromNat(CHILDREN_NUMBER * POINTER_SIZE);
         if (new_size > Region.size(state.region) * 2 ** 16) {
           assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         };
@@ -62,8 +67,7 @@ module {
       };
 
       public func setChild(number : Nat8, node : Node) {
-        let childOffset = offset + Nat64.fromNat(Nat8.toNat(number));
-        let child = Region.storeNat64(state.region, childOffset, node.offset);
+        let child = Region.storeNat64(state.region, getOffset(number), node.offset);
       };
 
       public func loadAsValue() : Blob {
@@ -84,7 +88,7 @@ module {
         case (null) {
           let s = {
             region = Region.new();
-            var size = Nat64.fromNat(CHILDERN_NUMBER * POINTER_SIZE);
+            var size = Nat64.fromNat(CHILDREN_NUMBER * POINTER_SIZE);
           };
           assert Region.grow(s.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
           state_ := ?s;
