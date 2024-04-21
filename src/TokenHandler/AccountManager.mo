@@ -116,14 +116,12 @@ module {
       if (depositRegistry.isLock(p)) return null;
 
       depositRegistry.lock(p);
-
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
         depositRegistry.unlock(p);
         throw err;
       };
-
       depositRegistry.unlock(p);
 
       if (latestDeposit <= fee_) return ?0;
@@ -131,23 +129,22 @@ module {
       let prevDeposit = updateDeposit(p, latestDeposit);
 
       if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
+      let depositDelta = latestDeposit - prevDeposit : Nat;
+      if (depositDelta == 0) return ?0;
 
       // precredit incremental difference
       if (prevDeposit == 0) {
         credit(p, latestDeposit - fee_);
       } else {
-        credit(p, latestDeposit - prevDeposit);
+        credit(p, depositDelta);
       };
 
-      queuedFunds += latestDeposit - prevDeposit;
+      queuedFunds += depositDelta;
+      log(p, #newDeposit(depositDelta));
 
       // schedule a canister self-call to initiate the consolidation
       // we need try-catch so that we don't trap if scheduling fails synchronously
       try ignore trigger() catch (_) {};
-
-      let depositDelta = latestDeposit - prevDeposit : Nat;
-
-      if (depositDelta > 0) log(p, #newDeposit(depositDelta));
 
       return ?depositDelta;
     };
