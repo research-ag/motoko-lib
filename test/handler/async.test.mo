@@ -56,20 +56,38 @@ func assert_state(x : (Nat, Nat, Nat)) {
 };
 
 do {
+  var journalCtr = 0;
+  func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
+
+  // init state 
   assert handler.fee() == 0;
   assert handler.journalLength() == 0;
+  // update fee first time
   await ledger.set_fee(5);
   ignore await* handler.updateFee();
   assert handler.fee() == 5;
-  assert handler.journalLength() == 1;
+  assert handler.journalLength() == inc(1); // #feeUpdated
+  // notify with 0 balance
   assert (await* handler.notify(user1)) == ?(0,0);
   assert_state(0,0,0);
-  assert handler.journalLength() == 1;
+  assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
+  // notify with balance <= fee
   await ledger.set_balance(5);
-  ignore await* handler.updateFee();
   assert (await* handler.notify(user1)) == ?(0,0);
   assert_state(0,0,0);
-  assert handler.journalLength() == 1;
+  assert handler.journalLength() == inc(0);
+  print("tree lookups = " # debug_show handler.lookups());
+  // notify with balance > fee
+  await ledger.set_balance(6);
+  assert (await* handler.notify(user1)) == ?(6,1); // deposit = 6, credit = 1
+  assert_state(6,0,1);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+  print("tree lookups = " # debug_show handler.lookups());
+  // increase fee while item still in queue (trigger did not run yet)
+  await ledger.set_fee(6);
+  ignore await* handler.updateFee();
+  assert_state(0,0,0);
+  assert handler.journalLength() == inc(2); // #feeUpdated, #debited
   print("tree lookups = " # debug_show handler.lookups());
 };
