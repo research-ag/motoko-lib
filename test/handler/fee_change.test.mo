@@ -41,12 +41,10 @@ actor class TestActor() = this {
     var test_blob = sub_blob[0];
 
     // Make deposit <= ledger_fee
-    let initialCredit = handler.balance(test_principal);
-    Debug.print(debug_show initialCredit);
+    let _initialCredit = handler.balance(test_principal);
     let deposit_1 = 6;
     await ledger.makeDeposit(test_blob, deposit_1);
     var nr = await* handler.notify(test_principal);
-    Debug.print(debug_show nr);
     assert nr != null;
     ignore do ? {
       assert (nr!).0 == 6;
@@ -56,6 +54,9 @@ actor class TestActor() = this {
     var info = handler.info(test_principal);
     assert info.deposit == 0;
     assert handler.depositedFunds() == 0;
+
+    // Output number of lookups
+    Debug.print("Tree lookups: " # debug_show handler.lookups());
   };
 };
 

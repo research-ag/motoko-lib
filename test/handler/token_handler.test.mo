@@ -3,6 +3,7 @@ import Blob "mo:base/Blob";
 import Array "mo:base/Array";
 import Nat8 "mo:base/Nat8";
 import Int "mo:base/Int";
+import Debug "mo:base/Debug";
 
 import TokenHandler "../../src/TokenHandler";
 import MockLedger "./MockLedger";
@@ -132,6 +133,9 @@ actor class TestActor() = this {
 
     // Assert the token handler is not frozen
     assert not handler.isFrozen();
+
+    // Output number of lookups
+    Debug.print("Tree lookups: " # debug_show handler.lookups());
   };
 };
 

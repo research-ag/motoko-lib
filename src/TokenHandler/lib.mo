@@ -37,6 +37,10 @@ module {
     initialFee : Nat,
   ) {
 
+    // Pass through the lookup counter from depositRegistry 
+    // TODO: Remove later 
+    public func lookups() : Nat = accountManager.lookups();
+
     /// If some unexpected error happened, this flag turns true and handler stops doing anything until recreated.
     var isFrozen_ : Bool = false;
 

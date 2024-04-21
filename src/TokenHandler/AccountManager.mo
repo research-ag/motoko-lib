@@ -70,6 +70,10 @@ module {
     /// Accumulated value.
     var totalDebited : Nat = 0;
 
+    // Pass through the lookup counter from depositRegistry 
+    // TODO: Remove later 
+    public func lookups() : Nat = depositRegistry.lookups();
+
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
