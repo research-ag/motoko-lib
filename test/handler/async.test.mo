@@ -69,5 +69,5 @@ do {
   print(debug_show res);
   print(debug_show handler.journalLength());
   assert_state(0,0,0);
-  //assert res == ?(0,0);
+  assert res == ?(0,0);
 };
