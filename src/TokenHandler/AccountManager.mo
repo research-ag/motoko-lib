@@ -126,9 +126,7 @@ module {
 
       depositRegistry.unlock(p);
 
-      if (latestDeposit <= fee_) {
-        return ?(latestDeposit - depositRegistry.get(p).deposit);
-      };
+      if (latestDeposit <= fee_) return ?0;
 
       let prevDeposit = updateDeposit(p, latestDeposit);
 

@@ -66,7 +66,7 @@ actor class TestActor() = this {
     var nr = await* handler.notify(test_principal);
     assert nr != null;
     ignore do ? {
-      assert (nr!).0 == 2;
+      assert (nr!).0 == 0;
       assert (nr!).1 == initialCredit;
     };
     var info = handler.info(test_principal);

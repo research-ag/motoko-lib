@@ -56,18 +56,20 @@ func assert_state(x : (Nat, Nat, Nat)) {
 };
 
 do {
-  print("fee = " # debug_show handler.fee());
+  assert handler.fee() == 0;
+  assert handler.journalLength() == 0;
   await ledger.set_fee(5);
   ignore await* handler.updateFee();
-  print("fee = " # debug_show handler.fee());
+  assert handler.fee() == 5;
+  assert handler.journalLength() == 1;
   assert (await* handler.notify(user1)) == ?(0,0);
   assert_state(0,0,0);
+  assert handler.journalLength() == 1;
   print("tree lookups = " # debug_show handler.lookups());
   await ledger.set_balance(5);
   ignore await* handler.updateFee();
-  let res = await* handler.notify(user1);
-  print(debug_show res);
-  print(debug_show handler.journalLength());
+  assert (await* handler.notify(user1)) == ?(0,0);
   assert_state(0,0,0);
-  assert res == ?(0,0);
+  assert handler.journalLength() == 1;
+  print("tree lookups = " # debug_show handler.lookups());
 };
