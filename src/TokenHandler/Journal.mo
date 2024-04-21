@@ -41,6 +41,9 @@ module {
       journal.pushesAmount(),
     );
 
+    /// Query the "length" of the journal (total number of entries ever pushed)
+    public func length() : Nat { journal.pushesAmount() };
+
     /// Serializes the journal data.
     public func share() : StableData {
       journal.share();

@@ -93,6 +93,9 @@ module {
     /// 2) The index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
     public func queryJournal(startFrom : ?Nat) : ([Journal.JournalRecord], Nat) = journal.queryJournal(startFrom);
 
+    /// Query the "length" of the journal (total number of entries ever pushed)
+    public func journalLength() : Nat = journal.length();
+
     /// Returns the ICRC1 ledger principal.
     public func icrc1LedgerPrincipal() : Principal = icrc1LedgerPrincipal_;
 
