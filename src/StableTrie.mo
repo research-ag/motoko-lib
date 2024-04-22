@@ -6,7 +6,6 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 
 module {
-  let CHILDREN_NUMBER = 256;
   let POINTER_SIZE = 8;
 
   type StableTrieState = {
@@ -14,12 +13,12 @@ module {
     var size : Nat64;
   };
 
-  public class StableTrie(key_size : Nat, value_size : Nat) {
+  public class StableTrie(children_bits : Nat, key_size : Nat, value_size : Nat) {
     assert key_size >= 1;
 
     func newInternalNode(state : StableTrieState) : Node {
       let old_size = state.size;
-      let new_size = state.size + Nat64.fromNat(CHILDREN_NUMBER * POINTER_SIZE);
+      let new_size = state.size + Nat64.fromNat(children_bits * POINTER_SIZE);
       if (new_size > Region.size(state.region) * 2 ** 16) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
       };
@@ -41,23 +40,23 @@ module {
     class Node(state : StableTrieState, o : Nat64) {
       public let offset = o;
 
-      func getOffset(number : Nat8) : Nat64 {
-        offset + Nat64.fromNat(Nat8.toNat(number) * POINTER_SIZE);
+      func getOffset(number : Nat) : Nat64 {
+        offset + Nat64.fromNat(number * POINTER_SIZE);
       };
 
-      public func getChild(number : Nat8) : ?Node {
+      public func getChild(number : Nat) : ?Node {
         let child = Region.loadNat64(state.region, getOffset(number));
         if (child == 0) null else ?Node(state, child);
       };
 
-      public func getOrCreateChild(number : Nat8) : Node {
+      public func getOrCreateChild(number : Nat) : Node {
         let childOffset = getOffset(number);
         let child = Region.loadNat64(state.region, childOffset);
         if (child != 0) {
           return Node(state, child);
         };
         let old_size = state.size;
-        let new_size = old_size + Nat64.fromNat(CHILDREN_NUMBER * POINTER_SIZE);
+        let new_size = old_size + Nat64.fromNat(children_bits * POINTER_SIZE);
         if (new_size > Region.size(state.region) * 2 ** 16) {
           assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         };
@@ -66,7 +65,7 @@ module {
         Node(state, old_size);
       };
 
-      public func setChild(number : Nat8, node : Node) {
+      public func setChild(number : Nat, node : Node) {
         let child = Region.storeNat64(state.region, getOffset(number), node.offset);
       };
 
@@ -88,7 +87,7 @@ module {
         case (null) {
           let s = {
             region = Region.new();
-            var size = Nat64.fromNat(CHILDREN_NUMBER * POINTER_SIZE);
+            var size = Nat64.fromNat(children_bits * POINTER_SIZE);
           };
           assert Region.grow(s.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
           state_ := ?s;
@@ -97,26 +96,53 @@ module {
       };
     };
 
-    public func add(key : Blob, value : Blob) : Bool {
-      let s = state();
+    func keyToBytes(key : Blob) : Iter.Iter<Nat> {
       let bytes = Blob.toArray(key);
       assert bytes.size() == key_size;
 
-      var node = Node(s, 0);
-      for (i in Iter.range(0, key_size : Int - 2)) {
-        node := switch (node.getChild(bytes[i])) {
-          case (?n) n;
-          case (null) {
-            let child = newInternalNode(s);
-            node.setChild(bytes[i], child);
-            child;
+      if (children_bits == 256) return Iter.map(bytes.vals(), func(x : Nat8) : Nat = Nat8.toNat(x));
+      object {
+        var byte = 0;
+        var subbyte = 0;
+
+        public func next() : ?Nat {
+          if (byte == bytes.size()) return null;
+          let x = Nat8.toNat(bytes[byte]);
+          subbyte += 1;
+          if (children_bits ** subbyte == 256) {
+            subbyte := 0;
+            byte += 1;
           };
+          ?(x / children_bits ** subbyte % children_bits);
         };
       };
-      switch (node.getChild(bytes[key_size - 1])) {
+    };
+
+    public func add(key : Blob, value : Blob) : Bool {
+      let s = state();
+      let bytes = keyToBytes(key);
+
+      var node = Node(s, 0);
+      var previous = 256;
+      for (byte in bytes) {
+        if (previous != 256) {
+          node := switch (node.getChild(previous)) {
+            case (?n) n;
+            case (null) {
+              let child = newInternalNode(s);
+              node.setChild(previous, child);
+              child;
+            };
+          };
+        };
+
+        previous := byte;
+      };
+
+      switch (node.getChild(previous)) {
         case (?n) return false;
         case (null) {
-          node.setChild(bytes[key_size - 1], newLeaf(s, value));
+          node.setChild(previous, newLeaf(s, value));
           true;
         };
       };
@@ -124,11 +150,10 @@ module {
 
     public func get(key : Blob) : ?Blob {
       let s = state();
-      let bytes = Blob.toArray(key);
-      assert bytes.size() == key_size;
+      let bytes = keyToBytes(key);
 
       var node = Node(s, 0);
-      for (byte in bytes.vals()) {
+      for (byte in bytes) {
         node := switch (node.getChild(byte)) {
           case (?n) n;
           case (null) return null;
