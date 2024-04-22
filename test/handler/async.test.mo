@@ -111,6 +111,7 @@ do {
   assert (await* handler.notify(user1)) == ?(7,1); // deposit = 7, credit = 1
   assert_state(7,0,1);
   assert handler.journalLength() == inc(2); // #newDeposit, #credited
+  print("tree lookups = " # debug_show handler.lookups());
   // increase fee while notify is underway (and item still in queue)
   // scenario 1: old_fee < previous = latest <= new_fee
   // this means no new deposit has happened (latest = previous) 
@@ -124,19 +125,25 @@ do {
   assert (await f1) == ?(0,0); // deposit <= new fee
   assert_state(0,0,0); // state has changed
   assert handler.journalLength() == inc(1); // #debited
+  print("tree lookups = " # debug_show handler.lookups());
+  // increase deposit again
+  await ledger.set_balance(15);
+  assert (await* handler.notify(user1)) == ?(15,5); // deposit = 7, credit = 5
+  assert_state(15,0,1);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+  print("tree lookups = " # debug_show handler.lookups());
   // increase fee while notify is underway (and item still in queue)
   // scenario 2: old_fee < previous <= new_fee < latest
-  /*
   await ledger.set_balance(20);
   await ledger.lock_balance();
-  let f2 = async { await* handler.notify(user1) }; // would return ?(13,14) at old fee
-  await ledger.set_fee(10);
+  let f2 = async { await* handler.notify(user1) }; // would return ?(5,10) at old fee
+  await ledger.set_fee(15);
   ignore await* handler.updateFee();
   assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
-  assert_state(7,0,1); // state still unchanged
+  assert_state(15,0,1); // state still unchanged
   await ledger.release_balance(); // let notify return
-  assert (await f2) == ?(13,10); // credit = latest - new_fee
+  print(debug_show (await f2));
+  assert (await f2) == ?(20,5); // credit = latest - new_fee
   assert_state(20,0,1); // state should have changed
-  assert handler.journalLength() == inc(2); // #newDeposit, #credited
-  */
+  assert handler.journalLength() == inc(3); // #debited (recalculation), #newDeposit, #credited
 };
