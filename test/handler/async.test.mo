@@ -112,6 +112,8 @@ do {
   assert_state(7,0,1);
   assert handler.journalLength() == inc(2); // #newDeposit, #credited
   // increase fee while notify is underway (and item still in queue)
+  // scenario 1: old_fee < previous = latest <= new_fee
+  // this means no new deposit has happened (latest = previous) 
   await ledger.lock_balance();
   let f = async { await* handler.notify(user1) }; // would return ?(0,1) at old fee
   await ledger.set_fee(10);
@@ -120,10 +122,19 @@ do {
   assert_state(7,0,1); // state still unchanged
   await ledger.release_balance(); // let notify return
   assert (await f) == ?(0,0); // deposit <= fee
-  assert_state(0,0,0); // state should have changed
-  assert handler.journalLength() == inc(1); // should be #debited
-  // TODO
-  // The above test was for the scenario: old_fee < previous = latest <= new_fee
-  // We also need to test:
-  // old_fee < previous <= new_fee < latest
+  assert_state(0,0,0); // state has changed
+  assert handler.journalLength() == inc(1); // #debited
+  // increase fee while notify is underway (and item still in queue)
+  // scenario 2: old_fee < previous <= new_fee < latest
+  await ledger.set_balance(20);
+  await ledger.lock_balance();
+  let f = async { await* handler.notify(user1) }; // would return ?(0,1) at old fee
+  await ledger.set_fee(10);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
+  assert_state(7,0,1); // state still unchanged
+  await ledger.release_balance(); // let notify return
+  assert (await f) == ?(13,10); // credit = latest - new_fee
+  assert_state(20,0,1); // state should have changed
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
 };
