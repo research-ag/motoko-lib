@@ -36,7 +36,7 @@ for (bit in bits.vals()) {
   };
 
   for (key in keys.vals()) {
-    assert trie.get(key) == ?"";
+    assert (trie.get(key) == ?"");
   };
 
   for (key in keysAbsent.vals()) {
