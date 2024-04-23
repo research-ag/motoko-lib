@@ -70,8 +70,8 @@ module {
     /// Accumulated value.
     var totalDebited : Nat = 0;
 
-    // Pass through the lookup counter from depositRegistry 
-    // TODO: Remove later 
+    // Pass through the lookup counter from depositRegistry
+    // TODO: Remove later
     public func lookups() : Nat = depositRegistry.lookups();
 
     /// Retrieves the current fee amount.
@@ -114,6 +114,7 @@ module {
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
       if (depositRegistry.isLock(p)) return null;
+      let orig_fee = fee_;
 
       depositRegistry.lock(p);
       let latestDeposit = try {
@@ -123,6 +124,7 @@ module {
         throw err;
       };
       depositRegistry.unlock(p);
+      recalculate_p(p, fee_, orig_fee);
 
       if (latestDeposit <= fee_) return ?0;
 
@@ -316,6 +318,20 @@ module {
             debit(p, deposit - prevFee);
             queuedFunds -= deposit;
           };
+        };
+      };
+    };
+
+    /// Recalculate the deposit registry entry for a single principal after the fee change.
+    func recalculate_p(p : Principal, newFee : Nat, prevFee : Nat) {
+      if (newFee > prevFee) {
+        let info = depositRegistry.get(p);
+        if (info.lock) return;
+        let deposit = info.deposit;
+        if (deposit <= newFee) {
+          ignore updateDeposit(p, 0);
+          debit(p, deposit - prevFee);
+          queuedFunds -= deposit;
         };
       };
     };

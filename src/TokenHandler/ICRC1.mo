@@ -25,7 +25,9 @@ module {
 
   public type ICRC1Ledger = actor {
     icrc1_fee : query () -> async (Nat);
-    icrc1_balance_of : query (Account) -> async (Nat);
+    // We do not declare icrc1_balance_of as query.
+    // TODO: Is this ok to leave it like that?
+    icrc1_balance_of : (Account) -> async (Nat);
     icrc1_transfer : (TransferArgs) -> async ({
       #Ok : Nat;
       #Err : TransferError;
