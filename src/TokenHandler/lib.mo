@@ -37,6 +37,10 @@ module {
     initialFee : Nat,
   ) {
 
+    // Pass through the lookup counter from depositRegistry 
+    // TODO: Remove later 
+    public func lookups() : Nat = accountManager.lookups();
+
     /// If some unexpected error happened, this flag turns true and handler stops doing anything until recreated.
     var isFrozen_ : Bool = false;
 
@@ -88,6 +92,9 @@ module {
     /// 1) Array of all items in order, starting from the oldest record in journal, but no earlier than "startFrom" if provided
     /// 2) The index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
     public func queryJournal(startFrom : ?Nat) : ([Journal.JournalRecord], Nat) = journal.queryJournal(startFrom);
+
+    /// Query the "length" of the journal (total number of entries ever pushed)
+    public func journalLength() : Nat = journal.length();
 
     /// Returns the ICRC1 ledger principal.
     public func icrc1LedgerPrincipal() : Principal = icrc1LedgerPrincipal_;

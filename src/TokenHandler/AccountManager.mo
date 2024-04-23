@@ -70,18 +70,26 @@ module {
     /// Accumulated value.
     var totalDebited : Nat = 0;
 
+    // Pass through the lookup counter from depositRegistry
+    // TODO: Remove later
+    public func lookups() : Nat = depositRegistry.lookups();
+
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
     /// Updates the fee amount based on the ICRC1 ledger.
     public func updateFee() : async* Nat {
       let newFee = await icrc1Ledger.icrc1_fee();
+      setNewFee(newFee);
+      newFee;
+    };
+
+    func setNewFee(newFee : Nat) {
       if (fee_ != newFee) {
         log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
         recalculateDepositRegistry(newFee, fee_);
         fee_ := newFee;
       };
-      newFee;
     };
 
     /// Retrieves the sum of all current deposits.
@@ -106,42 +114,39 @@ module {
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
       if (depositRegistry.isLock(p)) return null;
+      let orig_fee = fee_;
 
       depositRegistry.lock(p);
-
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
         depositRegistry.unlock(p);
         throw err;
       };
-
       depositRegistry.unlock(p);
+      recalculate_p(p, fee_, orig_fee);
 
-      if (latestDeposit <= fee_) {
-        return ?(latestDeposit - depositRegistry.get(p).deposit);
-      };
+      if (latestDeposit <= fee_) return ?0;
 
       let prevDeposit = updateDeposit(p, latestDeposit);
 
       if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
+      let depositDelta = latestDeposit - prevDeposit : Nat;
+      if (depositDelta == 0) return ?0;
 
       // precredit incremental difference
       if (prevDeposit == 0) {
         credit(p, latestDeposit - fee_);
       } else {
-        credit(p, latestDeposit - prevDeposit);
+        credit(p, depositDelta);
       };
 
-      queuedFunds += latestDeposit - prevDeposit;
+      queuedFunds += depositDelta;
+      log(p, #newDeposit(depositDelta));
 
       // schedule a canister self-call to initiate the consolidation
       // we need try-catch so that we don't trap if scheduling fails synchronously
       try ignore trigger() catch (_) {};
-
-      let depositDelta = latestDeposit - prevDeposit : Nat;
-
-      if (depositDelta > 0) log(p, #newDeposit(depositDelta));
 
       return ?depositDelta;
     };
@@ -191,12 +196,7 @@ module {
       switch (transferResult) {
         case (#Err(#BadFee { expected_fee })) {
           debit(p, deposit - fee_);
-
-          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
-
-          recalculateDepositRegistry(expected_fee, fee_);
-
-          fee_ := expected_fee;
+          setNewFee(expected_fee);
 
           if (deposit <= fee_) {
             underwayFunds -= deposit;
@@ -205,11 +205,6 @@ module {
           };
 
           credit(p, deposit - expected_fee);
-
-          let retryResult = await* processConsolidationTransfer(p, deposit);
-          switch (retryResult) {
-            case (_) {};
-          };
         };
         case (_) {};
       };
@@ -277,9 +272,7 @@ module {
           #ok(txIdx, amount - fee_);
         };
         case (#Err(#BadFee { expected_fee })) {
-          log(ownPrincipal, #feeUpdated({ old = fee_; new = expected_fee }));
-          recalculateDepositRegistry(expected_fee, fee_);
-          fee_ := expected_fee;
+          setNewFee(expected_fee);
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
             case (#Ok txIdx) {
@@ -317,13 +310,28 @@ module {
     /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee > prevFee) {
-        label L for ((p, depositInfo) in depositRegistry.entries()) {
-          let deposit = depositInfo.deposit;
+        label L for ((p, info) in depositRegistry.entries()) {
+          if (info.lock) continue L;
+          let deposit = info.deposit;
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
             debit(p, deposit - prevFee);
             queuedFunds -= deposit;
           };
+        };
+      };
+    };
+
+    /// Recalculate the deposit registry entry for a single principal after the fee change.
+    func recalculate_p(p : Principal, newFee : Nat, prevFee : Nat) {
+      if (newFee > prevFee) {
+        let info = depositRegistry.get(p);
+        if (info.lock) return;
+        let deposit = info.deposit;
+        if (deposit <= newFee) {
+          ignore updateDeposit(p, 0);
+          debit(p, deposit - prevFee);
+          queuedFunds -= deposit;
         };
       };
     };

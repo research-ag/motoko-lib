@@ -3,6 +3,7 @@ import Blob "mo:base/Blob";
 import Array "mo:base/Array";
 import Nat8 "mo:base/Nat8";
 import Int "mo:base/Int";
+import Debug "mo:base/Debug";
 
 import TokenHandler "../../src/TokenHandler";
 import MockLedger "./MockLedger";
@@ -47,7 +48,7 @@ actor class TestActor() = this {
     assert handler.fee() == ledger_fee;
 
     // Credit funds
-    ignore handler.credit(test_principal, 100);
+    handler.credit(test_principal, 100);
     assert handler.balance(test_principal) == 100;
 
     // Debit funds
@@ -65,7 +66,7 @@ actor class TestActor() = this {
     var nr = await* handler.notify(test_principal);
     assert nr != null;
     ignore do ? {
-      assert (nr!).0 == 2;
+      assert (nr!).0 == 0;
       assert (nr!).1 == initialCredit;
     };
     var info = handler.info(test_principal);
@@ -132,6 +133,9 @@ actor class TestActor() = this {
 
     // Assert the token handler is not frozen
     assert not handler.isFrozen();
+
+    // Output number of lookups
+    Debug.print("Tree lookups: " # debug_show handler.lookups());
   };
 };
 

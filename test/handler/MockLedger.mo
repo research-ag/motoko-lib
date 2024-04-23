@@ -39,7 +39,7 @@ actor class MockLedger(
     init.transfer_fee;
   };
 
-  public query func icrc1_balance_of(account : Account) : async Nat {
+  public func icrc1_balance_of(account : Account) : async Nat {
     getBalance(account.subaccount);
   };
 
