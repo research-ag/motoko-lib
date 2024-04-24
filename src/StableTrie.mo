@@ -6,6 +6,7 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
+import Option "mo:base/Option";
 
 module {
   let POINTER_SIZE : Nat64 = 8;
@@ -239,6 +240,17 @@ module {
 
       assert false;
       null;
+    };
+
+    public func size() : Nat {
+      Nat64.toNat(state().size);
+    };
+
+    public func share() : StableTrieState = state();
+
+    public func unshare(data : StableTrieState) {
+      assert Option.isNull(state_);
+      state_ := ?data;
     };
   };
 };
