@@ -37,8 +37,14 @@ actor class MockLedger() {
   public func set_fee(x : Nat) : async () { fee := x };
 
   public func icrc1_balance_of(_ : Account) : async Nat { 
-    while (balance_lock) {
-      await async {}
+    var inc : Nat = 0;
+    // inc - workaround for the case when
+    // background process is still running
+    // and blocking the execution of the script
+    // after an assertion failure
+    while (balance_lock and inc < 100) {
+      await async {};
+      inc += 1;
     };
     balance
   };
