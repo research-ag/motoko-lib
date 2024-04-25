@@ -146,7 +146,7 @@ assert (await* handler.notify(user1)) == ?(0, 5); // credit unchanged
 assert handler.journalLength() == inc(0);
 print("tree lookups = " # debug_show handler.lookups());
 
-// increase fee while deposit is being consolidated
+// increase fee while deposit is being consolidated (implicitly)
 // scenario 1: old_fee < deposit <= new_fee
 // consolidation should fail and deposit should be reset
 await ledger.set_balance(20);
@@ -165,7 +165,7 @@ assert (await* handler.notify(user1)) == ?(0, 5); // credit has been corrected a
 assert handler.journalLength() == inc(0);
 print("tree lookups = " # debug_show handler.lookups());
 
-// increase fee while deposit is being consolidated
+// increase fee while deposit is being consolidated (implicitly)
 // scenario 2: old_fee < new_fee < deposit
 // consolidation should fail and deposit should be adjusted with new fee
 await ledger.set_balance(35);
@@ -248,3 +248,24 @@ assert (await fn8) == #err(#TooLowQuantity);
 assert (await ledger.transfer_count()) == transfer_count + 1; // the second transfer call is avoided
 assert_state(0, 5, 0); // state unchanged
 assert handler.journalLength() == inc(2); // #feeUpdated, #withdrawalError
+
+// increase fee while deposit is being consolidated (explicitly)
+// scenario 1: old_fee < deposit <= new_fee
+// consolidation should fail and deposit should be reset
+await ledger.set_balance(10);
+assert (await* handler.notify(user1)) == ?(10, 11); // deposit = 10, credit = 11
+assert handler.journalLength() == inc(2); // #credited, #newDeposit
+assert_state(10, 5, 1);
+await ledger.lock_transfer();
+let f9 = async { await* handler.trigger(); await ledger.set_balance(0) };
+await ledger.set_fee(5);
+ignore await* handler.updateFee();
+assert handler.journalLength() == inc(1); // #feeUpdated
+await ledger.set_response([#Err(#BadFee { expected_fee = 5 })]);
+await ledger.release_transfer(); // let transfer return
+await f9;
+assert_state(10, 5, 1); // consolidation failed
+assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
+assert (await* handler.notify(user1)) == ?(0, 10); // credit has been corrected with new fee
+assert handler.journalLength() == inc(0);
+print("tree lookups = " # debug_show handler.lookups());

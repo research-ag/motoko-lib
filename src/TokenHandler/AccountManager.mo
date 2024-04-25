@@ -23,7 +23,10 @@ module {
     #feeUpdated : { old : Nat; new : Nat };
     #newDeposit : Nat;
     #consolidated : { deducted : Nat; credited : Nat };
-    #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
+    #consolidationError : ICRC1.TransferError or {
+      #CallIcrc1LedgerError;
+      #ExtendedBadFee : { original_fee : Nat; expected_fee : Nat };
+    };
     #withdraw : { to : ICRC1.Account; amount : Nat };
     #withdrawalError : ICRC1.TransferError or {
       #CallIcrc1LedgerError;
@@ -160,16 +163,18 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or {
         #CallIcrc1LedgerError;
+        #ExtendedBadFee : { original_fee : Nat; expected_fee : Nat };
       };
     } {
       let transferAmount : Nat = Int.abs(deposit - fee_);
+      let originalFee : Nat = fee_;
 
       let transferResult = try {
         await icrc1Ledger.icrc1_transfer({
           from_subaccount = ?Mapping.toSubaccount(p);
           to = { owner = ownPrincipal; subaccount = null };
           amount = transferAmount;
-          fee = ?fee_;
+          fee = ?originalFee;
           memo = null;
           created_at_time = null;
         });
@@ -182,6 +187,14 @@ module {
           ignore updateDeposit(p, 0);
           totalConsolidated_ += transferAmount;
           log(p, #consolidated({ deducted = deposit; credited = transferAmount }));
+        };
+        case (#Err(#BadFee({ expected_fee }))) {
+          let err = #ExtendedBadFee({
+            original_fee = originalFee;
+            expected_fee = expected_fee;
+          });
+          log(p, #consolidationError(err));
+          return #Err(err);
         };
         case (#Err err) {
           log(p, #consolidationError(err));
@@ -198,8 +211,8 @@ module {
       let transferResult = await* processConsolidationTransfer(p, deposit);
 
       switch (transferResult) {
-        case (#Err(#BadFee { expected_fee })) {
-          debit(p, deposit - fee_);
+        case (#Err(#ExtendedBadFee { original_fee; expected_fee })) {
+          debit(p, deposit - original_fee);
           setNewFee(expected_fee);
 
           if (deposit <= fee_) {
