@@ -145,7 +145,7 @@ assert handler.journalLength() == inc(1); // #consolidated
 print("tree lookups = " # debug_show handler.lookups());
 
 // increase fee while deposit is being consolidated
-// scenario 1: old_fee < deposit < new_fee
+// scenario 1: old_fee < deposit <= new_fee
 // consolidation should fail and deposit should be reset
 await ledger.set_balance(20);
 assert (await* handler.notify(user1)) == ?(20, 10); // deposit = 20, credit = 10
@@ -153,8 +153,8 @@ assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(20, 5, 1);
 await ledger.lock_transfer();
 let f5 = async { await* handler.trigger() };
-await ledger.set_fee(25);
-await ledger.set_response([#Err(#BadFee { expected_fee = 25 })]);
+await ledger.set_fee(20);
+await ledger.set_response([#Err(#BadFee { expected_fee = 20 })]);
 await ledger.release_transfer(); // let transfer return
 await f5;
 assert_state(0, 5, 0); // consolidation failed
@@ -165,7 +165,7 @@ print("tree lookups = " # debug_show handler.lookups());
 // scenario 2: old_fee < new_fee < deposit
 // consolidation should fail and deposit should be adjusted with new fee
 await ledger.set_balance(35);
-assert (await* handler.notify(user1)) == ?(35, 15); // deposit = 35, credit = 15
+assert (await* handler.notify(user1)) == ?(35, 20); // deposit = 35, credit = 20
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(35, 5, 1);
 await ledger.lock_transfer();
