@@ -124,10 +124,10 @@ print("tree lookups = " # debug_show handler.lookups());
 // only the first should return state, the rest should not be executed
 await ledger.lock_balance();
 let arr = [async { await* handler.notify(user1) }, async { await* handler.notify(user1) }, async { await* handler.notify(user1) }];
-await ledger.release_balance(); // let notify return
-assert (await arr[0]) == ?(0, 5); // first notify() should return state
 assert (await arr[1]) == null; // should return null
 assert (await arr[2]) == null; // should return null
+await ledger.release_balance(); // let notify return
+assert (await arr[0]) == ?(0, 5); // first notify() should return state
 assert_state(20, 0, 1); // state unchanged because deposit has not changed
 assert handler.journalLength() == inc(0);
 print("tree lookups = " # debug_show handler.lookups());
