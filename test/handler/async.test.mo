@@ -135,8 +135,8 @@ print("tree lookups = " # debug_show handler.lookups());
 // only 1 consolidation process can be triggered for same user at same time
 // consolidation with deposit > fee should be successful
 var transfer_count = await ledger.transfer_count();
-let f3 = async { await* handler.trigger() };
-let f4 = async { await* handler.trigger() };
+let f3 = async { await* handler.trigger(); await ledger.set_balance(0) };
+let f4 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await f3;
 await f4;
 assert ((await ledger.transfer_count())) == transfer_count + 1; // only 1 transfer call has been made
@@ -154,7 +154,7 @@ assert (await* handler.notify(user1)) == ?(20, 10); // deposit = 20, credit = 10
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(20, 5, 1);
 await ledger.lock_transfer();
-let f5 = async { await* handler.trigger() };
+let f5 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await ledger.set_fee(20);
 await ledger.set_response([#Err(#BadFee { expected_fee = 20 })]);
 await ledger.release_transfer(); // let transfer return
@@ -173,7 +173,7 @@ assert (await* handler.notify(user1)) == ?(35, 20); // deposit = 35, credit = 20
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(35, 5, 1);
 await ledger.lock_transfer();
-let f6 = async { await* handler.trigger() };
+let f6 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await ledger.set_fee(26);
 await ledger.set_response([#Err(#BadFee { expected_fee = 26 })]);
 await ledger.release_transfer(); // let transfer return
@@ -187,6 +187,7 @@ print("tree lookups = " # debug_show handler.lookups());
 // trigger consolidation again
 await ledger.set_response([#Ok 42]);
 await* handler.trigger();
+await ledger.set_balance(0);
 assert_state(0, 14, 0); // consolidation successful
 assert handler.journalLength() == inc(1); // #consolidated
 print("tree lookups = " # debug_show handler.lookups());
