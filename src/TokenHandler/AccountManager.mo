@@ -205,6 +205,7 @@ module {
           };
 
           credit(p, deposit - expected_fee);
+          queuedFunds += deposit;
         };
         case (_) {};
       };
