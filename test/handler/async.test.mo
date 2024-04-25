@@ -159,7 +159,7 @@ await ledger.set_fee(20);
 await ledger.set_response([#Err(#BadFee { expected_fee = 20 })]);
 await ledger.release_transfer(); // let transfer return
 await f5;
-assert_state(0, 5, 0); // consolidation failed
+assert_state(0, 5, 0); // consolidation failed with deposit reset
 assert handler.journalLength() == inc(3); // #consolidationError, #debited, #feeUpdated
 assert (await* handler.notify(user1)) == ?(0, 5); // credit has been corrected after consolidation
 assert handler.journalLength() == inc(0);
@@ -264,8 +264,32 @@ assert handler.journalLength() == inc(1); // #feeUpdated
 await ledger.set_response([#Err(#BadFee { expected_fee = 100 })]);
 await ledger.release_transfer(); // let transfer return
 await f9;
-assert_state(0, 5, 0); // consolidation failed
+assert_state(0, 5, 0); // consolidation failed with deposit reset
 assert handler.journalLength() == inc(2); // #consolidationError, #debited
 assert (await* handler.notify(user1)) == ?(0, 5); // credit has been corrected
+assert handler.journalLength() == inc(0);
+print("tree lookups = " # debug_show handler.lookups());
+
+// increase fee while deposit is being consolidated (explicitly)
+// scenario 2: old_fee < new_fee < deposit
+// consolidation should fail and deposit should be adjusted with new fee
+await ledger.set_fee(5);
+ignore await* handler.updateFee();
+assert handler.journalLength() == inc(1); // #feeUpdated
+await ledger.set_balance(10);
+assert (await* handler.notify(user1)) == ?(10, 10); // deposit = 35, credit = 20
+assert handler.journalLength() == inc(2); // #credited, #newDeposit
+assert_state(10, 5, 1);
+await ledger.lock_transfer();
+let f10 = async { await* handler.trigger(); await ledger.set_balance(0) };
+await ledger.set_fee(6);
+ignore await* handler.updateFee();
+assert handler.journalLength() == inc(1); // #feeUpdated
+await ledger.set_response([#Err(#BadFee { expected_fee = 6 })]);
+await ledger.release_transfer(); // let transfer return
+await f10;
+assert_state(10, 5, 1); // consolidation failed with updated deposit scheduled
+assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
+assert (await* handler.notify(user1)) == ?(0, 9); // credit has been corrected
 assert handler.journalLength() == inc(0);
 print("tree lookups = " # debug_show handler.lookups());
