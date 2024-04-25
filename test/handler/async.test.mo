@@ -258,14 +258,14 @@ assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(10, 5, 1);
 await ledger.lock_transfer();
 let f9 = async { await* handler.trigger(); await ledger.set_balance(0) };
-await ledger.set_fee(5);
+await ledger.set_fee(100);
 ignore await* handler.updateFee();
 assert handler.journalLength() == inc(1); // #feeUpdated
-await ledger.set_response([#Err(#BadFee { expected_fee = 5 })]);
+await ledger.set_response([#Err(#BadFee { expected_fee = 100 })]);
 await ledger.release_transfer(); // let transfer return
 await f9;
-assert_state(10, 5, 1); // consolidation failed
-assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
-assert (await* handler.notify(user1)) == ?(0, 10); // credit has been corrected with new fee
+assert_state(0, 5, 0); // consolidation failed
+assert handler.journalLength() == inc(2); // #consolidationError, #debited
+assert (await* handler.notify(user1)) == ?(0, 5); // credit has been corrected
 assert handler.journalLength() == inc(0);
 print("tree lookups = " # debug_show handler.lookups());
