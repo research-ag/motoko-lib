@@ -1,3 +1,4 @@
+import Array "mo:base/Array";
 module {
 
   type Account = { owner : Principal; subaccount : ?Subaccount };
@@ -29,9 +30,10 @@ module {
     var fee : Nat = 0;
     var balance : Nat = 0;
     var balance_lock : Bool = false;
-    var response : TransferResponse = #Ok 42;
+    var response : [TransferResponse] = [#Ok 42];
     var transfer_lock : Bool = false;
     var transfer_count_ : Nat = 0;
+    var transfer_res_i_ : Nat = 0;
 
     public query func icrc1_fee() : async Nat { fee };
     public func set_fee(x : Nat) : async () { fee := x };
@@ -59,11 +61,16 @@ module {
         inc += 1;
       };
       transfer_count_ += 1;
-      response;
+      let res = response[transfer_res_i_];
+      transfer_res_i_ := (transfer_res_i_ + 1) % response.size();
+      res;
     };
     public func lock_transfer() : async () { transfer_lock := true };
     public func release_transfer() : async () { transfer_lock := false };
-    public func set_response(r : TransferResponse) : async () { response := r };
+    public func set_response(r : [TransferResponse]) : async () {
+      response := r;
+      transfer_res_i_ := 0;
+    };
     public func transfer_count() : async Nat { transfer_count_ };
   };
 

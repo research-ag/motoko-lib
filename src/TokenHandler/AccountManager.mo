@@ -25,6 +25,10 @@ module {
     #consolidated : { deducted : Nat; credited : Nat };
     #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
     #withdraw : { to : ICRC1.Account; amount : Nat };
+    #withdrawalError : ICRC1.TransferError or {
+      #CallIcrc1LedgerError;
+      #TooLowQuantity;
+    };
   };
 
   /// Manages accounts and funds for users.
@@ -282,12 +286,14 @@ module {
             };
             case (#Err err) {
               totalWithdrawn_ -= amount;
+              log(ownPrincipal, #withdrawalError(err));
               #err(err);
             };
           };
         };
         case (#Err err) {
           totalWithdrawn_ -= amount;
+          log(ownPrincipal, #withdrawalError(err));
           #err(err);
         };
       };
