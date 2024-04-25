@@ -86,7 +86,7 @@ print("tree lookups = " # debug_show handler.lookups());
 // increase fee while notify is underway (and item still in queue)
 // scenario 1: old_fee < previous = latest <= new_fee
 // this means no new deposit has happened (latest = previous)
-await ledger.lock_balance();
+await ledger.lock_balance("increase fee while notify is underway (and item still in queue) - scenario 1");
 let f1 = async { await* handler.notify(user1) }; // would return ?(0,1) at old fee
 await ledger.set_fee(10);
 ignore await* handler.updateFee();
@@ -108,7 +108,7 @@ print("tree lookups = " # debug_show handler.lookups());
 // increase fee while notify is underway (and item still in queue)
 // scenario 2: old_fee < previous <= new_fee < latest
 await ledger.set_balance(20);
-await ledger.lock_balance();
+await ledger.lock_balance("increase fee while notify is underway (and item still in queue) - scenario 2");
 let f2 = async { await* handler.notify(user1) }; // would return ?(5,10) at old fee
 await ledger.set_fee(15);
 ignore await* handler.updateFee();
@@ -122,7 +122,7 @@ print("tree lookups = " # debug_show handler.lookups());
 
 // call multiple notify() simultaneously
 // only the first should return state, the rest should not be executed
-await ledger.lock_balance();
+await ledger.lock_balance("call multiple notify() simultaneously");
 let arr = [async { await* handler.notify(user1) }, async { await* handler.notify(user1) }, async { await* handler.notify(user1) }];
 assert (await arr[1]) == null; // should return null
 assert (await arr[2]) == null; // should return null
@@ -153,7 +153,7 @@ await ledger.set_balance(20);
 assert (await* handler.notify(user1)) == ?(20, 10); // deposit = 20, credit = 10
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(20, 5, 1);
-await ledger.lock_transfer();
+await ledger.lock_transfer("increase fee while deposit is being consolidated (implicitly) - scenario 1");
 let f5 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await ledger.set_fee(20);
 await ledger.set_response([#Err(#BadFee { expected_fee = 20 })]);
@@ -172,7 +172,7 @@ await ledger.set_balance(35);
 assert (await* handler.notify(user1)) == ?(35, 20); // deposit = 35, credit = 20
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(35, 5, 1);
-await ledger.lock_transfer();
+await ledger.lock_transfer("increase fee while deposit is being consolidated (implicitly) - scenario 2");
 let f6 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await ledger.set_fee(26);
 await ledger.set_response([#Err(#BadFee { expected_fee = 26 })]);
@@ -221,7 +221,7 @@ assert handler.journalLength() == inc(1); // #withdrawError
 // increase fee while withdraw is being consolidated
 // scenario 1: old_fee < new_fee < amount
 // withdraw should fail and then retry successfully, fee should be updated
-await ledger.lock_transfer();
+await ledger.lock_transfer("increase fee while withdraw is being consolidated");
 transfer_count := await ledger.transfer_count();
 let fn7 = async { await* handler.withdraw(account, 4) };
 await ledger.set_fee(2);
@@ -238,7 +238,7 @@ assert handler.journalLength() == inc(1); // #debited
 // scenario 2: old_fee < amount <= new_fee
 // withdraw should fail and then retry with failure, fee should be updated
 // the second call should be avoided with comparison amount and fee
-await ledger.lock_transfer();
+await ledger.lock_transfer("increase fee while withdraw is being consolidated");
 transfer_count := await ledger.transfer_count();
 let fn8 = async { await* handler.withdraw(account, 4) };
 await ledger.set_fee(4);
@@ -256,7 +256,7 @@ await ledger.set_balance(10);
 assert (await* handler.notify(user1)) == ?(10, 11); // deposit = 10, credit = 11
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(10, 5, 1);
-await ledger.lock_transfer();
+await ledger.lock_transfer("increase fee while deposit is being consolidated (explicitly) - scenario 1");
 let f9 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await ledger.set_fee(100);
 ignore await* handler.updateFee();
@@ -280,7 +280,7 @@ await ledger.set_balance(10);
 assert (await* handler.notify(user1)) == ?(10, 10); // deposit = 35, credit = 20
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(10, 5, 1);
-await ledger.lock_transfer();
+await ledger.lock_transfer("increase fee while deposit is being consolidated (explicitly) - scenario 2");
 let f10 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await ledger.set_fee(6);
 ignore await* handler.updateFee();
