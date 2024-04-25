@@ -17,7 +17,7 @@ func assert_state(x : (Nat, Nat, Nat)) {
 };
 
 module Debug {
-  func state() {
+  public func state() {
     print(
       debug_show (
         handler.depositedFunds(),
@@ -26,7 +26,7 @@ module Debug {
       )
     );
   };
-  func journal() {
+  public func journal() {
     print(
       debug_show (
         handler.queryJournal(?0)
@@ -88,13 +88,14 @@ print("tree lookups = " # debug_show handler.lookups());
 await ledger.lock_balance();
 let f1 = async { await* handler.notify(user1) }; // would return ?(0,1) at old fee
 await ledger.set_fee(10);
+assert_state(7, 0, 1); // state from before
 ignore await* handler.updateFee();
-assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
-assert_state(7, 0, 1); // state still unchanged
+assert handler.journalLength() == inc(2); // #feeUpdated, #debited
+assert_state(0, 0, 0); // state changed
 await ledger.release_balance(); // let notify return
 assert (await f1) == ?(0, 0); // deposit <= new fee
-assert_state(0, 0, 0); // state has changed
-assert handler.journalLength() == inc(1); // #debited
+assert_state(0, 0, 0); // state has not changed
+assert handler.journalLength() == inc(0);
 print("tree lookups = " # debug_show handler.lookups());
 
 // increase deposit again
@@ -110,13 +111,14 @@ await ledger.set_balance(20);
 await ledger.lock_balance();
 let f2 = async { await* handler.notify(user1) }; // would return ?(5,10) at old fee
 await ledger.set_fee(15);
+assert_state(15, 0, 1); // state from before
 ignore await* handler.updateFee();
-assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
-assert_state(15, 0, 1); // state still unchanged
+assert handler.journalLength() == inc(2); // #feeUpdated, #debited
+assert_state(0, 0, 0); // state changed
 await ledger.release_balance(); // let notify return
 assert (await f2) == ?(20, 5); // credit = latest - new_fee
 assert_state(20, 0, 1); // state should have changed
-assert handler.journalLength() == inc(3); // #debited (recalculation), #newDeposit, #credited
+assert handler.journalLength() == inc(2); // #newDeposit, #credited
 print("tree lookups = " # debug_show handler.lookups());
 
 // call multiple notify() simultaneously
