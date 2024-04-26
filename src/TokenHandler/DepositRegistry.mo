@@ -6,8 +6,9 @@ module {
   /// Represents the deposit information associated with the user.
   public type DepositInfo = {
     var deposit : Nat; // The balance that is in the subaccount associated with the user.
-    var lock : Bool; // Flag indicating if the balance is locked.
+    var lock : Lock; // Flag indicating if the balance is locked.
   };
+  type Lock = { #none; #notify; #consolidate };
 
   public type StableData = [(Principal, DepositInfo)];
 
@@ -35,7 +36,7 @@ module {
 
     /// Cleans up the deposit info if there is no deposit for a user (and if not locked).
     func clean(p : Principal, info : DepositInfo) {
-      if (info.deposit == 0 and not info.lock) {
+      if (info.deposit == 0 and info.lock == #none) {
         tree.delete(p);
         lookupCtr += 1;
       };
@@ -59,9 +60,9 @@ module {
       switch (tree.get(p)) {
         case (?info) info;
         case (null) {
-          let info = {
+          let info : DepositInfo = {
             var deposit = 0;
-            var lock = false;
+            var lock = #none;
           };
           if (insert) {
             tree.put(p, info);
@@ -75,13 +76,13 @@ module {
     /// Checks if the deposit info for a specific principal is currently locked.
     public func isLock(p : Principal) : Bool {
       let info = get(p);
-      info.lock;
+      info.lock != #none;
     };
 
     /// Locks the deposit info for a specific user to prevent changes.
-    public func lock(p : Principal) {
+    public func lock(p : Principal, t : Lock) {
       let info = getOrCreate(p, true);
-      info.lock := true;
+      info.lock := t;
     };
 
     /// Unlocks the deposit info for a particular principal to allow modifications.
@@ -92,8 +93,8 @@ module {
           freezeCallback("Unlock not existent p");
         };
         case (?info) {
-          if (not info.lock) freezeCallback("Releasing lock that isn't locked");
-          info.lock := false;
+          if (info.lock == #none) freezeCallback("Releasing lock that isn't locked");
+          info.lock := #none;
           clean(p, info);
         };
       };
@@ -118,7 +119,7 @@ module {
           p,
           {
             var deposit = value.deposit;
-            var lock = false;
+            var lock = #none;
           },
         );
       };

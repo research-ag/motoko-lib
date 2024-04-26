@@ -89,13 +89,18 @@ print("tree lookups = " # debug_show handler.lookups());
 await ledger.lock_balance("increase fee while notify is underway (and item still in queue) - scenario 1");
 let f1 = async { await* handler.notify(user1) }; // would return ?(0,1) at old fee
 await ledger.set_fee(10);
+// TODO
+assert_state(7, 0, 1); // state from before
 ignore await* handler.updateFee();
-assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
-assert_state(7, 0, 1); // state still unchanged
+assert handler.journalLength() == inc(2); // #feeUpdated, #debited
+//assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
+assert_state(0, 0, 0); // state changed
+//assert_state(7, 0, 1); // state still unchanged
 await ledger.release_balance(); // let notify return
 assert (await f1) == ?(0, 0); // deposit <= new fee
 assert_state(0, 0, 0); // state has changed
-assert handler.journalLength() == inc(1); // #debited
+assert handler.journalLength() == inc(0);
+//assert handler.journalLength() == inc(1); // #debited
 print("tree lookups = " # debug_show handler.lookups());
 
 // increase deposit again
@@ -111,13 +116,14 @@ await ledger.set_balance(20);
 await ledger.lock_balance("increase fee while notify is underway (and item still in queue) - scenario 2");
 let f2 = async { await* handler.notify(user1) }; // would return ?(5,10) at old fee
 await ledger.set_fee(15);
+assert_state(15, 0, 1); // state from before
 ignore await* handler.updateFee();
-assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
-assert_state(15, 0, 1); // state still unchanged
+assert handler.journalLength() == inc(2); // #feeUpdated, #debited
+assert_state(0, 0, 0); // state changed
 await ledger.release_balance(); // let notify return
 assert (await f2) == ?(20, 5); // credit = latest - new_fee
 assert_state(20, 0, 1); // state should have changed
-assert handler.journalLength() == inc(3); // #debited (recalculation), #newDeposit, #credited
+assert handler.journalLength() == inc(2); // #newDeposit, #credited
 print("tree lookups = " # debug_show handler.lookups());
 
 // call multiple notify() simultaneously
@@ -152,6 +158,7 @@ await ledger.set_balance(20);
 assert (await* handler.notify(user1)) == ?(20, 10); // deposit = 20, credit = 10
 assert handler.journalLength() == inc(2); // #credited, #newDeposit
 assert_state(20, 5, 1);
+await ledger.lock_transfer("increase fee while deposit is being consolidated (implicitly) - scenario 1");
 await ledger.lock_transfer("increase fee while deposit is being consolidated (implicitly) - scenario 1");
 let f5 = async { await* handler.trigger(); await ledger.set_balance(0) };
 await ledger.set_fee(20);
