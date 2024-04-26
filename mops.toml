@@ -9,3 +9,6 @@ prng = "0.0.3"
 [toolchain]
 moc = "0.10.4"
 wasmtime = "20.0.0"
+
+[dev-dependencies]
+bench = "1.0.0"
