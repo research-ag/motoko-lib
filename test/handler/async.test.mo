@@ -6,7 +6,12 @@ import { MockLedger } "mock_ledger";
 
 let ledger = await MockLedger();
 let anon_p = Principal.fromBlob("");
-let handler = TokenHandler.TokenHandler(Principal.fromActor(ledger), anon_p, 1000, 0);
+let ledgerApi : TokenHandler.LedgerAPI = {
+  fee = ledger.icrc1_fee;
+  balance_of = ledger.icrc1_balance_of;
+  transfer = ledger.icrc1_transfer;
+};
+let handler = TokenHandler.TokenHandler(ledgerApi, Principal.fromActor(ledger), anon_p, 1000, 0);
 
 let user1 = Principal.fromBlob("1");
 let account = { owner = Principal.fromBlob("1"); subaccount = null };

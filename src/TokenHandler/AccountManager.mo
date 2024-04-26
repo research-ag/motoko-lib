@@ -34,7 +34,7 @@ module {
   /// Manages accounts and funds for users.
   /// Handles deposit, withdrawal, and consolidation operations.
   public class AccountManager(
-    icrc1LedgerPrincipal : Principal,
+    icrc1Ledger : ICRC1.LedgerAPI,
     ownPrincipal : Principal,
     log : (Principal, LogEvent) -> (),
     initialFee : Nat,
@@ -42,8 +42,6 @@ module {
     credit_ : (Principal, Nat) -> (),
     debit_ : (Principal, Nat) -> (),
   ) {
-
-    let icrc1Ledger = actor (Principal.toText(icrc1LedgerPrincipal)) : ICRC1.ICRC1Ledger;
 
     /// Manages deposit balances for each user.
     let depositRegistry : DepositRegistry.DepositRegistry = DepositRegistry.DepositRegistry(freezeCallback);
@@ -83,7 +81,7 @@ module {
 
     /// Updates the fee amount based on the ICRC1 ledger.
     public func updateFee() : async* Nat {
-      let newFee = await icrc1Ledger.icrc1_fee();
+      let newFee = await icrc1Ledger.fee();
       setNewFee(newFee);
       newFee;
     };
@@ -164,7 +162,7 @@ module {
       let originalFee : Nat = fee_;
 
       let transferResult = try {
-        await icrc1Ledger.icrc1_transfer({
+        await icrc1Ledger.transfer({
           from_subaccount = ?Mapping.toSubaccount(p);
           to = { owner = ownPrincipal; subaccount = null };
           amount = transferAmount;
@@ -250,7 +248,7 @@ module {
       if (amount <= fee_) return #Err(#TooLowQuantity);
 
       try {
-        await icrc1Ledger.icrc1_transfer({
+        await icrc1Ledger.transfer({
           from_subaccount = null;
           to = to;
           amount = Int.abs(amount - fee_);
@@ -379,7 +377,7 @@ module {
 
     /// Fetches actual deposit for a principal from the ICRC1 ledger.
     func loadDeposit(p : Principal) : async* Nat {
-      await icrc1Ledger.icrc1_balance_of({
+      await icrc1Ledger.balance_of({
         owner = ownPrincipal;
         subaccount = ?Mapping.toSubaccount(p);
       });

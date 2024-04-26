@@ -23,15 +23,25 @@ module {
     #GenericError : { error_code : Nat; message : Text };
   };
 
+  public type TransferResult = {
+    #Ok : Nat;
+    #Err : TransferError;
+  };
+
   public type ICRC1Ledger = actor {
-    icrc1_fee : query () -> async (Nat);
+    icrc1_fee : () -> async (Nat);
     // We do not declare icrc1_balance_of as query.
     // TODO: Is this ok to leave it like that?
     icrc1_balance_of : (Account) -> async (Nat);
-    icrc1_transfer : (TransferArgs) -> async ({
-      #Ok : Nat;
-      #Err : TransferError;
-    });
+    icrc1_transfer : (TransferArgs) -> async (TransferResult);
     whoAmI : () -> async ();
   };
+
+  public type LedgerAPI = {
+    fee : shared () -> async Nat;
+    balance_of : shared Account -> async Nat;
+    transfer : shared TransferArgs -> async TransferResult;
+    //    whoAmI : () -> async ();
+  };
+
 };
