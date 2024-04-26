@@ -9,17 +9,14 @@ class Response<T>(response_ : ?T) {
   var lock = true;
 
   public func run() : async* () {
-    Debug.print("loop: enter");
     var inc = 100;
     while (lock and inc > 0) {
       await async {};
       inc -= 1;
     };
-    if (inc == 0) Debug.print("loop: exit by timeout") else Debug.print("loop: exit by lock release");
     if (Option.isNull(response_)) {
-      Debug.print("loop value: reject");
       throw Error.reject("");
-    } else Debug.print("loop value: response T");
+    };
   };
 
   public func response() : T {
@@ -29,7 +26,6 @@ class Response<T>(response_ : ?T) {
 
   public func release() {
     assert lock;
-    Debug.print("loop: release");
     lock := false;
   };
 };
@@ -42,7 +38,6 @@ let mockLedger = object {
   public var transfer_register : ?Response<ICRC1.TransferResult> = null;
 
   public func next_response(arg : { #fee : ?Nat; #transfer : ?Nat; #balance : ?Nat }) : ReleaseFunc {
-    Debug.print("next response: " # debug_show arg # " . write register");
     switch (arg) {
       case (#fee r) {
         let response = Response<Nat>(r);
@@ -63,7 +58,6 @@ let mockLedger = object {
   };
 
   public shared func transfer(_ : ICRC1.TransferArgs) : async ICRC1.TransferResult {
-    Debug.print("mockLedger: receive transfer call. read register");
     let ?r = transfer_register else Debug.trap("transfer_register not set");
     transfer_register := null;
     await* r.run();
@@ -71,7 +65,6 @@ let mockLedger = object {
   };
 
   public shared func balance_of(_ : ICRC1.Account) : async Nat {
-    Debug.print("mockLedger: receive balance_of call. read register");
     let ?r = balance_register else Debug.trap("balance_register not set");
     balance_register := null;
     await* r.run();
@@ -79,7 +72,6 @@ let mockLedger = object {
   };
 
   public shared func fee() : async Nat {
-    Debug.print("mockLedger: receive fee call. read register");
     let ?r = fee_register else Debug.trap("fee_register not set");
     fee_register := null;
     await* r.run();
@@ -97,7 +89,9 @@ let handler = TokenHandler.TokenHandler(ledgerApi, anon_p, anon_p, 1000, 0);
 
 let release1 = mockLedger.next_response(#transfer(?0));
 let fut1 = async { await* handler.trigger() };
-await async {};
+// We now need to give mockLedger time to read from the register.
+// Unfortunately, inside handler.trigger there is an await statement which delays everything. 
+await async {}; 
 let release2 = mockLedger.next_response(#transfer(?0));
 let fut2 = async { await* handler.trigger() };
 release1();
