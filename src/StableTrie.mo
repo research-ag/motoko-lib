@@ -17,10 +17,7 @@ module {
   };
 
   public class StableTrie(children_number : Nat, key_size : Nat, value_size : Nat) {
-    do {
-      let x = Nat64.fromNat(children_number);
-      assert x & (x - 1) == 0;
-    };
+    assert children_number == 2 or children_number == 4 or children_number == 16 or children_number == 256;
     assert key_size >= 1;
 
     func newInternalNode(state : StableTrieState) : Node {
