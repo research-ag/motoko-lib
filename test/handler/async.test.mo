@@ -142,8 +142,7 @@ await f4;
 assert ((await ledger.transfer_count())) == transfer_count + 1; // only 1 transfer call has been made
 assert_state(0, 5, 0); // consolidation successful
 assert handler.journalLength() == inc(1); // #consolidated
-assert (await* handler.notify(user1)) == ?(0, 5); // credit unchanged
-assert handler.journalLength() == inc(0);
+assert handler.info(user1).credit == 5; // credit unchanged
 print("tree lookups = " # debug_show handler.lookups());
 
 // increase fee while deposit is being consolidated (implicitly)
@@ -161,8 +160,7 @@ await ledger.release_transfer(); // let transfer return
 await f5;
 assert_state(0, 5, 0); // consolidation failed with deposit reset
 assert handler.journalLength() == inc(3); // #consolidationError, #debited, #feeUpdated
-assert (await* handler.notify(user1)) == ?(0, 5); // credit has been corrected after consolidation
-assert handler.journalLength() == inc(0);
+assert handler.info(user1).credit == 5; // credit has been corrected after consolidation
 print("tree lookups = " # debug_show handler.lookups());
 
 // increase fee while deposit is being consolidated (implicitly)
@@ -180,8 +178,7 @@ await ledger.release_transfer(); // let transfer return
 await f6;
 assert_state(35, 5, 1); // consolidation failed with updated deposit scheduled
 assert handler.journalLength() == inc(4); // #consolidationError, #debited, #feeUpdated, #credited
-assert (await* handler.notify(user1)) == ?(0, 14); // credit has been corrected after consolidation
-assert handler.journalLength() == inc(0);
+assert handler.info(user1).credit == 14; // credit has been corrected after consolidation
 print("tree lookups = " # debug_show handler.lookups());
 
 // trigger consolidation again
@@ -266,8 +263,7 @@ await ledger.release_transfer(); // let transfer return
 await f9;
 assert_state(0, 5, 0); // consolidation failed with deposit reset
 assert handler.journalLength() == inc(2); // #consolidationError, #debited
-assert (await* handler.notify(user1)) == ?(0, 5); // credit has been corrected
-assert handler.journalLength() == inc(0);
+assert handler.info(user1).credit == 5; // credit has been corrected
 print("tree lookups = " # debug_show handler.lookups());
 
 // increase fee while deposit is being consolidated (explicitly)
@@ -290,6 +286,5 @@ await ledger.release_transfer(); // let transfer return
 await f10;
 assert_state(10, 5, 1); // consolidation failed with updated deposit scheduled
 assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
-assert (await* handler.notify(user1)) == ?(0, 9); // credit has been corrected
-assert handler.journalLength() == inc(0);
+assert handler.info(user1).credit == 9; // credit has been corrected
 print("tree lookups = " # debug_show handler.lookups());

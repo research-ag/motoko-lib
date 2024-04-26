@@ -23,10 +23,7 @@ module {
     #feeUpdated : { old : Nat; new : Nat };
     #newDeposit : Nat;
     #consolidated : { deducted : Nat; credited : Nat };
-    #consolidationError : ICRC1.TransferError or {
-      #CallIcrc1LedgerError;
-      #ExtendedBadFee : { original_fee : Nat; expected_fee : Nat };
-    };
+    #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
     #withdraw : { to : ICRC1.Account; amount : Nat };
     #withdrawalError : ICRC1.TransferError or {
       #CallIcrc1LedgerError;
@@ -161,10 +158,7 @@ module {
     /// Processes the consolidation transfer for a principal.
     func processConsolidationTransfer(p : Principal, deposit : Nat) : async* {
       #Ok : Nat;
-      #Err : ICRC1.TransferError or {
-        #CallIcrc1LedgerError;
-        #ExtendedBadFee : { original_fee : Nat; expected_fee : Nat };
-      };
+      #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
     } {
       let transferAmount : Nat = Int.abs(deposit - fee_);
       let originalFee : Nat = fee_;
@@ -188,14 +182,6 @@ module {
           totalConsolidated_ += transferAmount;
           log(p, #consolidated({ deducted = deposit; credited = transferAmount }));
         };
-        case (#Err(#BadFee({ expected_fee }))) {
-          let err = #ExtendedBadFee({
-            original_fee = originalFee;
-            expected_fee = expected_fee;
-          });
-          log(p, #consolidationError(err));
-          return #Err(err);
-        };
         case (#Err err) {
           log(p, #consolidationError(err));
         };
@@ -208,11 +194,12 @@ module {
     func consolidate(p : Principal) : async* () {
       let deposit = depositRegistry.get(p).deposit;
 
+      let originalFee = fee_;
       let transferResult = await* processConsolidationTransfer(p, deposit);
 
       switch (transferResult) {
-        case (#Err(#ExtendedBadFee { original_fee; expected_fee })) {
-          debit(p, deposit - original_fee);
+        case (#Err(#BadFee { expected_fee })) {
+          debit(p, deposit - originalFee);
           setNewFee(expected_fee);
 
           if (deposit <= fee_) {
