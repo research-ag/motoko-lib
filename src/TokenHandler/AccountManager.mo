@@ -25,6 +25,10 @@ module {
     #consolidated : { deducted : Nat; credited : Nat };
     #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
     #withdraw : { to : ICRC1.Account; amount : Nat };
+    #withdrawalError : ICRC1.TransferError or {
+      #CallIcrc1LedgerError;
+      #TooLowQuantity;
+    };
   };
 
   /// Manages accounts and funds for users.
@@ -152,9 +156,7 @@ module {
     /// Processes the consolidation transfer for a principal.
     func processConsolidationTransfer(p : Principal, deposit : Nat) : async* {
       #Ok : Nat;
-      #Err : ICRC1.TransferError or {
-        #CallIcrc1LedgerError;
-      };
+      #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
     } {
       let transferAmount : Nat = Int.abs(deposit - fee_);
 
@@ -189,11 +191,12 @@ module {
     func consolidate(p : Principal) : async* () {
       let deposit = depositRegistry.get(p).deposit;
 
+      let originalFee = fee_;
       let transferResult = await* processConsolidationTransfer(p, deposit);
 
       switch (transferResult) {
         case (#Err(#BadFee { expected_fee })) {
-          debit(p, deposit - fee_);
+          debit(p, deposit - originalFee);
           setNewFee(expected_fee);
 
           if (deposit <= fee_) {
@@ -280,12 +283,14 @@ module {
             };
             case (#Err err) {
               totalWithdrawn_ -= amount;
+              log(ownPrincipal, #withdrawalError(err));
               #err(err);
             };
           };
         };
         case (#Err err) {
           totalWithdrawn_ -= amount;
+          log(ownPrincipal, #withdrawalError(err));
           #err(err);
         };
       };
