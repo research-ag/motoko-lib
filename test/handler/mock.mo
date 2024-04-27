@@ -33,11 +33,18 @@ module {
     var register : ?Response<T> = null;
     public func stage(arg : ?T) : ReleaseFunc {
       let response = Response<T>(arg);
+      if (not Option.isNull(register)) Debug.trap("staging failed. register not empty.");
       register := ?response;
       response.release;
     };
+    public func clear() : async () {
+      while (Option.isSome(register)) {
+        await async {};
+      };
+    }; 
     public func read() : Response<T> {
-      let ?r = register else Debug.trap("register not set");
+      Debug.print("read");
+      let ?r = register else Debug.trap("no response stage.");
       register := null;
       r;
     };

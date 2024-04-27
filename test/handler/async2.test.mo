@@ -21,14 +21,23 @@ let ledger = object {
 let anon_p = Principal.fromBlob("");
 let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
 
-let release1 = ledger.transfer_.stage(?(#Ok 0));
-let fut1 = async { await* handler.trigger() };
-// We now need to give mockLedger time to read from the register.
-// Unfortunately, inside handler.trigger there is an await statement which delays everything.
-await async {};
-let release2 = ledger.transfer_.stage(?(#Ok 0));
-let fut2 = async { await* handler.trigger() };
-release1();
-await fut1;
+// stage a response
+let release1 = ledger.fee_.stage(?5);
+// trigger call
+let fut1 = async { await* handler.updateFee() };
+// wait for staged response to be picked up
+// (necessary before a second response can be staged)
+await ledger.transfer_.clear();
+
+// stage a second response
+let release2 = ledger.fee_.stage(?10);
+// trigger call
+let fut2 = async { await* handler.updateFee() };
+
+// release second response
 release2();
-await fut2;
+assert (await fut2) == 10;
+
+// release first response
+release1();
+ignore (await fut1) == 5;
