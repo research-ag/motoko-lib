@@ -19,7 +19,7 @@ let ledger = object {
 };
 
 let anon_p = Principal.fromBlob("");
-let handler = TokenHandler.TokenHandler(ledger, anon_p, anon_p, 1000, 0);
+let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
 
 let release1 = ledger.transfer_.stage(?(#Ok 0));
 let fut1 = async { await* handler.trigger() };

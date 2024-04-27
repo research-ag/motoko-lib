@@ -34,7 +34,6 @@ module {
 
   public class TokenHandler(
     ledgerApi : LedgerAPI,
-    ledgerPrincipal_ : Principal,
     ownPrincipal : Principal,
     journalCapacity : Nat,
     initialFee : Nat,
@@ -98,9 +97,6 @@ module {
 
     /// Query the "length" of the journal (total number of entries ever pushed)
     public func journalLength() : Nat = journal.length();
-
-    /// Returns the ICRC1 ledger principal.
-    public func icrc1LedgerPrincipal() : Principal = ledgerPrincipal_;
 
     /// Retrieves the sum of all current deposits.
     public func depositedFunds() : Nat = accountManager.depositedFunds();
