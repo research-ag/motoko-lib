@@ -11,7 +11,7 @@ let ledgerApi : TokenHandler.LedgerAPI = {
   balance_of = ledger.icrc1_balance_of;
   transfer = ledger.icrc1_transfer;
 };
-let handler = TokenHandler.TokenHandler(ledgerApi, Principal.fromActor(ledger), anon_p, 1000, 0);
+let handler = TokenHandler.TokenHandler(ledgerApi, anon_p, 1000, 0);
 
 let user1 = Principal.fromBlob("1");
 let account = { owner = Principal.fromBlob("1"); subaccount = null };
