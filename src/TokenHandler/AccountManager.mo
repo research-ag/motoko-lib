@@ -205,7 +205,9 @@ module {
           credit(p, deposit - expected_fee);
           queuedFunds += deposit;
         };
-        case (#Err _) {}; // all other errors
+        case (#Err _) { // all other errors
+          queuedFunds += deposit;
+        };
         case (#Ok _) {};
       };
     };

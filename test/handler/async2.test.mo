@@ -81,5 +81,9 @@ do {
   assert_state(20, 0, 1);
   ledger.transfer_.stage(null)(); // error response
   await* handler.trigger();
-  assert not handler.isFrozen(); 
+  assert handler.journalLength() == inc(1); // #consolidationError
+  assert_state(20, 0, 1);
+  ledger.transfer_.stage(?(#Ok 0))();
+  await* handler.trigger();
+  assert_state(0, 15, 0);
 };
