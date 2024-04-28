@@ -198,7 +198,6 @@ module {
           setNewFee(expected_fee);
 
           if (deposit <= fee_) {
-            underwayFunds -= deposit;
             ignore updateDeposit(p, 0);
             return;
           };
@@ -209,8 +208,6 @@ module {
         case (#Err _) {}; // all other errors
         case (#Ok _) {};
       };
-
-      underwayFunds -= deposit;
     };
 
     /// Triggers the proccessing first encountered deposit.
@@ -232,6 +229,7 @@ module {
           queuedFunds -= deposit;
           underwayFunds += deposit;
           await* consolidate(p);
+          underwayFunds -= deposit;
           depositRegistry.unlock(p);
           assertIntegrity();
         };
