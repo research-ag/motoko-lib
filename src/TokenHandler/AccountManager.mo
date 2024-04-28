@@ -116,9 +116,8 @@ module {
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
       if (depositRegistry.isLock(p)) return null;
-      let orig_fee = fee_;
 
-      depositRegistry.lock(p);
+      depositRegistry.lock(p, #notify);
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
@@ -126,7 +125,6 @@ module {
         throw err;
       };
       depositRegistry.unlock(p);
-      recalculate_p(p, fee_, orig_fee);
 
       if (latestDeposit <= fee_) return ?0;
 
@@ -159,14 +157,13 @@ module {
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
     } {
       let transferAmount : Nat = Int.abs(deposit - fee_);
-      let originalFee : Nat = fee_;
 
       let transferResult = try {
         await icrc1Ledger.transfer({
           from_subaccount = ?Mapping.toSubaccount(p);
           to = { owner = ownPrincipal; subaccount = null };
           amount = transferAmount;
-          fee = ?originalFee;
+          fee = ?fee_;
           memo = null;
           created_at_time = null;
         });
@@ -230,7 +227,7 @@ module {
         case (null) { return };
         case (?(p, depositInfo)) {
           let deposit = depositInfo.deposit;
-          depositRegistry.lock(p);
+          depositRegistry.lock(p, #consolidate);
           queuedFunds -= deposit;
           underwayFunds += deposit;
           await* consolidate(p);
@@ -316,27 +313,13 @@ module {
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee > prevFee) {
         label L for ((p, info) in depositRegistry.entries()) {
-          if (info.lock) continue L;
+          if (info.lock == #consolidate) continue L;
           let deposit = info.deposit;
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
             debit(p, deposit - prevFee);
             queuedFunds -= deposit;
           };
-        };
-      };
-    };
-
-    /// Recalculate the deposit registry entry for a single principal after the fee change.
-    func recalculate_p(p : Principal, newFee : Nat, prevFee : Nat) {
-      if (newFee > prevFee) {
-        let info = depositRegistry.get(p);
-        if (info.lock) return;
-        let deposit = info.deposit;
-        if (deposit <= newFee) {
-          ignore updateDeposit(p, 0);
-          debit(p, deposit - prevFee);
-          queuedFunds -= deposit;
         };
       };
     };
