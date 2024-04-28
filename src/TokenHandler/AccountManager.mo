@@ -186,7 +186,7 @@ module {
     };
 
     /// Attempts to consolidate the funds for a particular principal.
-    func consolidate(p : Principal) : async* () {
+    func consolidate(p : Principal) : async* Bool {
       let deposit = depositRegistry.get(p).deposit;
 
       let originalFee = fee_;
@@ -199,16 +199,13 @@ module {
 
           if (deposit <= fee_) {
             ignore updateDeposit(p, 0);
-            return;
+          } else {
+            credit(p, deposit - expected_fee);
           };
-
-          credit(p, deposit - expected_fee);
-          queuedFunds += deposit;
+          false
         };
-        case (#Err _) { // all other errors
-          queuedFunds += deposit;
-        };
-        case (#Ok _) {};
+        case (#Err _) false; // all other errors
+        case (#Ok _) true;
       };
     };
 
@@ -230,7 +227,8 @@ module {
           depositRegistry.lock(p, #consolidate);
           queuedFunds -= deposit;
           underwayFunds += deposit;
-          await* consolidate(p);
+          let success = await* consolidate(p);
+          if (not success) queuedFunds += deposit;
           underwayFunds -= deposit;
           depositRegistry.unlock(p);
           assertIntegrity();
