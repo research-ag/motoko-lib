@@ -114,7 +114,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      let ?release = depositRegistry.obtainLock(p, #notify) else return null;
+      let ?(_, release) = depositRegistry.obtainLock(p, #notify) else return null;
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
@@ -207,8 +207,7 @@ module {
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
       let ?p = depositRegistry.firstUnlocked() else return;
-      let ?release = depositRegistry.obtainLock(p, #consolidate) else Debug.trap("Failed to obtain lock");
-      let deposit = depositRegistry.get(p);
+      let ?(deposit, release) = depositRegistry.obtainLock(p, #consolidate) else Debug.trap("Failed to obtain lock");
       queuedFunds -= deposit;
       underwayFunds += deposit;
       let success = await* consolidate(p);

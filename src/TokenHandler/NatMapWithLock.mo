@@ -72,7 +72,7 @@ module {
     // The function `f` can be used to write a new value to `k` and release the lock at the same time.
     // The new value is optional.
     // If `null` is supplied then `f` releases the lock without changing the value.
-    public func obtainLock(k : K, l : L) : ?(?Nat -> Int) {
+    public func obtainLock(k : K, l : L) : ?(Nat, ?Nat -> Int) {
       lookupCtr += 1;
       let info = switch (tree.get(k)) {
         case (?r) {
@@ -111,7 +111,7 @@ module {
         };
         delta
       };
-      return ?releaseLock;
+      return ?(info.value, releaseLock);
     };
 
     public func entries() : Iter.Iter<(K, V<L>)> = tree.entries();
