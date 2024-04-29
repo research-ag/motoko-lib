@@ -22,7 +22,7 @@ module {
     credit : Int;
   };
 
-  public func defaultStableData() : StableData = ((#leaf, 0, 0, 0, 0, 0), ([]), ([var], 0, 0));
+  public func defaultStableData() : StableData = (((#leaf, 0, 0), 0, 0, 0, 0), ([]), ([var], 0, 0));
 
   /// Converts `Principal` to `ICRC1.Subaccount`.
   public func toSubaccount(p : Principal) : ICRC1.Subaccount = Mapping.toSubaccount(p);

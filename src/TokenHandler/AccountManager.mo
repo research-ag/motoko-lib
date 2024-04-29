@@ -17,7 +17,6 @@ module {
     Nat, // fee_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
-    Nat, // depositedFunds_
     Nat, // queuedFunds
   );
 
@@ -51,9 +50,6 @@ module {
 
     /// Current fee amount.
     var fee_ : Nat = initialFee;
-
-    /// Total deposited funds across all accounts.
-    var depositedFunds_ : Nat = 0;
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
@@ -98,7 +94,7 @@ module {
     };
 
     /// Retrieves the sum of all current deposits.
-    public func depositedFunds() : Nat = depositedFunds_;
+    public func depositedFunds() : Nat = depositRegistry.sum();
 
     /// Returns the size of the deposit registry.
     public func depositsNumber() : Nat = depositRegistry.size();
@@ -125,9 +121,13 @@ module {
         release(null);
         throw err;
       };
-      release(null);
 
-      if (latestDeposit <= fee_) return ?0;
+      if (latestDeposit <= fee_) {
+        release(null);
+        return ?0;
+      };
+
+      release(null);
 
       let prevDeposit = updateDeposit(p, latestDeposit);
 
@@ -317,7 +317,7 @@ module {
     };
 
     func assertIntegrity() {
-      let deposited : Int = depositedFunds_ - fee_ * depositRegistry.size(); // deposited funds with fees subtracted
+      let deposited : Int = depositRegistry.sum() - fee_ * depositRegistry.size(); // deposited funds with fees subtracted
       if (totalCredited != totalConsolidated_ + deposited + totalDebited) {
         let values : [Text] = [
           "Balances integrity failed",
@@ -330,10 +330,10 @@ module {
         return;
       };
 
-      if (depositedFunds_ != queuedFunds + underwayFunds) {
+      if (depositRegistry.sum() != queuedFunds + underwayFunds) {
         let values : [Text] = [
           "Balances integrity failed",
-          "depositedFunds_=" # Nat.toText(depositedFunds_),
+          "depositedFunds_=" # Nat.toText(depositRegistry.sum()),
           "queuedFunds=" # Nat.toText(queuedFunds),
           "underwayFunds=" # Nat.toText(underwayFunds),
         ];
@@ -345,8 +345,6 @@ module {
     func updateDeposit(p : Principal, deposit : Nat) : Nat {
       var prevDeposit = depositRegistry.get(p);
       depositRegistry.set(p, deposit);
-      depositedFunds_ += deposit;
-      depositedFunds_ -= prevDeposit;
       prevDeposit;
     };
 
@@ -364,7 +362,6 @@ module {
       fee_,
       totalConsolidated_,
       totalWithdrawn_,
-      depositedFunds_,
       queuedFunds,
     );
 
@@ -374,8 +371,7 @@ module {
       fee_ := values.1;
       totalConsolidated_ := values.2;
       totalWithdrawn_ := values.3;
-      depositedFunds_ := values.4;
-      queuedFunds := values.5;
+      queuedFunds := values.4;
     };
   };
 };
