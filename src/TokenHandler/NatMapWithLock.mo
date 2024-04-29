@@ -27,31 +27,6 @@ module {
       };
     };
 
-    // Returns the Nat value associated with the key `k`.
-    public func set(k : K, v : Nat) {
-      lookupCtr += 1;
-      let old_value = switch (tree.get(k)) {
-        case (?r) {
-          let o = r.value;
-          r.value := v;
-          o;
-        };
-        case (null) {
-          let r : V<L> = {
-            var value = v;
-            var lock = null;
-          };
-          lookupCtr += 1;
-          tree.put(k, r);
-          0;
-        };
-      };
-      if (old_value == 0 and v > 0) size_ += 1;
-      if (old_value > 0 and v == 0) size_ -= 1;
-      sum_ -= old_value;
-      sum_ += v;
-    };
-
     // Returns the number of non-zero entries in the map (locked or not).
     public func size() : Nat = size_;
 
