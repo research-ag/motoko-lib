@@ -20,17 +20,17 @@ module {
     assert children_number == 2 or children_number == 4 or children_number == 16 or children_number == 256;
     assert key_size >= 1;
 
-    func newInternalNode(state : StableTrieState) : Node {
+    func newInternalNode(state : StableTrieState) : Nat64 {
       let old_size = state.size;
       let new_size = state.size + Nat64.fromNat(children_number) * POINTER_SIZE;
       if (new_size > Region.size(state.region) * 2 ** 16) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
       };
       state.size := new_size;
-      Node(state, old_size);
+      old_size;
     };
 
-    func newLeaf(state : StableTrieState, key : Blob, value : Blob) : Node {
+    func newLeaf(state : StableTrieState, key : Blob, value : Blob) : Nat64 {
       let old_size = state.size;
       let new_size = old_size + Nat64.fromNat(key_size + value_size);
       if (new_size >= Region.size(state.region) * 2 ** 16) {
@@ -39,65 +39,61 @@ module {
       Region.storeBlob(state.region, old_size, key);
       Region.storeBlob(state.region, old_size + Nat64.fromNat(key_size), value);
       state.size := new_size;
-      Node(state, old_size | (1 << (POINTER_SIZE * 8 - 1)));
+      old_size | (1 << (POINTER_SIZE * 8 - 1));
     };
 
-    class Node(state : StableTrieState, o : Nat64) {
-      public let offset = o;
+    func getOffset(offset : Nat64, number : Nat) : Nat64 {
+      offset + Nat64.fromNat(number) * POINTER_SIZE;
+    };
 
-      func getOffset(number : Nat) : Nat64 {
-        offset + Nat64.fromNat(number) * POINTER_SIZE;
-      };
+    public func getChild(state : StableTrieState, offset : Nat64, number : Nat) : ?Nat64 {
+      let child = Region.loadNat64(state.region, getOffset(offset, number));
+      if (child == 0) null else ?child;
+    };
 
-      public func getChild(number : Nat) : ?Node {
-        let child = Region.loadNat64(state.region, getOffset(number));
-        if (child == 0) null else ?Node(state, child);
-      };
+    public func setChild(state : StableTrieState, offset : Nat64, number : Nat, node : Nat64) {
+      Region.storeNat64(state.region, getOffset(offset, number), node);
+    };
 
-      public func setChild(number : Nat, node : Node) {
-        Region.storeNat64(state.region, getOffset(number), node.offset);
-      };
+    public func loadAsValue(state : StableTrieState, offset : Nat64) : Blob {
+      Region.loadBlob(state.region, offset, value_size);
+    };
 
-      public func loadAsValue() : Blob {
-        Region.loadBlob(state.region, offset, value_size);
-      };
+    public func storeValue(state : StableTrieState, offset : Nat64, value : Blob) {
+      assert value_size == value_size;
+      Region.storeBlob(state.region, offset, value);
+      Region.storeBlob(state.region, offset & ((1 << (POINTER_SIZE * 8 - 1)) - 1) + Nat64.fromNat(key_size), value);
+    };
 
-      public func storeValue(value : Blob) {
-        assert value_size == value_size;
-        Region.storeBlob(state.region, offset, value);
-        Region.storeBlob(state.region, offset & ((1 << (POINTER_SIZE * 8 - 1)) - 1) + Nat64.fromNat(key_size), value);
-      };
+    public func isLeaf(offset : Nat64) : Bool {
+      offset & (1 << 63) > 0;
+    };
 
-      public func isLeaf() : Bool {
-        offset & (1 << 63) > 0;
-      };
+    public func getKey(state : StableTrieState, offset : Nat64) : Blob {
+      Region.loadBlob(state.region, offset & ((1 << (POINTER_SIZE * 8 - 1)) - 1), key_size);
+    };
 
-      public func key() : Blob {
-        Region.loadBlob(state.region, offset & ((1 << (POINTER_SIZE * 8 - 1)) - 1), key_size);
-      };
+    public func value(state : StableTrieState, offset : Nat64) : Blob {
+      Region.loadBlob(state.region, offset & ((1 << (POINTER_SIZE * 8 - 1)) - 1) + Nat64.fromNat(key_size), value_size);
+    };
 
-      public func value() : Blob {
-        Region.loadBlob(state.region, offset & ((1 << (POINTER_SIZE * 8 - 1)) - 1) + Nat64.fromNat(key_size), value_size);
-      };
-
-      public func print() {
-        Debug.print(
-          Nat64.toText(offset) # " node " # Text.join(
-            " ",
-            Iter.map<Nat, Text>(
-              Iter.range(0, children_number - 1),
-              func(x : Nat) : Text = switch (getChild(x)) {
-                case (null) "null";
-                case (?ch) if (ch.isLeaf()) debug_show (ch.key()) else Nat64.toText(ch.offset);
-              },
-            ),
-          )
-        );
-        for (x in Iter.range(0, children_number - 1)) {
-          switch (getChild(x)) {
-            case (null) {};
-            case (?ch) if (not ch.isLeaf()) ch.print();
-          };
+    public func print(state : StableTrieState, offset : Nat64) {
+      Debug.print(
+        Nat64.toText(offset) # " node " # Text.join(
+          " ",
+          Iter.map<Nat, Text>(
+            Iter.range(0, children_number - 1),
+            func(x : Nat) : Text = switch (getChild(state, offset, x)) {
+              case (null) "null";
+              case (?ch) if (isLeaf(ch)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
+            },
+          ),
+        )
+      );
+      for (x in Iter.range(0, children_number - 1)) {
+        switch (getChild(state, offset, x)) {
+          case (null) {};
+          case (?ch) if (not isLeaf(ch)) print(state, ch);
         };
       };
     };
@@ -144,15 +140,15 @@ module {
     public func add(key : Blob, value : Blob) : Bool {
       let s = state();
 
-      var node = Node(s, 0);
+      var node : Nat64 = 0;
       var last = 256;
 
       var depth = 0;
 
       label l for (byte in keyToBytes(key)) {
-        switch (node.getChild(byte)) {
+        switch (getChild(s, node, byte)) {
           case (?n) {
-            if (n.isLeaf()) {
+            if (isLeaf(n)) {
               last := byte;
               break l;
             };
@@ -168,14 +164,14 @@ module {
 
       assert last != 256;
 
-      switch (node.getChild(last)) {
+      switch (getChild(s, node, last)) {
         case (?old_leaf) {
-          if (not old_leaf.isLeaf()) {
+          if (not isLeaf(old_leaf)) {
             assert false;
             return false;
           };
 
-          let old_key = old_leaf.key();
+          let old_key = getKey(s, old_leaf);
           if (key == old_key) {
             return false;
           };
@@ -188,7 +184,7 @@ module {
           };
           label l while (true) {
             let add = newInternalNode(s);
-            node.setChild(last, add);
+            setChild(s, node, last, add);
             node := add;
 
             switch (bytes.next(), old_bytes.next()) {
@@ -196,8 +192,8 @@ module {
                 if (a == b) {
                   last := a;
                 } else {
-                  node.setChild(a, newLeaf(s, key, value));
-                  node.setChild(b, old_leaf);
+                  setChild(s, node, a, newLeaf(s, key, value));
+                  setChild(s, node, b, old_leaf);
                   break l;
                 };
               };
@@ -210,7 +206,7 @@ module {
           true;
         };
         case (null) {
-          node.setChild(last, newLeaf(s, key, value));
+          setChild(s, node, last, newLeaf(s, key, value));
           true;
         };
       };
@@ -220,12 +216,12 @@ module {
       let s = state();
       let bytes = keyToBytes(key);
 
-      var node = Node(s, 0);
+      var node : Nat64 = 0;
       for (byte in bytes) {
-        node := switch (node.getChild(byte)) {
+        node := switch (getChild(s, node, byte)) {
           case (?n) {
-            if (n.isLeaf()) {
-              if (n.key() == key) return ?n.value() else return null;
+            if (isLeaf(n)) {
+              if (getKey(s, n) == key) return ?value(s, n) else return null;
             };
             n;
           };
