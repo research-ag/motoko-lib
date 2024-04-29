@@ -18,12 +18,12 @@ module {
     let bench = Bench.Bench();
 
     let n = 18;
+    let cols = 4;
     let key_size = 8;
-    bench.rows(["2", "4", "16", "256"]);
-    bench.cols(Array.tabulate<Text>(n, func(i) = Nat.toText(i)));
+    bench.cols(["2", "4", "16", "256"]);
+    bench.rows(Array.tabulate<Text>(n, func(i) = Nat.toText(i)));
 
-    var k = 2;
-    var trie = StableTrie.StableTrie(k, key_size, 0);
+    var trie = Array.tabulate<StableTrie.StableTrie>(cols, func(i) = StableTrie.StableTrie(2 ** (2 ** i), key_size, 0));
 
     let rng = Prng.Seiran128();
     rng.init(0);
@@ -34,21 +34,23 @@ module {
       },
     );
 
+    var k = 0;
     bench.runner(
       func(row, col) {
         let r = Option.unwrap(Nat.fromText(row));
-        let c = Option.unwrap(Nat.fromText(col));
-        if (r != k) {
-          k := r;
-          trie := StableTrie.StableTrie(k, key_size, 0);
-        };
 
-        if (c == 0) {
-          ignore trie.add(keys[0], "");
+        let tr = trie[k];
+
+        if (r == 0) {
+          ignore tr.add(keys[0], "");
         } else {
-          for (j in Iter.range(2 ** (c - 1), 2 ** c - 1)) {
-            assert trie.add(keys[j], "");
+          for (j in Iter.range(2 ** (r - 1), 2 ** r - 1)) {
+            assert tr.add(keys[j], "");
           };
+        };
+        k += 1;
+        if (k == cols) {
+          k := 0;
         };
       }
     );
