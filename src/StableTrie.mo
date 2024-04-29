@@ -26,6 +26,7 @@ module {
     let subbyteLength = Nat64.bitcountTrailingZero(children_number);
     let subbytesInByte = 8 / subbyteLength;
     let subbyteMask = (1 << subbyteLength) - 1;
+    let offsetMask : Nat64 = (1 << (POINTER_SIZE * 8 - 1)) - 1;
 
     func newInternalNode(state : StableTrieState) : Nat64 {
       let old_size = state.size;
@@ -46,7 +47,7 @@ module {
       Region.storeBlob(state.region, old_size, key);
       Region.storeBlob(state.region, old_size + key_size, value);
       state.size := new_size;
-      old_size | (1 << (POINTER_SIZE * 8 - 1));
+      old_size | offsetMask;
     };
 
     func getOffset(offset : Nat64, number : Nat64) : Nat64 {
@@ -66,8 +67,6 @@ module {
       Region.loadBlob(state.region, offset, value_size_);
     };
 
-    let offsetMask : Nat64 = (1 << (POINTER_SIZE * 8 - 1)) - 1;
-
     public func storeValue(state : StableTrieState, offset : Nat64, value : Blob) {
       assert value_size == value_size;
       Region.storeBlob(state.region, offset, value);
@@ -75,7 +74,7 @@ module {
     };
 
     public func isLeaf(offset : Nat64) : Bool {
-      offset & (1 << 63) > 0;
+      offset & (offsetMask + 1) > 0;
     };
 
     public func getKey(state : StableTrieState, offset : Nat64) : Blob {
