@@ -4,14 +4,16 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
+import Debug "mo:base/Debug";
 
 import ICRC1 "ICRC1";
-import DepositRegistry "DepositRegistry";
+import NatMap "NatMapWithLock";
 import Mapping "Mapping";
 
 module {
+  public type Lock = { #notify; #consolidate };
   public type StableData = (
-    DepositRegistry.StableData, // depositRegistry
+    NatMap.StableData<Principal, Lock>, // depositRegistry
     Nat, // fee_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
@@ -44,7 +46,8 @@ module {
   ) {
 
     /// Manages deposit balances for each user.
-    let depositRegistry : DepositRegistry.DepositRegistry = DepositRegistry.DepositRegistry(freezeCallback);
+    //let depositRegistry : DepositRegistry.DepositRegistry = DepositRegistry.DepositRegistry(freezeCallback);
+    let depositRegistry = NatMap.NatMapWithLock<Principal, Lock>(Principal.compare);
 
     /// Current fee amount.
     var fee_ : Nat = initialFee;
@@ -110,21 +113,19 @@ module {
     public func consolidatedFunds() : Nat = totalConsolidated_ - totalWithdrawn_;
 
     /// Retrieves the deposit of a principal.
-    public func getDeposit(p : Principal) : Nat = depositRegistry.get(p).deposit;
+    public func getDeposit(p : Principal) : Nat = depositRegistry.get(p);
 
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      if (depositRegistry.isLock(p)) return null;
-
-      depositRegistry.lock(p, #notify);
+      let ?release = depositRegistry.obtainLock(p, #notify) else return null;
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
-        depositRegistry.unlock(p);
+        release(null);
         throw err;
       };
-      depositRegistry.unlock(p);
+      release(null);
 
       if (latestDeposit <= fee_) return ?0;
 
@@ -187,7 +188,7 @@ module {
 
     /// Attempts to consolidate the funds for a particular principal.
     func consolidate(p : Principal) : async* () {
-      let deposit = depositRegistry.get(p).deposit;
+      let deposit = depositRegistry.get(p);
 
       let originalFee = fee_;
       let transferResult = await* processConsolidationTransfer(p, deposit);
@@ -204,7 +205,8 @@ module {
             queuedFunds += deposit;
           };
         };
-        case (#Err _) { // all other errors
+        case (#Err _) {
+          // all other errors
           queuedFunds += deposit;
         };
         case (#Ok _) {};
@@ -213,28 +215,15 @@ module {
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
-      var entry : ?(Principal, DepositRegistry.DepositInfo) = null;
-
-      label L for (v in depositRegistry.entries()) {
-        if (not depositRegistry.isLock(v.0)) {
-          entry := ?v;
-          break L;
-        };
-      };
-
-      switch (entry) {
-        case (null) { return };
-        case (?(p, depositInfo)) {
-          let deposit = depositInfo.deposit;
-          depositRegistry.lock(p, #consolidate);
-          queuedFunds -= deposit;
-          underwayFunds += deposit;
-          await* consolidate(p);
-          underwayFunds -= deposit;
-          depositRegistry.unlock(p);
-          assertIntegrity();
-        };
-      };
+      let ?p = depositRegistry.firstUnlocked() else return;
+      let ?release = depositRegistry.obtainLock(p, #consolidate) else Debug.trap("Failed to obtain lock");
+      let deposit = depositRegistry.get(p);
+      queuedFunds -= deposit;
+      underwayFunds += deposit;
+      await* consolidate(p);
+      underwayFunds -= deposit;
+      release(null);
+      assertIntegrity();
     };
 
     /// Processes the transfer of funds for withdrawal.
@@ -313,8 +302,11 @@ module {
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee > prevFee) {
         label L for ((p, info) in depositRegistry.entries()) {
-          if (info.lock == #consolidate) continue L;
-          let deposit = info.deposit;
+          switch (info.lock) {
+            case (?#consolidate) continue L;
+            case (_) {};
+          };
+          let deposit = info.value;
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
             debit(p, deposit - prevFee);
@@ -351,8 +343,8 @@ module {
 
     /// Updates the specified principal's deposit. Returns previous deposit.
     func updateDeposit(p : Principal, deposit : Nat) : Nat {
-      var prevDeposit = depositRegistry.get(p).deposit;
-      depositRegistry.setDeposit(p, deposit);
+      var prevDeposit = depositRegistry.get(p);
+      depositRegistry.set(p, deposit);
       depositedFunds_ += deposit;
       depositedFunds_ -= prevDeposit;
       prevDeposit;
