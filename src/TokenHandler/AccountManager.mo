@@ -118,38 +118,35 @@ module {
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
-        release(null);
+        ignore release(null);
         throw err;
       };
 
       if (latestDeposit <= fee_) {
-        release(null);
+        ignore release(null);
         return ?0;
       };
 
-      release(null);
-
-      let prevDeposit = updateDeposit(p, latestDeposit);
-
-      if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
-      let depositDelta = latestDeposit - prevDeposit : Nat;
-      if (depositDelta == 0) return ?0;
+      let delta = release(?latestDeposit);
+      if (delta < 0) freezeCallback("latestDeposit < prevDeposit on notify");
+      if (delta == 0) return ?0;
+      let inc = Int.abs(delta);
 
       // precredit incremental difference
-      if (prevDeposit == 0) {
+      if (latestDeposit == inc) {
         credit(p, latestDeposit - fee_);
       } else {
-        credit(p, depositDelta);
+        credit(p, inc);
       };
 
-      queuedFunds += depositDelta;
-      log(p, #newDeposit(depositDelta));
+      queuedFunds += inc;
+      log(p, #newDeposit(inc));
 
       // schedule a canister self-call to initiate the consolidation
       // we need try-catch so that we don't trap if scheduling fails synchronously
       try ignore trigger() catch (_) {};
 
-      return ?depositDelta;
+      return ?inc;
     };
 
     /// Processes the consolidation transfer for a principal.
@@ -174,7 +171,6 @@ module {
 
       switch (transferResult) {
         case (#Ok _) {
-          ignore updateDeposit(p, 0);
           totalConsolidated_ += transferAmount;
           log(p, #consolidated({ deducted = deposit; credited = transferAmount }));
         };
@@ -187,7 +183,7 @@ module {
     };
 
     /// Attempts to consolidate the funds for a particular principal.
-    func consolidate(p : Principal) : async* () {
+    func consolidate(p : Principal) : async* Bool {
       let deposit = depositRegistry.get(p);
 
       let originalFee = fee_;
@@ -198,18 +194,13 @@ module {
           debit(p, deposit - originalFee);
           setNewFee(expected_fee);
 
-          if (deposit <= fee_) {
-            ignore updateDeposit(p, 0);
-          } else {
-            credit(p, deposit - expected_fee);
-            queuedFunds += deposit;
+          if (deposit > fee_) {
+            credit(p, deposit - fee_);
           };
+          false;
         };
-        case (#Err _) {
-          // all other errors
-          queuedFunds += deposit;
-        };
-        case (#Ok _) {};
+        case (#Err _) false; // all other errors
+        case (#Ok _) true;
       };
     };
 
@@ -220,9 +211,14 @@ module {
       let deposit = depositRegistry.get(p);
       queuedFunds -= deposit;
       underwayFunds += deposit;
-      await* consolidate(p);
+      let success = await* consolidate(p);
       underwayFunds -= deposit;
-      release(null);
+      if (success or deposit <= fee_) {
+        ignore release(?0);
+      } else {
+        ignore release(null);
+        queuedFunds += deposit;
+      };
       assertIntegrity();
     };
 
@@ -303,12 +299,12 @@ module {
       if (newFee > prevFee) {
         label L for ((p, info) in depositRegistry.entries()) {
           switch (info.lock) {
-            case (?#consolidate) continue L;
+            case (? #consolidate) continue L;
             case (_) {};
           };
           let deposit = info.value;
           if (deposit <= newFee) {
-            ignore updateDeposit(p, 0);
+            depositRegistry.erase(p);
             debit(p, deposit - prevFee);
             queuedFunds -= deposit;
           };
@@ -339,13 +335,6 @@ module {
         ];
         freezeCallback(Text.join("; ", Iter.fromArray(values)));
       };
-    };
-
-    /// Updates the specified principal's deposit. Returns previous deposit.
-    func updateDeposit(p : Principal, deposit : Nat) : Nat {
-      var prevDeposit = depositRegistry.get(p);
-      depositRegistry.set(p, deposit);
-      prevDeposit;
     };
 
     /// Fetches actual deposit for a principal from the ICRC1 ledger.

@@ -72,7 +72,7 @@ module {
     // The function `f` can be used to write a new value to `k` and release the lock at the same time.
     // The new value is optional.
     // If `null` is supplied then `f` releases the lock without changing the value.
-    public func obtainLock(k : K, l : L) : ?(?Nat -> ()) {
+    public func obtainLock(k : K, l : L) : ?(?Nat -> Int) {
       lookupCtr += 1;
       let info = switch (tree.get(k)) {
         case (?r) {
@@ -90,10 +90,10 @@ module {
           r;
         };
       };
-      func releaseLock(arg : ?Nat) {
+      func releaseLock(arg : ?Nat) : Int {
         if (Option.isNull(info.lock)) Prim.trap("Cannot happen: lock must be set");
         info.lock := null;
-        switch (arg) {
+        let delta : Int = switch (arg) {
           case (?new_value) {
             let old_value = info.value;
             if (old_value == 0 and new_value > 0) size_ += 1;
@@ -101,13 +101,15 @@ module {
             sum_ -= old_value;
             sum_ += new_value;
             info.value := new_value;
+            new_value - old_value;
           };
-          case (null) {};
+          case (null) 0;
         };
         if (info.value == 0) {
           lookupCtr += 1;
           tree.delete(k);
         };
+        delta
       };
       return ?releaseLock;
     };
