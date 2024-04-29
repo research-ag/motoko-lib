@@ -3,8 +3,8 @@
 import Prng "mo:prng";
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
-import Nat64 "mo:base/Nat64";
 import Nat8 "mo:base/Nat8";
+import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
