@@ -47,7 +47,7 @@ module {
       Region.storeBlob(state.region, old_size, key);
       Region.storeBlob(state.region, old_size + key_size, value);
       state.size := new_size;
-      old_size | offsetMask;
+      old_size | (offsetMask + 1);
     };
 
     func getOffset(offset : Nat64, number : Nat64) : Nat64 {
@@ -155,7 +155,8 @@ module {
 
       var depth = 0;
 
-      label l for (byte in keyToBytes(key)) {
+      let bytes = keyToBytes(key);
+      label l for (byte in bytes) {
         switch (getChild(s, node, byte)) {
           case (?n) {
             if (isLeaf(n)) {
@@ -186,11 +187,9 @@ module {
             return false;
           };
 
-          let bytes = keyToBytes(key);
           let old_bytes = keyToBytes(old_key);
           for (i in Iter.range(0, depth : Int)) {
             ignore old_bytes.next();
-            ignore bytes.next();
           };
           label l while (true) {
             let add = newInternalNode(s);
