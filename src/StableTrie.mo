@@ -20,6 +20,13 @@ module {
     assert children_number == 2 or children_number == 4 or children_number == 16 or children_number == 256;
     assert key_size >= 1;
 
+    // initialize the state
+    let state : StableTrieState = {
+      region = Region.new();
+      var size = children_number * Nat64.toNat(POINTER_SIZE);
+    };
+    assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+
     let leafBit : Nat = Nat64.toNat(POINTER_SIZE) * 8 - 1;
     let nodeSize : Nat = children_number * Nat64.toNat(POINTER_SIZE);
     let leafSize : Nat = key_size + value_size;
@@ -28,7 +35,7 @@ module {
 
     var regionSpace = 0;
 
-    func newInternalNode(state : StableTrieState) : Nat64 {
+    func newInternalNode() : Nat64 {
       if (regionSpace < nodeSize) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
@@ -39,7 +46,7 @@ module {
       pos;
     };
 
-    func newLeaf(state : StableTrieState, key : Blob, value : Blob) : Nat64 {
+    func newLeaf(key : Blob, value : Blob) : Nat64 {
       if (regionSpace < leafSize) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
@@ -52,46 +59,48 @@ module {
       Nat64.bitset(pos, leafBit);
     };
 
-    public func getChild(state : StableTrieState, node : Nat64, index : Nat8) : Nat64 {
+    public func getChild(node : Nat64, index : Nat8) : Nat64 {
       Region.loadNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE);
     };
 
-    public func setChild(state : StableTrieState, node : Nat64, index : Nat8, child : Nat64) {
+    public func setChild(node : Nat64, index : Nat8, child : Nat64) {
       Region.storeNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE, child);
     };
 
-    public func getKey(state : StableTrieState, offset : Nat64) : Blob {
+    public func getKey(offset : Nat64) : Blob {
       Region.loadBlob(state.region, Nat64.bitclear(offset, leafBit), key_size);
     };
 
-    public func value(state : StableTrieState, offset : Nat64) : Blob {
+    public func value(offset : Nat64) : Blob {
       Region.loadBlob(state.region, Nat64.bitclear(offset, leafBit) + Nat64.fromIntWrap(key_size), value_size);
     };
 
-    public func print(state : StableTrieState, offset : Nat64) {
+    public func print(offset : Nat64) {
       Debug.print(
         Nat64.toText(offset) # " node " # Text.join(
           " ",
           Iter.map<Nat, Text>(
             Iter.range(0, children_number - 1),
-            func(x : Nat) : Text = switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
+            func(x : Nat) : Text = switch (getChild(offset, Nat8.fromIntWrap(x))) {
               case (0) "null";
-              case (ch) if (Nat64.bittest(ch, leafBit)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
+              case (ch) if (Nat64.bittest(ch, leafBit)) debug_show (getKey(ch)) else Nat64.toText(ch);
             },
           ),
         )
       );
       for (x in Iter.range(0, children_number - 1)) {
-        switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
+        switch (getChild(offset, Nat8.fromIntWrap(x))) {
           case (0) {};
-          case (ch) if (not Nat64.bittest(ch, leafBit)) print(state, ch);
+          case (ch) if (not Nat64.bittest(ch, leafBit)) print(ch);
         };
       };
     };
 
     var state_ : ?StableTrieState = null;
 
-    func state() : StableTrieState {
+    /*
+    func state() : StableTrieState = state;
+    {
       switch (state_) {
         case (?s) s;
         case (null) {
@@ -105,6 +114,7 @@ module {
         };
       };
     };
+    */
 
     let (bitlength, bitmask) : (Nat16, Nat16) = switch (children_number) {
       case (2) (1, 0x1);
@@ -133,8 +143,6 @@ module {
     };
 
     public func add(key : Blob, value : Blob) : Bool {
-      let s = state();
-
       var node : Nat64 = 0; // root node
       var old_leaf : Nat64 = 0;
 
@@ -143,9 +151,9 @@ module {
       let indices = keyToIndices(key);
       var last = label l : Nat8 loop {
         let ?idx = indices.next() else Debug.trap("cannot happen");
-        switch (getChild(s, node, idx)) {
+        switch (getChild(node, idx)) {
           case (0) {
-            setChild(s, node, idx, newLeaf(s, key, value));
+            setChild(node, idx, newLeaf(key, value));
             return true;
           };
           case (n) {
@@ -159,7 +167,7 @@ module {
         };
       };
 
-      let old_key = getKey(s, old_leaf);
+      let old_key = getKey(old_leaf);
       if (key == old_key) {
         return false;
       };
@@ -169,8 +177,8 @@ module {
         ignore old_indices.next();
       };
       label l loop {
-        let add = newInternalNode(s);
-        setChild(s, node, last, add);
+        let add = newInternalNode();
+        setChild(node, last, add);
         node := add;
 
         switch (indices.next(), old_indices.next()) {
@@ -178,8 +186,8 @@ module {
             if (a == b) {
               last := a;
             } else {
-              setChild(s, node, a, newLeaf(s, key, value));
-              setChild(s, node, b, old_leaf);
+              setChild(node, a, newLeaf(key, value));
+              setChild(node, b, old_leaf);
               break l;
             };
           };
@@ -193,18 +201,17 @@ module {
     };
 
     public func get(key : Blob) : ?Blob {
-      let s = state();
       let indices = keyToIndices(key);
 
       var node : Nat64 = 0;
       for (idx in indices) {
-        node := switch (getChild(s, node, idx)) {
+        node := switch (getChild(node, idx)) {
           case (0) {
             return null;
           };
           case (n) {
             if (Nat64.bittest(n, leafBit)) {
-              if (getKey(s, n) == key) return ?value(s, n) else return null;
+              if (getKey(n) == key) return ?value(n) else return null;
             };
             n;
           };
@@ -215,9 +222,9 @@ module {
       null;
     };
 
-    public func size() : Nat = state().size;
+    public func size() : Nat = state.size;
 
-    public func share() : StableTrieState = state();
+    public func share() : StableTrieState = state;
 
     public func unshare(data : StableTrieState) {
       assert Option.isNull(state_);
