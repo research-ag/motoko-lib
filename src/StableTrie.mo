@@ -136,53 +136,29 @@ module {
       let s = state();
 
       var node : Nat64 = 0; // root node
-      var last : Nat8 = 0;
       var last_child : Nat64 = 0;
 
       var depth = 0;
 
       let indices = keyToIndices(key);
-      label l loop {
+      var last = label l : Nat8 loop {
         let ?idx = indices.next() else Debug.trap("cannot happen");
         switch (getChild(s, node, idx)) {
           case (0) {
-            last := idx;
             last_child := 0; 
-            break l;
+            break l idx;
           };
           case (n) {
             if (Nat64.bittest(n, leafBit)) {
-              last := idx;
               last_child := n; 
-              break l;
+              break l idx;
             };
             node := n;
             depth += 1;
           };
         };
       };
-      /*
-      label l for (idx in indices) {
-        switch (getChild(s, node, idx)) {
-          case (0) {
-            last := idx;
-            last_child := 0; 
-            break l;
-          };
-          case (n) {
-            if (Nat64.bittest(n, leafBit)) {
-              last := idx;
-              last_child := n; 
-              break l;
-            };
-            node := n;
-            depth += 1;
-          };
-        };
-      };
-      */
 
-      //switch (getChild(s, node, last)) {
       switch (last_child) {
         case (0) {
           setChild(s, node, last, newLeaf(s, key, value));
