@@ -29,10 +29,10 @@ let anon_p = Principal.fromBlob("");
 let user1 = Principal.fromBlob("1");
 // let account = { owner = Principal.fromBlob("1"); subaccount = null };
 
-func create_inc() : (Nat -> Nat, Nat) {
+func create_inc() : (Nat -> Nat, () -> Nat) {
   var journalCtr = 0;
   func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
-  (inc, journalCtr);
+  (inc, func() { journalCtr });
 };
 
 func assert_state(handler : TokenHandler.TokenHandler, x : (Nat, Nat, Nat)) {
@@ -134,7 +134,7 @@ do {
   // increase fee while notify is underway (and item still in queue)
   // scenario 2: old_fee < previous <= new_fee < latest
   let release2 = ledger.balance_.stage(?20);
-  let f2 = async { await* handler.notify(user1) }; // would return ?(5,10) at old fee
+  let f2 = async { await* handler.notify(user1) }; // would return ?(5, 10) at old fee
   ledger.fee_.stage(?15)(); // fee 10 -> 15
   assert_state(handler, (15, 0, 1)); // state from before
   ignore await* handler.updateFee();
@@ -146,16 +146,30 @@ do {
   assert handler.journalLength() == inc(2); // #newDeposit, #credited
   print("tree lookups = " # debug_show handler.lookups());
 
+  // decrease fee while notify is underway (and item still in queue)
+  // new_fee < old_fee < previous == latest
+  let release3 = ledger.balance_.stage(?20);
+  let f3 = async { await* handler.notify(user1) }; // would return ?(0, 5) at old fee
+  ledger.fee_.stage(?10)(); // fee 15 -> 10
+  assert_state(handler, (20, 0, 1)); // state from before
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(2); // #feeUpdated, #credited
+  assert_state(handler, (20, 0, 1)); // state unchanged
+  release3(); // let notify return
+  assert (await f3) == ?(0, 10); // credit increased
+  assert_state(handler, (20, 0, 1)); // state unchanged
+  print("tree lookups = " # debug_show handler.lookups());
+
   // call multiple notify() simultaneously
   // only the first should return state, the rest should not be executed
-  let release3 = ledger.balance_.stage(?20);
+  let release4 = ledger.balance_.stage(?20);
   let fut1 = async { await* handler.notify(user1) };
   let fut2 = async { await* handler.notify(user1) };
   let fut3 = async { await* handler.notify(user1) };
   assert (await fut2) == null; // should return null
   assert (await fut3) == null; // should return null
-  release3(); // let notify return
-  assert (await fut1) == ?(0, 5); // first notify() should return state
+  release4(); // let notify return
+  assert (await fut1) == ?(0, 10); // first notify() should return state
   assert_state(handler, (20, 0, 1)); // state unchanged because deposit has not changed
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
@@ -175,7 +189,6 @@ do {
   ledger.balance_.stage(?7)();
   assert (await* handler.notify(user1)) == ?(7, 2); // deposit = 7, credit = 2
   assert_state(handler, (7, 0, 1));
-  Debug.journal(handler, 0);
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
   print("tree lookups = " # debug_show handler.lookups());
 

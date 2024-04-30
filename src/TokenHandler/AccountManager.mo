@@ -204,7 +204,8 @@ module {
             queuedFunds += deposit;
           };
         };
-        case (#Err _) { // all other errors
+        case (#Err _) {
+          // all other errors
           queuedFunds += deposit;
         };
         case (#Ok _) {};
@@ -311,16 +312,22 @@ module {
     /// Recalculates the deposit registry after the fee change.
     /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
-      if (newFee > prevFee) {
-        label L for ((p, info) in depositRegistry.entries()) {
-          if (info.lock == #consolidate) continue L;
-          let deposit = info.deposit;
+      if (newFee == prevFee) return;
+
+      label L for ((p, info) in depositRegistry.entries()) {
+        if (info.lock == #consolidate) continue L;
+        let deposit = info.deposit;
+
+        if (newFee > prevFee) {
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
             debit(p, deposit - prevFee);
             queuedFunds -= deposit;
           };
+          continue L;
         };
+
+        credit(p, prevFee - newFee);
       };
     };
 
