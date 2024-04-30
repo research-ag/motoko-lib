@@ -52,9 +52,8 @@ module {
       Nat64.bitset(pos, leafBit);
     };
 
-    public func getChild(state : StableTrieState, node : Nat64, index : Nat8) : ?Nat64 {
-      let child = Region.loadNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE);
-      if (child == 0) null else ?child;
+    public func getChild(state : StableTrieState, node : Nat64, index : Nat8) : Nat64 {
+      Region.loadNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE);
     };
 
     public func setChild(state : StableTrieState, node : Nat64, index : Nat8, child : Nat64) {
@@ -80,16 +79,16 @@ module {
           Iter.map<Nat, Text>(
             Iter.range(0, children_number - 1),
             func(x : Nat) : Text = switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
-              case (null) "null";
-              case (?ch) if (isLeaf(ch)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
+              case (0) "null";
+              case (ch) if (isLeaf(ch)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
             },
           ),
         )
       );
       for (x in Iter.range(0, children_number - 1)) {
         switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
-          case (null) {};
-          case (?ch) if (not isLeaf(ch)) print(state, ch);
+          case (0) {};
+          case (ch) if (not isLeaf(ch)) print(state, ch);
         };
       };
     };
@@ -148,7 +147,11 @@ module {
       let indices = keyToIndices(key);
       label l for (idx in indices) {
         switch (getChild(s, node, idx)) {
-          case (?n) {
+          case (0) {
+            last := idx;
+            break l;
+          };
+          case (n) {
             if (isLeaf(n)) {
               last := idx;
               break l;
@@ -156,15 +159,15 @@ module {
             node := n;
             depth += 1;
           };
-          case (null) {
-            last := idx;
-            break l;
-          };
         };
       };
 
       switch (getChild(s, node, last)) {
-        case (?old_leaf) {
+        case (0) {
+          setChild(s, node, last, newLeaf(s, key, value));
+          true;
+        };
+        case (old_leaf) {
           if (not isLeaf(old_leaf)) {
             assert false;
             return false;
@@ -202,10 +205,6 @@ module {
           };
           true;
         };
-        case (null) {
-          setChild(s, node, last, newLeaf(s, key, value));
-          true;
-        };
       };
     };
 
@@ -216,14 +215,14 @@ module {
       var node : Nat64 = 0;
       for (idx in indices) {
         node := switch (getChild(s, node, idx)) {
-          case (?n) {
+          case (0) {
+            return null;
+          };
+          case (n) {
             if (isLeaf(n)) {
               if (getKey(s, n) == key) return ?value(s, n) else return null;
             };
             n;
-          };
-          case (null) {
-            return null;
           };
         };
       };
