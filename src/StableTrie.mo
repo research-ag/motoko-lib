@@ -13,7 +13,7 @@ module {
 
   type StableTrieState = {
     region : Region.Region;
-    var size : Nat;
+    size : Nat;
   };
 
   public class StableTrie(children_number : Nat, key_size : Nat, value_size : Nat) {
@@ -21,11 +21,10 @@ module {
     assert key_size >= 1;
 
     // initialize the state
-    let state : StableTrieState = {
-      region = Region.new();
-      var size = children_number * Nat64.toNat(POINTER_SIZE);
-    };
-    assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+    var region = Region.new();
+    var size = children_number * Nat64.toNat(POINTER_SIZE);
+
+    assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
 
     let leafBit : Nat = Nat64.toNat(POINTER_SIZE) * 8 - 1;
     let nodeSize : Nat = children_number * Nat64.toNat(POINTER_SIZE);
@@ -37,42 +36,42 @@ module {
 
     func newInternalNode() : Nat64 {
       if (regionSpace < nodeSize) {
-        assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+        assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
-      let pos = Nat64.fromIntWrap(state.size);
-      state.size += nodeSize;
+      let pos = Nat64.fromIntWrap(size);
+      size += nodeSize;
       regionSpace -= nodeSize;
       pos;
     };
 
     func newLeaf(key : Blob, value : Blob) : Nat64 {
       if (regionSpace < leafSize) {
-        assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+        assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
-      let pos = Nat64.fromIntWrap(state.size);
-      state.size += leafSize;
+      let pos = Nat64.fromIntWrap(size);
+      size += leafSize;
       regionSpace -= leafSize;
-      Region.storeBlob(state.region, pos, key);
-      Region.storeBlob(state.region, pos + key_size_64, value);
+      Region.storeBlob(region, pos, key);
+      Region.storeBlob(region, pos + key_size_64, value);
       Nat64.bitset(pos, leafBit);
     };
 
     public func getChild(node : Nat64, index : Nat8) : Nat64 {
-      Region.loadNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE);
+      Region.loadNat64(region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE);
     };
 
     public func setChild(node : Nat64, index : Nat8, child : Nat64) {
-      Region.storeNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE, child);
+      Region.storeNat64(region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE, child);
     };
 
     public func getKey(offset : Nat64) : Blob {
-      Region.loadBlob(state.region, Nat64.bitclear(offset, leafBit), key_size);
+      Region.loadBlob(region, Nat64.bitclear(offset, leafBit), key_size);
     };
 
     public func value(offset : Nat64) : Blob {
-      Region.loadBlob(state.region, Nat64.bitclear(offset, leafBit) + Nat64.fromIntWrap(key_size), value_size);
+      Region.loadBlob(region, Nat64.bitclear(offset, leafBit) + Nat64.fromIntWrap(key_size), value_size);
     };
 
     public func print(offset : Nat64) {
@@ -222,13 +221,13 @@ module {
       null;
     };
 
-    public func size() : Nat = state.size;
+    public func getSize() : Nat = size;
 
-    public func share() : StableTrieState = state;
+    public func share() : StableTrieState = { region = region; size = size };
 
     public func unshare(data : StableTrieState) {
-      assert Option.isNull(state_);
-      state_ := ?data;
+      region := data.region;
+      size := data.size;
     };
   };
 };

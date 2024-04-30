@@ -59,6 +59,6 @@ while (n1 > 0) {
 };
 
 
-Debug.print("trie size: " # debug_show trie.size());
+Debug.print("trie size: " # debug_show trie.getSize());
 Debug.print("trie keys: " # debug_show (max * max));
-Debug.print("bytes per key: " # debug_show (trie.size() / (max * max)));
+Debug.print("bytes per key: " # debug_show (trie.getSize() / (max * max)));

@@ -74,7 +74,7 @@ func profile() {
               assert trie.add(keys[j], "");
             };
           };
-          Nat.toText(trie.size() / 2 ** i);
+          Nat.toText(trie.getSize() / 2 ** i);
         },
       );
       (first, second);
