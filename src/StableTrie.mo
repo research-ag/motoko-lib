@@ -152,7 +152,7 @@ module {
             break l;
           };
           case (n) {
-            if (isLeaf(n)) {
+            if (Nat64.bittest(n, leafBit)) {
               last := idx;
               break l;
             };
@@ -168,7 +168,7 @@ module {
           true;
         };
         case (old_leaf) {
-          if (not isLeaf(old_leaf)) {
+          if (not Nat64.bittest(old_leaf, leafBit)) {
             assert false;
             return false;
           };
@@ -219,7 +219,7 @@ module {
             return null;
           };
           case (n) {
-            if (isLeaf(n)) {
+            if (Nat64.bittest(n, leafBit)) {
               if (getKey(s, n) == key) return ?value(s, n) else return null;
             };
             n;
