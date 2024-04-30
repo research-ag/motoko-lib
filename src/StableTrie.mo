@@ -151,8 +151,10 @@ module {
       };
 
       let old_indices = keyToIndices(old_key);
-      for (i in Iter.range(0, depth : Int)) {
+      var i = depth + 1;
+      while (i != 0) {
         ignore old_indices.next();
+        i -= 1;
       };
       label l loop {
         let add = newInternalNode();
