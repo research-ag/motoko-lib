@@ -105,7 +105,7 @@ module {
 
     func keyToIndices(key : Blob) : Iter.Iter<Nat8> {
       let iter = key.vals();
-      if (children_number == 256) return iter;
+      if (bitlength == 8) return iter;
       object {
         var byte : Nat16 = 1;
         public func next() : ?Nat8 {
