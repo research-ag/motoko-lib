@@ -124,32 +124,28 @@ module {
       };
     };
 
-    let (subN, bitlength, bitmask) : (Nat8, Nat8, Nat8) = switch (children_number) {
-      case (2) (8, 1, 0x1);
-      case (4) (4, 2, 0x3);
-      case (16) (2, 4, 0xf);
-      case (256) (1, 8, 0xff);
-      case (_) (0, 0, 0x0);
+    let (bitlength, bitmask) : (Nat16, Nat16) = switch (children_number) {
+      case (2) (1, 0x1);
+      case (4) (2, 0x3);
+      case (16) (4, 0xf);
+      case (_) (0, 0x0);
     };
 
     func keyToIndices(key : Blob) : Iter.Iter<Nat8> {
       let iter = key.vals();
       if (children_number == 256) return iter;
       object {
-        var sub : Nat8 = 0;
-        var byte : Nat8 = 0;
+        var byte : Nat16 = 1;
         public func next(): ?Nat8 { 
-          if (sub == 0) {
+          if (byte == 1) {
             switch (iter.next()) {
-              case (?b) byte := b;
+              case (?b) byte := Nat8.toNat16(b) | 256;
               case (null) return null;
             };
-            sub := subN;
           } else {
-            sub -= 1;
             byte := byte >> bitlength;
           };
-          return ?(byte & bitmask);
+          return ?Nat8.fromNat16(byte & bitmask);
         };
       };
     };
