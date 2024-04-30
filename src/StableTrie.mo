@@ -107,32 +107,27 @@ module {
       case (_) (0, 0);
     };
 
-    func keyToIndices(key : Blob, depth : Nat) : Iter.Iter<Nat8> {
+    func keyToIndices(key : Blob, depth : Nat) : () -> Nat8 {
       var skipBits = Nat16.fromIntWrap(depth) * bitlength;
       let iter = key.vals();
       while (skipBits >= 8) {
         ignore iter.next();
         skipBits -= 8;
       };
-      if (bitlength == 8) return iter;
-      let ?first = iter.next() else return object {
-        public func next() : ?Nat8 = null;
-      };
-      object {
-        var byte : Nat16 = (Nat8.toNat16(first) | 256) >> skipBits;
-        public func next() : ?Nat8 {
-          if (byte == 1) {
-            switch (iter.next()) {
-              case (?b) {
-                byte := Nat8.toNat16(b) | 256;
-              };
-              case (null) return null;
+      let ?first = iter.next() else Debug.trap("shoud not happen");
+      var byte : Nat16 = (Nat8.toNat16(first) | 256) >> skipBits;
+      func _next() : Nat8 {
+        if (byte == 1) {
+          switch (iter.next()) {
+            case (?b) {
+              byte := Nat8.toNat16(b) | 256;
             };
+            case (null) Debug.trap("should not happen");
           };
-          let ret = Nat8.fromNat16(byte & bitmask);
-          byte >>= bitlength;
-          return ?ret;
         };
+        let ret = Nat8.fromNat16(byte & bitmask);
+        byte >>= bitlength;
+        return ret;
       };
     };
 
@@ -142,22 +137,7 @@ module {
 
       var depth = 0;
 
-//      let indices = keyToIndices(key, 0);
-      var byte : Nat16 = 1;
-      let iter = key.vals();
-      func next_idx() : Nat8 {
-        if (byte == 1) {
-          switch (iter.next()) {
-            case (?b) {
-              byte := Nat8.toNat16(b) | 256;
-            };
-            case (null) Debug.trap("cannot happen");
-          };
-        };
-        let ret = Nat8.fromNat16(byte & bitmask);
-        byte >>= bitlength;
-        return ret;
-      };
+      let next_idx = keyToIndices(key, 0);
       var last = label l : Nat8 loop {
         let idx = next_idx();
         switch (getChild(node, idx)) {
@@ -181,36 +161,30 @@ module {
         return false;
       };
 
-      let old_indices = keyToIndices(old_key, depth + 1);
+      let next_old_idx = keyToIndices(old_key, depth + 1);
       label l loop {
         let add = newInternalNode();
         setChild(node, last, add);
         node := add;
 
-        switch (next_idx(), old_indices.next()) {
-          case (a, ?b) {
-            if (a == b) {
-              last := a;
-            } else {
-              setChild(node, a, newLeaf(key, value));
-              setChild(node, b, old_leaf);
-              break l;
-            };
-          };
-          case (_, _) {
-            assert false;
-            break l;
-          };
+        let (a, b) = (next_idx(), next_old_idx());
+        if (a == b) {
+          last := a;
+        } else {
+          setChild(node, a, newLeaf(key, value));
+          setChild(node, b, old_leaf);
+          break l;
         };
       };
       true;
     };
 
     public func get(key : Blob) : ?Blob {
-      let indices = keyToIndices(key, 0);
+      let next_idx = keyToIndices(key, 0);
 
       var node : Nat64 = 0;
-      for (idx in indices) {
+      loop {
+        let idx = next_idx();
         node := switch (getChild(node, idx)) {
           case (0) {
             return null;
