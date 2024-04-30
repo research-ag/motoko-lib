@@ -130,7 +130,9 @@ module {
         skipBits -= 8;
       };
       if (bitlength == 8) return iter;
-      let ?first = iter.next() else return object { public func next() : ?Nat8 = null };
+      let ?first = iter.next() else return object {
+        public func next() : ?Nat8 = null;
+      };
       object {
         var byte : Nat16 = (Nat8.toNat16(first) | 256) >> skipBits;
         public func next() : ?Nat8 {
@@ -155,7 +157,7 @@ module {
 
       var depth = 0;
 
-      let indices = keyToIndices(key);
+      let indices = keyToIndicesSkip(key, 0);
       var last = label l : Nat8 loop {
         let ?idx = indices.next() else Debug.trap("cannot happen");
         switch (getChild(node, idx)) {
@@ -205,7 +207,7 @@ module {
     };
 
     public func get(key : Blob) : ?Blob {
-      let indices = keyToIndices(key);
+      let indices = keyToIndicesSkip(key, 0);
 
       var node : Nat64 = 0;
       for (idx in indices) {
