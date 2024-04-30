@@ -124,6 +124,36 @@ module {
       };
     };
 
+    let (subN, bitlength, bitmask) : (Nat8, Nat8, Nat8) = switch (children_number) {
+      case (2) (8, 1, 0x1);
+      case (4) (4, 2, 0x3);
+      case (16) (2, 4, 0xf);
+      case (256) (1, 8, 0xff);
+      case (_) (0, 0, 0x0);
+    };
+
+    func keyToIndices(key : Blob) : Iter.Iter<Nat64> {
+      let iter = key.vals();
+//      if (children_number == 256) return iter;
+      object {
+        var sub : Nat8 = 0;
+        var byte : Nat8 = 0;
+        public func next(): ?Nat64 { 
+          if (sub == 0) {
+            switch (iter.next()) {
+              case (?b) byte := b;
+              case (null) return null;
+            };
+            sub := subN;
+          } else {
+            sub -= 1;
+            byte := byte >> bitlength;
+          };
+          return ?Nat64.fromIntWrap(Nat8.toNat(byte & bitmask));
+        };
+      };
+    };
+
     func keyToBytes(key : Blob) : Iter.Iter<Nat64> {
       let bytes = Blob.toArray(key);
       assert bytes.size() == key_size;
@@ -156,7 +186,7 @@ module {
 
       var depth = 0;
 
-      let bytes = keyToBytes(key);
+      let bytes = keyToIndices(key);
       label l for (byte in bytes) {
         switch (getChild(s, node, byte)) {
           case (?n) {
@@ -188,7 +218,7 @@ module {
             return false;
           };
 
-          let old_bytes = keyToBytes(old_key);
+          let old_bytes = keyToIndices(old_key);
           for (i in Iter.range(0, depth : Int)) {
             ignore old_bytes.next();
           };
@@ -224,7 +254,7 @@ module {
 
     public func get(key : Blob) : ?Blob {
       let s = state();
-      let bytes = keyToBytes(key);
+      let bytes = keyToIndices(key);
 
       var node : Nat64 = 0;
       for (byte in bytes) {
