@@ -103,26 +103,7 @@ module {
       case (_) (0, 0);
     };
 
-    func keyToIndices(key : Blob) : Iter.Iter<Nat8> {
-      let iter = key.vals();
-      if (bitlength == 8) return iter;
-      object {
-        var byte : Nat16 = 1;
-        public func next() : ?Nat8 {
-          if (byte == 1) {
-            switch (iter.next()) {
-              case (?b) byte := Nat8.toNat16(b) | 256;
-              case (null) return null;
-            };
-          };
-          let ret = Nat8.fromNat16(byte & bitmask);
-          byte >>= bitlength;
-          return ?ret;
-        };
-      };
-    };
-
-    func keyToIndicesSkip(key : Blob, depth : Nat) : Iter.Iter<Nat8> {
+    func keyToIndices(key : Blob, depth : Nat) : Iter.Iter<Nat8> {
       var skipBits = Nat16.fromIntWrap(depth) * bitlength;
       let iter = key.vals();
       while (skipBits >= 8) {
@@ -157,7 +138,7 @@ module {
 
       var depth = 0;
 
-      let indices = keyToIndicesSkip(key, 0);
+      let indices = keyToIndices(key, 0);
       var last = label l : Nat8 loop {
         let ?idx = indices.next() else Debug.trap("cannot happen");
         switch (getChild(node, idx)) {
@@ -181,7 +162,7 @@ module {
         return false;
       };
 
-      let old_indices = keyToIndicesSkip(old_key, depth + 1);
+      let old_indices = keyToIndices(old_key, depth + 1);
       label l loop {
         let add = newInternalNode();
         setChild(node, last, add);
@@ -207,7 +188,7 @@ module {
     };
 
     public func get(key : Blob) : ?Blob {
-      let indices = keyToIndicesSkip(key, 0);
+      let indices = keyToIndices(key, 0);
 
       var node : Nat64 = 0;
       for (idx in indices) {
