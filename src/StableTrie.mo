@@ -53,13 +53,13 @@ module {
       Nat64.fromIntWrap(pos) | (offsetMask + 1);
     };
 
-    public func getChild(state : StableTrieState, node : Nat64, number : Nat64) : ?Nat64 {
-      let child = Region.loadNat64(state.region, node + number * POINTER_SIZE);
+    public func getChild(state : StableTrieState, node : Nat64, index : Nat8) : ?Nat64 {
+      let child = Region.loadNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE);
       if (child == 0) null else ?child;
     };
 
-    public func setChild(state : StableTrieState, node : Nat64, number : Nat64, child : Nat64) {
-      Region.storeNat64(state.region, node + number * POINTER_SIZE, child);
+    public func setChild(state : StableTrieState, node : Nat64, index : Nat8, child : Nat64) {
+      Region.storeNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE, child);
     };
 
     public func loadAsValue(state : StableTrieState, offset : Nat64) : Blob {
@@ -92,7 +92,7 @@ module {
           " ",
           Iter.map<Nat, Text>(
             Iter.range(0, children_number - 1),
-            func(x : Nat) : Text = switch (getChild(state, offset, Nat64.fromIntWrap(x))) {
+            func(x : Nat) : Text = switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
               case (null) "null";
               case (?ch) if (isLeaf(ch)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
             },
@@ -100,7 +100,7 @@ module {
         )
       );
       for (x in Iter.range(0, children_number - 1)) {
-        switch (getChild(state, offset, Nat64.fromIntWrap(x))) {
+        switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
           case (null) {};
           case (?ch) if (not isLeaf(ch)) print(state, ch);
         };
@@ -132,13 +132,13 @@ module {
       case (_) (0, 0, 0x0);
     };
 
-    func keyToIndices(key : Blob) : Iter.Iter<Nat64> {
+    func keyToIndices(key : Blob) : Iter.Iter<Nat8> {
       let iter = key.vals();
-//      if (children_number == 256) return iter;
+      if (children_number == 256) return iter;
       object {
         var sub : Nat8 = 0;
         var byte : Nat8 = 0;
-        public func next(): ?Nat64 { 
+        public func next(): ?Nat8 { 
           if (sub == 0) {
             switch (iter.next()) {
               case (?b) byte := b;
@@ -149,7 +149,7 @@ module {
             sub -= 1;
             byte := byte >> bitlength;
           };
-          return ?Nat64.fromIntWrap(Nat8.toNat(byte & bitmask));
+          return ?(byte & bitmask);
         };
       };
     };
@@ -181,30 +181,28 @@ module {
     public func add(key : Blob, value : Blob) : Bool {
       let s = state();
 
-      var node : Nat64 = 0;
-      var last : Nat64 = 256;
+      var node : Nat64 = 0; // root node
+      var last : Nat8 = 0;
 
       var depth = 0;
 
-      let bytes = keyToIndices(key);
-      label l for (byte in bytes) {
-        switch (getChild(s, node, byte)) {
+      let indices = keyToIndices(key);
+      label l for (idx in indices) {
+        switch (getChild(s, node, idx)) {
           case (?n) {
             if (isLeaf(n)) {
-              last := byte;
+              last := idx;
               break l;
             };
             node := n;
             depth += 1;
           };
           case (null) {
-            last := byte;
+            last := idx;
             break l;
           };
         };
       };
-
-      assert last != 256;
 
       switch (getChild(s, node, last)) {
         case (?old_leaf) {
@@ -218,16 +216,16 @@ module {
             return false;
           };
 
-          let old_bytes = keyToIndices(old_key);
+          let old_indices = keyToIndices(old_key);
           for (i in Iter.range(0, depth : Int)) {
-            ignore old_bytes.next();
+            ignore old_indices.next();
           };
-          label l while (true) {
+          label l loop {
             let add = newInternalNode(s);
             setChild(s, node, last, add);
             node := add;
 
-            switch (bytes.next(), old_bytes.next()) {
+            switch (indices.next(), old_indices.next()) {
               case (?a, ?b) {
                 if (a == b) {
                   last := a;
@@ -254,11 +252,11 @@ module {
 
     public func get(key : Blob) : ?Blob {
       let s = state();
-      let bytes = keyToIndices(key);
+      let indices = keyToIndices(key);
 
       var node : Nat64 = 0;
-      for (byte in bytes) {
-        node := switch (getChild(s, node, byte)) {
+      for (idx in indices) {
+        node := switch (getChild(s, node, idx)) {
           case (?n) {
             if (isLeaf(n)) {
               if (getKey(s, n) == key) return ?value(s, n) else return null;
