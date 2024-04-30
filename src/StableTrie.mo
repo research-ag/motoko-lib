@@ -33,6 +33,7 @@ module {
     let leafSize : Nat = key_size + value_size;
 
     let key_size_64 : Nat64 = Nat64.fromIntWrap(key_size);
+    let empty_values : Bool = value_size == 0;
 
     func newInternalNode() : Nat64 {
       if (regionSpace < nodeSize) {
@@ -54,7 +55,9 @@ module {
       size_ += leafSize;
       regionSpace -= leafSize;
       Region.storeBlob(region, pos, key);
-      Region.storeBlob(region, pos + key_size_64, value);
+      if (not empty_values) {
+        Region.storeBlob(region, pos + key_size_64, value);
+      };
       Nat64.bitset(pos, leafBit);
     };
 
@@ -71,6 +74,7 @@ module {
     };
 
     public func value(offset : Nat64) : Blob {
+      if (empty_values) return "";
       Region.loadBlob(region, Nat64.bitclear(offset, leafBit) + Nat64.fromIntWrap(key_size), value_size);
     };
 
