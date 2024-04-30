@@ -24,6 +24,8 @@ module {
     let nodeSize : Nat = children_number * Nat64.toNat(POINTER_SIZE);
     let leafSize : Nat = key_size + value_size;
 
+    let key_size_64 : Nat64 = Nat64.fromIntWrap(key_size);
+
     var regionSpace = 0;
 
     func newInternalNode(state : StableTrieState) : Nat64 {
@@ -31,10 +33,10 @@ module {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
-      let pos = state.size;
+      let pos = Nat64.fromIntWrap(state.size);
       state.size += nodeSize;
       regionSpace -= nodeSize;
-      Nat64.fromIntWrap(pos);
+      pos;
     };
 
     func newLeaf(state : StableTrieState, key : Blob, value : Blob) : Nat64 {
@@ -42,12 +44,12 @@ module {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
-      let pos = state.size;
+      let pos = Nat64.fromIntWrap(state.size);
       state.size += leafSize;
       regionSpace -= leafSize;
-      Region.storeBlob(state.region, Nat64.fromIntWrap(pos), key);
-      Region.storeBlob(state.region, Nat64.fromIntWrap(pos + key_size), value);
-      Nat64.bitset(Nat64.fromIntWrap(pos), leafBit);
+      Region.storeBlob(state.region, pos, key);
+      Region.storeBlob(state.region, pos + key_size_64, value);
+      Nat64.bitset(pos, leafBit);
     };
 
     public func getChild(state : StableTrieState, node : Nat64, index : Nat8) : ?Nat64 {
