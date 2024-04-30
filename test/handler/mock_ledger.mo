@@ -38,7 +38,7 @@ module {
     var transfer_count_ : Nat = 0;
     var transfer_res_i_ : Nat = 0;
 
-    public query func icrc1_fee() : async Nat { fee };
+    public func icrc1_fee() : async Nat { fee };
     public func set_fee(x : Nat) : async () { fee := x };
 
     public func icrc1_balance_of(_ : Account) : async Nat {

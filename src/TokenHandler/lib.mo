@@ -30,15 +30,17 @@ module {
   /// Converts `ICRC1.Subaccount` to `Principal`.
   public func toPrincipal(subaccount : ICRC1.Subaccount) : ?Principal = Mapping.toPrincipal(subaccount);
 
+  public type LedgerAPI = ICRC1.LedgerAPI;
+
   public class TokenHandler(
-    icrc1LedgerPrincipal_ : Principal,
+    ledgerApi : LedgerAPI,
     ownPrincipal : Principal,
     journalCapacity : Nat,
     initialFee : Nat,
   ) {
 
-    // Pass through the lookup counter from depositRegistry 
-    // TODO: Remove later 
+    // Pass through the lookup counter from depositRegistry
+    // TODO: Remove later
     public func lookups() : Nat = accountManager.lookups();
 
     /// If some unexpected error happened, this flag turns true and handler stops doing anything until recreated.
@@ -63,7 +65,7 @@ module {
     /// Manages accounts and funds for users.
     /// Handles deposit, withdrawal, and consolidation operations.
     let accountManager = AccountManager.AccountManager(
-      icrc1LedgerPrincipal_,
+      ledgerApi,
       ownPrincipal,
       journal.push,
       initialFee,
@@ -95,9 +97,6 @@ module {
 
     /// Query the "length" of the journal (total number of entries ever pushed)
     public func journalLength() : Nat = journal.length();
-
-    /// Returns the ICRC1 ledger principal.
-    public func icrc1LedgerPrincipal() : Principal = icrc1LedgerPrincipal_;
 
     /// Retrieves the sum of all current deposits.
     public func depositedFunds() : Nat = accountManager.depositedFunds();
