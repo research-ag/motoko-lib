@@ -130,14 +130,17 @@ module {
         skipBits -= 8;
       };
       if (bitlength == 8) return iter;
-      let ?first = iter.next() else return object { public func next() : ?Nat8 = null };
       object {
-        var byte : Nat16 = (Nat8.toNat16(first) | 256) >> skipBits;
+        var byte : Nat16 = 1;
         public func next() : ?Nat8 {
           if (byte == 1) {
             switch (iter.next()) {
               case (?b) {
                 byte := Nat8.toNat16(b) | 256;
+                if (skipBits != 0) {
+                  byte >>= skipBits;
+                  skipBits := 0;
+                };
               };
               case (null) return null;
             };
