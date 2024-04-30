@@ -30,7 +30,7 @@ module {
     let k_size : Nat64 = Nat64.fromIntWrap(key_size);
 
     func newInternalNode(state : StableTrieState) : Nat64 {
-      if (nodeSize < regionSpace) {
+      if (regionSpace < nodeSize) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
@@ -41,7 +41,7 @@ module {
     };
 
     func newLeaf(state : StableTrieState, key : Blob, value : Blob) : Nat64 {
-      if (leafSize < regionSpace) {
+      if (regionSpace < leafSize) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
