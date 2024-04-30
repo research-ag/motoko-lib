@@ -137,11 +137,12 @@ module {
 
       var node : Nat64 = 0; // root node
       var last : Nat8 = 0;
+      var old_leaf : Nat64 = 0;
 
       var depth = 0;
 
       let indices = keyToIndices(key);
-      let old_leaf = label l : Nat64 loop {
+      label l loop {
         let ?idx = indices.next() else Debug.trap("cannot happen");
         switch (getChild(s, node, idx)) {
           case (0) {
@@ -151,7 +152,8 @@ module {
           case (n) {
             if (Nat64.bittest(n, leafBit)) {
               last := idx;
-              break l n;
+              old_leaf := n;
+              break l;
             };
             node := n;
             depth += 1;
