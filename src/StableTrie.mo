@@ -2,6 +2,7 @@ import Blob "mo:base/Blob";
 import Region "mo:base/Region";
 import Nat64 "mo:base/Nat64";
 import Nat8 "mo:base/Nat8";
+import Nat16 "mo:base/Nat16";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Text "mo:base/Text";
@@ -98,7 +99,8 @@ module {
       case (2) (1, 0x1);
       case (4) (2, 0x3);
       case (16) (4, 0xf);
-      case (_) (0, 0x0);
+      case (256) (8, 0xff);
+      case (_) (0, 0);
     };
 
     func keyToIndices(key : Blob) : Iter.Iter<Nat8> {
@@ -112,10 +114,10 @@ module {
               case (?b) byte := Nat8.toNat16(b) | 256;
               case (null) return null;
             };
-          } else {
-            byte := byte >> bitlength;
           };
-          return ?Nat8.fromNat16(byte & bitmask);
+          let ret = Nat8.fromNat16(byte & bitmask);
+          byte >>= bitlength;
+          return ?ret;
         };
       };
     };
