@@ -22,17 +22,17 @@ module {
 
     // initialize the state
     var region = Region.new();
-    var size_ = children_number * Nat64.toNat(POINTER_SIZE);
-
     assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+    var regionSpace = 65536;
+
+    var size_ = children_number * Nat64.toNat(POINTER_SIZE);
+    regionSpace -= size_;
 
     let leafBit : Nat = Nat64.toNat(POINTER_SIZE) * 8 - 1;
     let nodeSize : Nat = children_number * Nat64.toNat(POINTER_SIZE);
     let leafSize : Nat = key_size + value_size;
 
     let key_size_64 : Nat64 = Nat64.fromIntWrap(key_size);
-
-    var regionSpace = 0;
 
     func newInternalNode() : Nat64 {
       if (regionSpace < nodeSize) {
