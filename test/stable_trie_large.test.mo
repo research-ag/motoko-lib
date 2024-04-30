@@ -1,11 +1,6 @@
 // @testmode wasi
 
 import Prng "mo:prng";
-import Array "mo:base/Array";
-import Blob "mo:base/Blob";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat32 "mo:base/Nat32";
 import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Debug "mo:base/Debug";
@@ -59,6 +54,6 @@ while (n1 > 0) {
 };
 
 
-Debug.print("trie size: " # debug_show trie.getSize());
+Debug.print("trie size: " # debug_show trie.size());
 Debug.print("trie keys: " # debug_show (max * max));
-Debug.print("bytes per key: " # debug_show (trie.getSize() / (max * max)));
+Debug.print("bytes per key: " # debug_show (trie.size() / (max * max)));

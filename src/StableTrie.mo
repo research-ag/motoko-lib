@@ -6,7 +6,6 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
-import Option "mo:base/Option";
 
 module {
   let POINTER_SIZE : Nat64 = 8;
@@ -22,7 +21,7 @@ module {
 
     // initialize the state
     var region = Region.new();
-    var size = children_number * Nat64.toNat(POINTER_SIZE);
+    var size_ = children_number * Nat64.toNat(POINTER_SIZE);
 
     assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
 
@@ -39,8 +38,8 @@ module {
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
-      let pos = Nat64.fromIntWrap(size);
-      size += nodeSize;
+      let pos = Nat64.fromIntWrap(size_);
+      size_ += nodeSize;
       regionSpace -= nodeSize;
       pos;
     };
@@ -50,8 +49,8 @@ module {
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
-      let pos = Nat64.fromIntWrap(size);
-      size += leafSize;
+      let pos = Nat64.fromIntWrap(size_);
+      size_ += leafSize;
       regionSpace -= leafSize;
       Region.storeBlob(region, pos, key);
       Region.storeBlob(region, pos + key_size_64, value);
@@ -94,26 +93,6 @@ module {
         };
       };
     };
-
-    var state_ : ?StableTrieState = null;
-
-    /*
-    func state() : StableTrieState = state;
-    {
-      switch (state_) {
-        case (?s) s;
-        case (null) {
-          let s = {
-            region = Region.new();
-            var size = children_number * Nat64.toNat(POINTER_SIZE);
-          };
-          assert Region.grow(s.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
-          state_ := ?s;
-          s;
-        };
-      };
-    };
-    */
 
     let (bitlength, bitmask) : (Nat16, Nat16) = switch (children_number) {
       case (2) (1, 0x1);
@@ -221,13 +200,13 @@ module {
       null;
     };
 
-    public func getSize() : Nat = size;
+    public func size() : Nat = size_;
 
-    public func share() : StableTrieState = { region = region; size = size };
+    public func share() : StableTrieState = { region = region; size = size_ };
 
     public func unshare(data : StableTrieState) {
       region := data.region;
-      size := data.size;
+      size_ := data.size;
     };
   };
 };
