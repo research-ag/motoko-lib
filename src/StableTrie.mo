@@ -60,10 +60,6 @@ module {
       Region.storeNat64(state.region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE, child);
     };
 
-    public func isLeaf(offset : Nat64) : Bool {
-      Nat64.bittest(offset, leafBit);
-    };
-
     public func getKey(state : StableTrieState, offset : Nat64) : Blob {
       Region.loadBlob(state.region, Nat64.bitclear(offset, leafBit), key_size);
     };
@@ -80,7 +76,7 @@ module {
             Iter.range(0, children_number - 1),
             func(x : Nat) : Text = switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
               case (0) "null";
-              case (ch) if (isLeaf(ch)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
+              case (ch) if (Nat64.bittest(ch, leafBit)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
             },
           ),
         )
@@ -88,7 +84,7 @@ module {
       for (x in Iter.range(0, children_number - 1)) {
         switch (getChild(state, offset, Nat8.fromIntWrap(x))) {
           case (0) {};
-          case (ch) if (not isLeaf(ch)) print(state, ch);
+          case (ch) if (not Nat64.bittest(ch, leafBit)) print(state, ch);
         };
       };
     };
@@ -168,11 +164,6 @@ module {
           true;
         };
         case (old_leaf) {
-          if (not Nat64.bittest(old_leaf, leafBit)) {
-            assert false;
-            return false;
-          };
-
           let old_key = getKey(s, old_leaf);
           if (key == old_key) {
             return false;
