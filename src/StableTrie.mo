@@ -118,7 +118,7 @@ module {
       if (children_number == 256) return iter;
       object {
         var byte : Nat16 = 1;
-        public func next(): ?Nat8 { 
+        public func next() : ?Nat8 {
           if (byte == 1) {
             switch (iter.next()) {
               case (?b) byte := Nat8.toNat16(b) | 256;
@@ -136,22 +136,22 @@ module {
       let s = state();
 
       var node : Nat64 = 0; // root node
-      var last_child : Nat64 = 0;
+      var last : Nat8 = 0;
 
       var depth = 0;
 
       let indices = keyToIndices(key);
-      var last = label l : Nat8 loop {
+      let old_leaf = label l : Nat64 loop {
         let ?idx = indices.next() else Debug.trap("cannot happen");
         switch (getChild(s, node, idx)) {
           case (0) {
-            last_child := 0; 
-            break l idx;
+            setChild(s, node, idx, newLeaf(s, key, value));
+            return true;
           };
           case (n) {
             if (Nat64.bittest(n, leafBit)) {
-              last_child := n; 
-              break l idx;
+              last := idx;
+              break l n;
             };
             node := n;
             depth += 1;
@@ -159,45 +159,37 @@ module {
         };
       };
 
-      switch (last_child) {
-        case (0) {
-          setChild(s, node, last, newLeaf(s, key, value));
-          true;
-        };
-        case (old_leaf) {
-          let old_key = getKey(s, old_leaf);
-          if (key == old_key) {
-            return false;
-          };
+      let old_key = getKey(s, old_leaf);
+      if (key == old_key) {
+        return false;
+      };
 
-          let old_indices = keyToIndices(old_key);
-          for (i in Iter.range(0, depth : Int)) {
-            ignore old_indices.next();
-          };
-          label l loop {
-            let add = newInternalNode(s);
-            setChild(s, node, last, add);
-            node := add;
+      let old_indices = keyToIndices(old_key);
+      for (i in Iter.range(0, depth : Int)) {
+        ignore old_indices.next();
+      };
+      label l loop {
+        let add = newInternalNode(s);
+        setChild(s, node, last, add);
+        node := add;
 
-            switch (indices.next(), old_indices.next()) {
-              case (?a, ?b) {
-                if (a == b) {
-                  last := a;
-                } else {
-                  setChild(s, node, a, newLeaf(s, key, value));
-                  setChild(s, node, b, old_leaf);
-                  break l;
-                };
-              };
-              case (_, _) {
-                assert false;
-                break l;
-              };
+        switch (indices.next(), old_indices.next()) {
+          case (?a, ?b) {
+            if (a == b) {
+              last := a;
+            } else {
+              setChild(s, node, a, newLeaf(s, key, value));
+              setChild(s, node, b, old_leaf);
+              break l;
             };
           };
-          true;
+          case (_, _) {
+            assert false;
+            break l;
+          };
         };
       };
+      true;
     };
 
     public func get(key : Blob) : ?Blob {
