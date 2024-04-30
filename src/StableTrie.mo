@@ -13,64 +13,65 @@ module {
 
   type StableTrieState = {
     region : Region.Region;
-    var size : Nat64;
+    var size : Nat;
   };
 
-  public class StableTrie(children_number_ : Nat, key_size_ : Nat, value_size_ : Nat) {
-    let children_number = Nat64.fromNat(children_number_);
-    let key_size = Nat64.fromNat(key_size_);
-    let value_size = Nat64.fromNat(value_size_);
+  public class StableTrie(children_number : Nat, key_size : Nat, value_size : Nat) {
     assert children_number == 2 or children_number == 4 or children_number == 16 or children_number == 256;
     assert key_size >= 1;
 
-    let subbyteLength = Nat64.bitcountTrailingZero(children_number);
-    let subbytesInByte = 8 / subbyteLength;
+    let subbyteLength = Nat64.bitcountTrailingZero(Nat64.fromIntWrap(children_number));
+//    let subbytesInByte = 8 / subbyteLength;
     let subbyteMask = (1 << subbyteLength) - 1;
     let offsetMask : Nat64 = (1 << (POINTER_SIZE * 8 - 1)) - 1;
+    let nodeSize : Nat = children_number * Nat64.toNat(POINTER_SIZE);
+    var regionSpace = 0;
+    let leafSize = key_size + value_size;
+    let k_size : Nat64 = Nat64.fromIntWrap(key_size);
 
     func newInternalNode(state : StableTrieState) : Nat64 {
-      let old_size = state.size;
-      let new_size = state.size + children_number * POINTER_SIZE;
-      if (new_size > Region.size(state.region) * 2 ** 16) {
+      if (nodeSize < regionSpace) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+        regionSpace += 65536;
       };
-      state.size := new_size;
-      old_size;
+      let pos = state.size;
+      state.size += nodeSize;
+      regionSpace -= nodeSize;
+      Nat64.fromIntWrap(pos);
     };
 
     func newLeaf(state : StableTrieState, key : Blob, value : Blob) : Nat64 {
-      let old_size = state.size;
-      let new_size = old_size + key_size + value_size;
-      if (new_size >= Region.size(state.region) * 2 ** 16) {
+      if (leafSize < regionSpace) {
         assert Region.grow(state.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+        regionSpace += 65536;
       };
-      Region.storeBlob(state.region, old_size, key);
-      Region.storeBlob(state.region, old_size + key_size, value);
-      state.size := new_size;
-      old_size | (offsetMask + 1);
+      let pos = state.size;
+      state.size += leafSize;
+      regionSpace -= leafSize;
+      Region.storeBlob(state.region, Nat64.fromIntWrap(pos), key);
+      Region.storeBlob(state.region, Nat64.fromIntWrap(pos + key_size), value);
+      Nat64.fromIntWrap(pos) | (offsetMask + 1);
     };
 
-    func getOffset(offset : Nat64, number : Nat64) : Nat64 {
-      offset + number * POINTER_SIZE;
-    };
-
-    public func getChild(state : StableTrieState, offset : Nat64, number : Nat64) : ?Nat64 {
-      let child = Region.loadNat64(state.region, getOffset(offset, number));
+    public func getChild(state : StableTrieState, node : Nat64, number : Nat64) : ?Nat64 {
+      let child = Region.loadNat64(state.region, node + number * POINTER_SIZE);
       if (child == 0) null else ?child;
     };
 
-    public func setChild(state : StableTrieState, offset : Nat64, number : Nat64, node : Nat64) {
-      Region.storeNat64(state.region, getOffset(offset, number), node);
+    public func setChild(state : StableTrieState, node : Nat64, number : Nat64, child : Nat64) {
+      Region.storeNat64(state.region, node + number * POINTER_SIZE, child);
     };
 
     public func loadAsValue(state : StableTrieState, offset : Nat64) : Blob {
-      Region.loadBlob(state.region, offset, value_size_);
+      Region.loadBlob(state.region, offset, value_size);
     };
 
     public func storeValue(state : StableTrieState, offset : Nat64, value : Blob) {
       assert value_size == value_size;
-      Region.storeBlob(state.region, offset, value);
-      Region.storeBlob(state.region, offset & offsetMask + key_size, value);
+// Bug:      Region.storeBlob(state.region, offset, value);
+      //Region.storeBlob(state.region, offset & offsetMask + key_size, value);
+      // TODO
+      Region.storeBlob(state.region, offset + k_size, value);
     };
 
     public func isLeaf(offset : Nat64) : Bool {
@@ -78,11 +79,11 @@ module {
     };
 
     public func getKey(state : StableTrieState, offset : Nat64) : Blob {
-      Region.loadBlob(state.region, offset & offsetMask, key_size_);
+      Region.loadBlob(state.region, offset & offsetMask, key_size);
     };
 
     public func value(state : StableTrieState, offset : Nat64) : Blob {
-      Region.loadBlob(state.region, offset & offsetMask + key_size, value_size_);
+      Region.loadBlob(state.region, offset & offsetMask + k_size, value_size);
     };
 
     public func print(state : StableTrieState, offset : Nat64) {
@@ -90,16 +91,16 @@ module {
         Nat64.toText(offset) # " node " # Text.join(
           " ",
           Iter.map<Nat, Text>(
-            Iter.range(0, children_number_ - 1),
-            func(x : Nat) : Text = switch (getChild(state, offset, Nat64.fromNat(x))) {
+            Iter.range(0, children_number - 1),
+            func(x : Nat) : Text = switch (getChild(state, offset, Nat64.fromIntWrap(x))) {
               case (null) "null";
               case (?ch) if (isLeaf(ch)) debug_show (getKey(state, ch)) else Nat64.toText(ch);
             },
           ),
         )
       );
-      for (x in Iter.range(0, children_number_ - 1)) {
-        switch (getChild(state, offset, Nat64.fromNat(x))) {
+      for (x in Iter.range(0, children_number - 1)) {
+        switch (getChild(state, offset, Nat64.fromIntWrap(x))) {
           case (null) {};
           case (?ch) if (not isLeaf(ch)) print(state, ch);
         };
@@ -114,7 +115,7 @@ module {
         case (null) {
           let s = {
             region = Region.new();
-            var size = children_number * POINTER_SIZE;
+            var size = children_number * Nat64.toNat(POINTER_SIZE);
           };
           assert Region.grow(s.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
           state_ := ?s;
@@ -125,7 +126,7 @@ module {
 
     func keyToBytes(key : Blob) : Iter.Iter<Nat64> {
       let bytes = Blob.toArray(key);
-      assert bytes.size() == key_size_;
+      assert bytes.size() == key_size;
 
       let iter = Iter.map(bytes.vals(), func(x : Nat8) : Nat64 = Nat64.fromNat(Nat8.toNat(x)));
       if (children_number == 256) return iter;
@@ -244,9 +245,7 @@ module {
       null;
     };
 
-    public func size() : Nat {
-      Nat64.toNat(state().size);
-    };
+    public func size() : Nat = state().size;
 
     public func share() : StableTrieState = state();
 
