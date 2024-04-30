@@ -122,6 +122,33 @@ module {
       };
     };
 
+    func keyToIndicesSkip(key : Blob, depth : Nat) : Iter.Iter<Nat8> {
+      var skipBits = Nat16.fromIntWrap(depth) * bitlength;
+      let iter = key.vals();
+      while (skipBits >= 8) {
+        ignore iter.next();
+        skipBits -= 8;
+      };
+      if (bitlength == 8) return iter;
+      let ?first = iter.next() else return object { public func next() : ?Nat8 = null };
+      object {
+        var byte : Nat16 = (Nat8.toNat16(first) | 256) >> skipBits;
+        public func next() : ?Nat8 {
+          if (byte == 1) {
+            switch (iter.next()) {
+              case (?b) {
+                byte := Nat8.toNat16(b) | 256;
+              };
+              case (null) return null;
+            };
+          };
+          let ret = Nat8.fromNat16(byte & bitmask);
+          byte >>= bitlength;
+          return ?ret;
+        };
+      };
+    };
+
     public func add(key : Blob, value : Blob) : Bool {
       var node : Nat64 = 0; // root node
       var old_leaf : Nat64 = 0;
@@ -152,12 +179,7 @@ module {
         return false;
       };
 
-      let old_indices = keyToIndices(old_key);
-      var i = depth + 1;
-      while (i != 0) {
-        ignore old_indices.next();
-        i -= 1;
-      };
+      let old_indices = keyToIndicesSkip(old_key, depth + 1);
       label l loop {
         let add = newInternalNode();
         setChild(node, last, add);
