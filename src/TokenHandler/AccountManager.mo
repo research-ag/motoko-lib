@@ -45,7 +45,6 @@ module {
   ) {
 
     /// Manages deposit balances for each user.
-    //let depositRegistry : DepositRegistry.DepositRegistry = DepositRegistry.DepositRegistry(freezeCallback);
     let depositRegistry = NatMap.NatMapWithLock<Principal, Lock>(Principal.compare);
 
     /// Current fee amount.
