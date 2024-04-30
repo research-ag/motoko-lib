@@ -142,9 +142,24 @@ module {
 
       var depth = 0;
 
-      let indices = keyToIndices(key, 0);
+//      let indices = keyToIndices(key, 0);
+      var byte : Nat16 = 1;
+      let iter = key.vals();
+      func next_idx() : Nat8 {
+        if (byte == 1) {
+          switch (iter.next()) {
+            case (?b) {
+              byte := Nat8.toNat16(b) | 256;
+            };
+            case (null) Debug.trap("cannot happen");
+          };
+        };
+        let ret = Nat8.fromNat16(byte & bitmask);
+        byte >>= bitlength;
+        return ret;
+      };
       var last = label l : Nat8 loop {
-        let ?idx = indices.next() else Debug.trap("cannot happen");
+        let idx = next_idx();
         switch (getChild(node, idx)) {
           case (0) {
             setChild(node, idx, newLeaf(key, value));
@@ -172,8 +187,8 @@ module {
         setChild(node, last, add);
         node := add;
 
-        switch (indices.next(), old_indices.next()) {
-          case (?a, ?b) {
+        switch (next_idx(), old_indices.next()) {
+          case (a, ?b) {
             if (a == b) {
               last := a;
             } else {
