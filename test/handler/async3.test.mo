@@ -51,6 +51,7 @@ module Debug {
 
 do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
   // init state
@@ -167,6 +168,7 @@ do {
 
 do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
   // update fee first time
@@ -270,6 +272,7 @@ do {
 
 do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
   // update fee first time
