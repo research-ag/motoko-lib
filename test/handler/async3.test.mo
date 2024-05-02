@@ -16,7 +16,7 @@ let ledger : TestLedgerAPI = {
 
 let anon_p = Principal.fromBlob("");
 let user1 = Principal.fromBlob("1");
-// let account = { owner = Principal.fromBlob("1"); subaccount = null };
+let account = { owner = Principal.fromBlob("1"); subaccount = null };
 
 func create_inc() : (Nat -> Nat, () -> Nat) {
   var ctr = 0;
@@ -167,7 +167,7 @@ do {
 
 do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
-  let (inc, ctr) = create_inc();
+  let (inc, _) = create_inc();
 
   // update fee first time
   await ledger.mock.set_fee(5);
@@ -266,4 +266,87 @@ do {
   assert handler.journalLength() == inc(1); // #consolidated
   assert handler.info(user1).credit == 14; // credit unchanged
   print("tree lookups = " # debug_show handler.lookups());
+};
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let (inc, _) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.updateFee();
+  assert handler.fee() == 5;
+  assert handler.journalLength() == inc(1); // #feeUpdated
+
+  // increase deposit again
+  await ledger.mock.set_balance(20);
+  assert (await* handler.notify(user1)) == ?(20, 15); // deposit = 20, credit = 15
+  assert_state(handler, (20, 0, 1));
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // trigger consolidation again
+  await ledger.mock.set_response([#Ok 42]);
+  await* handler.trigger();
+  await ledger.mock.set_balance(0);
+  assert_state(handler, (0, 15, 0)); // consolidation successful
+  assert handler.journalLength() == inc(1); // #consolidated
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // withdraw (fee < amount < consolidated_funds)
+  // should be successful
+  await ledger.mock.set_fee(1);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(1); // #feeUpdated
+  await ledger.mock.set_response([#Ok 42]);
+  assert (await* handler.withdraw(account, 5)) == #ok(42, 4);
+  assert handler.journalLength() == inc(1); // #withdraw
+  ignore handler.debitStrict(user1, 5);
+  assert_state(handler, (0, 10, 0));
+  assert handler.journalLength() == inc(1); // #debited
+
+  // withdraw (amount <= fee_)
+  var transfer_count = await ledger.mock.transfer_count();
+  await ledger.mock.set_response([#Ok 42]); // transfer call should not be executed anyway
+  assert (await* handler.withdraw(account, 1)) == #err(#TooLowQuantity);
+  assert (await ledger.mock.transfer_count()) == transfer_count; // no transfer call
+  assert_state(handler, (0, 10, 0)); // state unchanged
+  assert handler.journalLength() == inc(1); // #withdrawError
+
+  // withdraw (consolidated_funds < amount - fee)
+  await ledger.mock.set_response([#Err(#InsufficientFunds({ balance = 10 }))]);
+  assert (await* handler.withdraw(account, 100)) == #err(#InsufficientFunds({ balance = 10 }));
+  assert_state(handler, (0, 10, 0)); // state unchanged
+  assert handler.journalLength() == inc(1); // #withdrawError
+
+  // increase fee while withdraw is being underway
+  // scenario 1: old_fee < new_fee < amount
+  // withdraw should fail and then retry successfully, fee should be updated
+  await ledger.mock.lock_transfer("INCREASE_FEE_WITHDRAW_IS_BEING_UNDERWAY_SCENARIO_1");
+  transfer_count := await ledger.mock.transfer_count();
+  let fn7 = async { await* handler.withdraw(account, 5) };
+  await ledger.mock.set_fee(2);
+  await ledger.mock.set_response([#Err(#BadFee { expected_fee = 2 }), #Ok 42]);
+  await ledger.mock.release_transfer(); // let transfer return
+  assert (await fn7) == #ok(42, 3);
+  assert (await ledger.mock.transfer_count()) == transfer_count + 2;
+  assert handler.journalLength() == inc(2); // #feeUpdated, #withdraw
+  assert_state(handler, (0, 5, 0)); // state has changed
+  ignore handler.debitStrict(user1, 5);
+  assert handler.journalLength() == inc(1); // #debited
+
+  // increase fee while withdraw is being underway
+  // scenario 2: old_fee < amount <= new_fee
+  // withdraw should fail and then retry with failure, fee should be updated
+  // the second call should be avoided with comparison amount and fee
+  await ledger.mock.lock_transfer("INCREASE_FEE_WITHDRAW_IS_BEING_UNDERWAY_SCENARIO_2");
+  transfer_count := await ledger.mock.transfer_count();
+  let fn8 = async { await* handler.withdraw(account, 4) };
+  await ledger.mock.set_fee(4);
+  await ledger.mock.set_response([#Err(#BadFee { expected_fee = 4 }), #Ok 42]); // the second call should not be executed
+  await ledger.mock.release_transfer(); // let transfer return
+  assert (await fn8) == #err(#TooLowQuantity);
+  assert (await ledger.mock.transfer_count()) == transfer_count + 1; // the second transfer call is avoided
+  assert_state(handler, (0, 5, 0)); // state unchanged
+  assert handler.journalLength() == inc(2); // #feeUpdated, #withdrawalError
 };
