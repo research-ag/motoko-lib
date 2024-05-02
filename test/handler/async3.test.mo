@@ -164,3 +164,106 @@ do {
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 };
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let (inc, ctr) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.updateFee();
+  assert handler.fee() == 5;
+  assert handler.journalLength() == inc(1); // #feeUpdated
+
+  // increase fee while deposit is being consolidated (implicitly)
+  // scenario 1: old_fee < deposit <= new_fee
+  // consolidation should fail and deposit should be reset
+  await ledger.mock.set_balance(10);
+  assert (await* handler.notify(user1)) == ?(10, 5); // deposit = 10, credit = 5
+  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert_state(handler, (10, 0, 1));
+  await ledger.mock.lock_transfer("IMP_INCREASE_FEE_WHILE_DEPOSIT_IS_BEING_CONSOLIDATED_SCENARIO_1");
+  let f5 = async { await* handler.trigger() };
+  await ledger.mock.set_fee(10);
+  await ledger.mock.set_response([#Err(#BadFee { expected_fee = 10 })]);
+  await ledger.mock.release_transfer(); // let transfer return
+  await f5;
+  assert_state(handler, (0, 0, 0)); // consolidation failed with deposit reset
+  assert handler.journalLength() == inc(3); // #consolidationError, #debited, #feeUpdated
+  assert handler.info(user1).credit == 0; // credit has been corrected after consolidation
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // increase fee while deposit is being consolidated (implicitly)
+  // scenario 2: old_fee < new_fee < deposit
+  // consolidation should fail and deposit should be adjusted with new fee
+  await ledger.mock.set_balance(20);
+  assert (await* handler.notify(user1)) == ?(20, 10); // deposit = 20, credit = 10
+  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert_state(handler, (20, 0, 1));
+  await ledger.mock.lock_transfer("IMP_INCREASE_FEE_WHILE_DEPOSIT_IS_BEING_CONSOLIDATED_SCENARIO_2");
+  let f6 = async { await* handler.trigger() };
+  await ledger.mock.set_fee(15);
+  await ledger.mock.set_response([#Err(#BadFee { expected_fee = 15 })]);
+  await ledger.mock.release_transfer(); // let transfer return
+  await f6;
+  assert_state(handler, (20, 0, 1)); // consolidation failed with updated deposit scheduled
+  assert handler.journalLength() == inc(4); // #consolidationError, #debited, #feeUpdated, #credited
+  assert handler.info(user1).credit == 5; // credit has been corrected after consolidation
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // increase fee while deposit is being consolidated (explicitly)
+  // scenario 1: old_fee < deposit <= new_fee
+  // consolidation should fail and deposit should be reset
+  assert (await* handler.notify(user1)) == ?(0, 5); // deposit diff = 0, credit = 5
+  assert handler.journalLength() == inc(0);
+  assert_state(handler, (20, 0, 1));
+  await ledger.mock.lock_transfer("EXP_INCREASE_FEE_WHILE_DEPOSIT_IS_BEING_CONSOLIDATED_SCENARIO_1");
+  let f9 = async { await* handler.trigger() };
+  await ledger.mock.set_fee(100);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(1); // #feeUpdated
+  await ledger.mock.set_response([#Err(#BadFee { expected_fee = 100 })]);
+  await ledger.mock.release_transfer(); // let transfer return
+  await f9;
+  assert_state(handler, (0, 0, 0)); // consolidation failed with deposit reset
+  assert handler.journalLength() == inc(2); // #consolidationError, #debited
+  assert handler.info(user1).credit == 0; // credit has been corrected
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // increase fee while deposit is being consolidated (explicitly)
+  // scenario 2: old_fee < new_fee < deposit
+  // consolidation should fail and deposit should be adjusted with new fee
+  await ledger.mock.set_fee(5);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(1); // #feeUpdated
+  assert (await* handler.notify(user1)) == ?(20, 15); // deposit = 20, credit = 15
+  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert_state(handler, (20, 0, 1));
+  await ledger.mock.lock_transfer("EXP_INCREASE_FEE_WHILE_DEPOSIT_IS_BEING_CONSOLIDATED_SCENARIO_2");
+  let f10 = async { await* handler.trigger() };
+  await ledger.mock.set_fee(6);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(1); // #feeUpdated
+  await ledger.mock.set_response([#Err(#BadFee { expected_fee = 6 })]);
+  await ledger.mock.release_transfer(); // let transfer return
+  await f10;
+  assert_state(handler, (20, 0, 1)); // consolidation failed with updated deposit scheduled
+  assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
+  assert handler.info(user1).credit == 14; // credit has been corrected
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // only 1 consolidation process can be triggered for same user at same time
+  // consolidation with deposit > fee should be successful
+  await ledger.mock.set_response([#Ok 42]);
+  var transfer_count = await ledger.mock.transfer_count();
+  let f3 = async { await* handler.trigger() };
+  let f4 = async { await* handler.trigger() };
+  await f3;
+  await f4;
+  await ledger.mock.set_balance(0);
+  assert ((await ledger.mock.transfer_count())) == transfer_count + 1; // only 1 transfer call has been made
+  assert_state(handler, (0, 14, 0)); // consolidation successful
+  assert handler.journalLength() == inc(1); // #consolidated
+  assert handler.info(user1).credit == 14; // credit unchanged
+  print("tree lookups = " # debug_show handler.lookups());
+};
