@@ -164,6 +164,9 @@ do {
   assert_state(handler, (20, 0, 1)); // state unchanged because deposit has not changed
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
 };
 
 do {
@@ -268,6 +271,9 @@ do {
   assert handler.journalLength() == inc(1); // #consolidated
   assert handler.info(user1).credit == 14; // credit unchanged
   print("tree lookups = " # debug_show handler.lookups());
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
 };
 
 do {
@@ -352,6 +358,9 @@ do {
   assert (await ledger.mock.transfer_count()) == transfer_count + 1; // the second transfer call is avoided
   assert_state(handler, (0, 5, 0)); // state unchanged
   assert handler.journalLength() == inc(2); // #feeUpdated, #withdrawalError
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
 };
 
 do {
@@ -396,4 +405,30 @@ do {
   assert handler.info(user1).credit == 3; // credit should not be corrected
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
   print("tree lookups = " # debug_show handler.lookups());
+
+  // Recalculate credits related to deposits when fee changes
+
+  // scenario 1: new_fee < prev_fee < deposit
+  await ledger.mock.set_fee(1);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(2); // #feeUpdated, #credited
+  assert handler.info(user1).credit == 4; // credit corrected
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // scenario 2: prev_fee < new_fee < deposit
+  await ledger.mock.set_fee(3);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(2); // #feeUpdated, #debited
+  assert handler.info(user1).credit == 2; // credit corrected
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // scenario 3: prev_fee < deposit <= new_fee
+  await ledger.mock.set_fee(5);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(2); // #feeUpdated, #debited
+  assert handler.info(user1).credit == 0; // credit corrected
+  print("tree lookups = " # debug_show handler.lookups());
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
 };

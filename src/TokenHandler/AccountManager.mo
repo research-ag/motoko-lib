@@ -321,6 +321,9 @@ module {
             ignore updateDeposit(p, 0);
             debit(p, deposit - prevFee);
             queuedFunds -= deposit;
+          } else {
+            let feeDelta = Int.abs(newFee - prevFee);
+            debit(p, feeDelta);
           };
           continue L;
         };
@@ -328,7 +331,7 @@ module {
       };
     };
 
-    func assertIntegrity() {
+    public func assertIntegrity() {
       let deposited : Int = depositedFunds_ - fee_ * depositRegistry.size(); // deposited funds with fees subtracted
       if (totalCredited != totalConsolidated_ + deposited + totalDebited) {
         let values : [Text] = [
