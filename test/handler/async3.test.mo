@@ -353,3 +353,47 @@ do {
   assert_state(handler, (0, 5, 0)); // state unchanged
   assert handler.journalLength() == inc(2); // #feeUpdated, #withdrawalError
 };
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
+  let (inc, _) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.updateFee();
+  assert handler.fee() == 5;
+  assert handler.journalLength() == inc(1); // #feeUpdated
+
+  // Change fee while notify is underway with locked 0-deposit.
+  // 0-deposits can be temporarily being stored in deposit registry because of being locked with #notify.
+  // Deposit registry recalculation is triggered and credits related to 0-deposits should not be corrected there.
+
+  // scenario 1: increase fee
+  await ledger.mock.lock_balance("CHANGE_FEE_WHILE_NOTIFY_IS_UNDERWAY_WITH_LOCKED_0_DEPOSIT_SCENARIO_1");
+  await ledger.mock.set_balance(5);
+  let f1 = async { await* handler.notify(user1) };
+  await ledger.mock.set_fee(6);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(1); // #feeUpdated
+  await ledger.mock.release_balance(); // let notify return
+  assert (await f1) == ?(0, 0);
+  assert_state(handler, (0, 0, 0)); // state unchanged because deposit has not changed
+  assert handler.info(user1).credit == 0; // credit should not be corrected
+  assert handler.journalLength() == inc(0);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // scenario 2: decrease fee
+  await ledger.mock.lock_balance("CHANGE_FEE_WHILE_NOTIFY_IS_UNDERWAY_WITH_LOCKED_0_DEPOSIT_SCENARIO_2");
+  await ledger.mock.set_balance(5);
+  let f2 = async { await* handler.notify(user1) };
+  await ledger.mock.set_fee(2);
+  ignore await* handler.updateFee();
+  assert handler.journalLength() == inc(1); // #feeUpdated
+  await ledger.mock.release_balance(); // let notify return
+  assert (await f2) == ?(5, 3);
+  assert_state(handler, (5, 0, 1)); // state unchanged because deposit has not changed
+  assert handler.info(user1).credit == 3; // credit should not be corrected
+  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  print("tree lookups = " # debug_show handler.lookups());
+};

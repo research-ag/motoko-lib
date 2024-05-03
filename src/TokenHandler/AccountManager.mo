@@ -313,11 +313,9 @@ module {
     /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee == prevFee) return;
-
       label L for ((p, info) in depositRegistry.entries()) {
-        if (info.lock == #consolidate) continue L;
         let deposit = info.deposit;
-
+        if (info.lock == #consolidate or deposit == 0) continue L;
         if (newFee > prevFee) {
           if (deposit <= newFee) {
             ignore updateDeposit(p, 0);
@@ -326,7 +324,6 @@ module {
           };
           continue L;
         };
-
         credit(p, prevFee - newFee);
       };
     };
