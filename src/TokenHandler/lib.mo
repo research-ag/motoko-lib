@@ -151,6 +151,9 @@ module {
       await* accountManager.withdraw(to, amount);
     };
 
+    /// For testing purposes
+    public func assertIntegrity() { accountManager.assertIntegrity() };
+
     /// Serializes the token handler data.
     public func share() : StableData = (
       accountManager.share(),

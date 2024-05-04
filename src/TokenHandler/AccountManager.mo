@@ -305,7 +305,11 @@ module {
             depositRegistry.erase(p);
             debit(p, deposit - prevFee);
             queuedFunds -= deposit;
+          } else {
+            let feeDelta = Int.abs(newFee - prevFee);
+            debit(p, feeDelta);
           };
+          continue L;
         };
       };
     };

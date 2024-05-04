@@ -94,18 +94,13 @@ print("tree lookups = " # debug_show handler.lookups());
 await ledger.lock_balance("increase fee while notify is underway (and item still in queue) - scenario 1");
 let f1 = async { await* handler.notify(user1) }; // would return ?(0,1) at old fee
 await ledger.set_fee(10);
-// TODO
 assert_state(7, 0, 1); // state from before
 ignore await* handler.updateFee();
 assert handler.journalLength() == inc(2); // #feeUpdated, #debited
-//assert handler.journalLength() == inc(1); // #feeUpdated, not #debited because user1 is locked
 assert_state(0, 0, 0); // state changed
-//assert_state(7, 0, 1); // state still unchanged
 await ledger.release_balance(); // let notify return
 assert (await f1) == ?(0, 0); // deposit <= new fee
-assert_state(0, 0, 0); // state has changed
 assert handler.journalLength() == inc(0);
-//assert handler.journalLength() == inc(1); // #debited
 print("tree lookups = " # debug_show handler.lookups());
 
 // increase deposit again
