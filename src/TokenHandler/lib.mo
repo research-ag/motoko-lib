@@ -95,6 +95,38 @@ module {
     /// 2) The index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
     public func queryJournal(startFrom : ?Nat) : ([Journal.JournalRecord], Nat) = journal.queryJournal(startFrom);
 
+    public func state() : {
+      journalLength : Nat;
+      balance : {
+        deposited : Nat;
+        underway : Nat;
+        queued : Nat;
+        consolidated : Nat;
+      };
+      flow : {
+        consolidated : Nat;
+        withdrawn : Nat;
+      };
+      credit : {
+        total : Int;
+      };
+    } = {
+      journalLength = journal.length();
+      balance = {
+        deposited = accountManager.depositedFunds();
+        underway = accountManager.underwayFunds();
+        queued = accountManager.queuedFunds();
+        consolidated = accountManager.consolidatedFunds();
+      };
+      flow = {
+        consolidated = accountManager.totalConsolidated();
+        withdrawn = accountManager.totalWithdrawn();
+      };
+      credit = {
+        total = creditRegistry.creditTotal();
+      };
+    };
+
     /// Query the "length" of the journal (total number of entries ever pushed)
     public func journalLength() : Nat = journal.length();
 
