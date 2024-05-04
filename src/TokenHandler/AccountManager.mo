@@ -211,8 +211,7 @@ module {
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
-      let ?p = depositRegistry.firstUnlocked() else return;
-      let ?(deposit, release) = depositRegistry.obtainLock(p) else Debug.trap("Failed to obtain lock");
+      let ?(p, deposit, release) = depositRegistry.obtainAnyLock() else return;
       underwayFunds_ += deposit;
       await* consolidate(p, release);
       underwayFunds_ -= deposit;
@@ -295,7 +294,6 @@ module {
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee == prevFee) return;
       label L for ((p, info) in depositRegistry.entries()) {
-        //if (info.lock == ? #consolidate or info.value == 0) continue L;
         if (info.value == 0) continue L;
         let deposit = info.value;
         if (deposit <= prevFee) freezeCallback("deposit <= fee should have been recorded as 0");

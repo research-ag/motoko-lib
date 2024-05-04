@@ -86,16 +86,41 @@ module {
           lookupCtr += 1;
           tree.delete(k);
         };
-        delta
+        delta;
       };
       return ?(info.value, releaseLock);
     };
 
     public func entries() : Iter.Iter<(K, V)> = tree.entries();
 
-    public func firstUnlocked() : ?K {
-      for (e in tree.entries()) {
-        if (not e.1.lock) return ?e.0;
+    public func obtainAnyLock() : ?(K, Nat, ?Nat -> Int) {
+      label L for (e in tree.entries()) {
+        let info = e.1;
+        if (info.lock) continue L;
+        let k = e.0;
+        info.lock := true;
+        func releaseLock(arg : ?Nat) : Int {
+          if (not info.lock) Prim.trap("Cannot happen: lock must be set");
+          info.lock := false;
+          let delta : Int = switch (arg) {
+            case (?new_value) {
+              let old_value = info.value;
+              if (old_value == 0 and new_value > 0) size_ += 1;
+              if (old_value > 0 and new_value == 0) size_ -= 1;
+              sum_ -= old_value;
+              sum_ += new_value;
+              info.value := new_value;
+              new_value - old_value;
+            };
+            case (null) 0;
+          };
+          if (info.value == 0) {
+            lookupCtr += 1;
+            tree.delete(k);
+          };
+          delta;
+        };
+        return ?(k, info.value, releaseLock);
       };
       return null;
     };
