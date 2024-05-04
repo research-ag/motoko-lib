@@ -112,6 +112,25 @@ module {
     /// Retrieves the deposit of a principal.
     public func getDeposit(p : Principal) : Nat = depositRegistry.get(p);
 
+    func process_deposit(p : Principal, deposit : Nat, release : ?Nat -> Int) : Nat {
+      if (deposit <= fee_) {
+        ignore release(null);
+        return 0;
+      };
+      let delta = release(?deposit);
+      if (delta < 0) freezeCallback("latestDeposit < prevDeposit on notify");
+      if (delta == 0) return 0;
+      let inc = Int.abs(delta);
+
+      if (deposit == inc) {
+        credit(p, deposit - fee_);
+      } else {
+        credit(p, inc);
+      };
+      log(p, #newDeposit(inc));
+      inc
+    };
+
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
@@ -123,24 +142,8 @@ module {
         throw err;
       };
 
-      if (latestDeposit <= fee_) {
-        ignore release(null);
-        return ?0;
-      };
-
-      let delta = release(?latestDeposit);
-      if (delta < 0) freezeCallback("latestDeposit < prevDeposit on notify");
-      if (delta == 0) return ?0;
-      let inc = Int.abs(delta);
-
-      // precredit incremental difference
-      if (latestDeposit == inc) {
-        credit(p, latestDeposit - fee_);
-      } else {
-        credit(p, inc);
-      };
-
-      log(p, #newDeposit(inc));
+      // This function calls release
+      let inc = process_deposit(p, latestDeposit, release);
 
       // schedule a canister self-call to initiate the consolidation
       // we need try-catch so that we don't trap if scheduling fails synchronously
