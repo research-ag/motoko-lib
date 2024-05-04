@@ -38,6 +38,18 @@ module {
     var transfer_count_ : Nat = 0;
     var transfer_res_i_ : Nat = 0;
 
+    public func reset_state() : async () {
+      fee := 0;
+      balance := 0;
+      balance_lock := false;
+      balance_lock_key := "";
+      response := [#Ok 42];
+      transfer_lock := false;
+      transfer_lock_key := "";
+      transfer_count_ := 0;
+      transfer_res_i_ := 0;
+    };
+
     public func icrc1_fee() : async Nat { fee };
     public func set_fee(x : Nat) : async () { fee := x };
 

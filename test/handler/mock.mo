@@ -41,7 +41,7 @@ module {
       while (Option.isSome(register)) {
         await async {};
       };
-    }; 
+    };
     public func read() : Response<T> {
       Debug.print("read");
       let ?r = register else Debug.trap("no response stage.");
