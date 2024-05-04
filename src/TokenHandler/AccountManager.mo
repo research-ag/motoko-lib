@@ -89,13 +89,13 @@ module {
     };
 
     /// Retrieves the sum of all current deposits.
-    public func depositedFunds() : Nat = depositRegistry.sum();
+    public func depositedFunds() : Nat = depositRegistry.sum() + underwayFunds_;
 
     /// Retrieves the sum of all current deposits.
     public func underwayFunds() : Nat = underwayFunds_;
 
     /// Retrieves the sum of all current deposits.
-    public func queuedFunds() : Nat = depositRegistry.sum() - underwayFunds_;
+    public func queuedFunds() : Nat = depositRegistry.sum();
 
     /// Returns the size of the deposit registry.
     public func depositsNumber() : Nat = depositRegistry.size();
@@ -127,8 +127,7 @@ module {
       } else {
         credit(p, inc);
       };
-      log(p, #newDeposit(inc));
-      inc
+      inc;
     };
 
     /// Notifies of a deposit and schedules consolidation process.
@@ -144,6 +143,10 @@ module {
 
       // This function calls release
       let inc = process_deposit(p, latestDeposit, release);
+
+      if (inc > 0) {
+        log(p, #newDeposit(inc));
+      };
 
       // schedule a canister self-call to initiate the consolidation
       // we need try-catch so that we don't trap if scheduling fails synchronously
@@ -187,28 +190,23 @@ module {
 
     /// Attempts to consolidate the funds for a particular principal.
     func consolidate(p : Principal, release : ?Nat -> Int) : async* () {
-      let deposit = depositRegistry.get(p);
+      let deposit = depositRegistry.erase(p);
+      let originalCredit : Nat = deposit - fee_;
 
-      let originalFee = fee_;
       let transferResult = await* processConsolidationTransfer(p, deposit);
 
-      let success = switch (transferResult) {
-        case (#Err(#BadFee { expected_fee })) {
-          debit(p, deposit - originalFee);
-          setNewFee(expected_fee);
-          
-          if (deposit > fee_) {
-            credit(p, deposit - fee_);
-          };
-          false;
-        };
-        case (#Err _) false; // all other errors
-        case (#Ok _) true;
+      // catch #BadFee
+      switch (transferResult) {
+        case (#Err(#BadFee { expected_fee })) setNewFee(expected_fee);
+        case (_) {};
       };
-      if (success or deposit <= fee_) {
-        ignore release(?0);
-      } else {
-        ignore release(null);
+
+      switch (transferResult) {
+        case (#Ok _) ignore release(null);
+        case (_) {
+          debit(p, originalCredit);
+          ignore process_deposit(p, deposit, release);
+        };
       };
     };
 
@@ -298,11 +296,12 @@ module {
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee == prevFee) return;
       label L for ((p, info) in depositRegistry.entries()) {
-        if (info.lock == ? #consolidate or info.value == 0) continue L;
+        //if (info.lock == ? #consolidate or info.value == 0) continue L;
+        if (info.value == 0) continue L;
         let deposit = info.value;
         if (deposit <= prevFee) freezeCallback("deposit <= fee should have been recorded as 0");
         if (deposit <= newFee) {
-          depositRegistry.erase(p);
+          ignore depositRegistry.erase(p);
           debit(p, deposit - prevFee);
           continue L;
         };

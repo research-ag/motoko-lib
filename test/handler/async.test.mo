@@ -270,7 +270,6 @@ assert inc(1); // #feeUpdated
 await ledger.set_response([#Err(#BadFee { expected_fee = 100 })]);
 await ledger.release_transfer(); // let transfer return
 await f9;
-Debug.state();
 assert state() == (0, 5, 0); // consolidation failed with deposit reset
 assert inc(2); // #consolidationError, #debited
 assert handler.info(user1).credit == 5; // credit has been corrected

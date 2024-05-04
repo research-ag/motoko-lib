@@ -81,7 +81,7 @@ do {
   assert_state(20, 0, 1);
   ledger.transfer_.stage(null)(); // error response
   await* handler.trigger();
-  assert inc(1); // #consolidationError
+  assert inc(3); // #consolidationError, #debited, #credited
   assert_state(20, 0, 1);
   ledger.transfer_.stage(?(#Ok 0))();
   await* handler.trigger();

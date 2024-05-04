@@ -98,19 +98,21 @@ module {
       return null;
     };
 
-    public func erase(k : K) {
+    public func erase(k : K) : Nat {
       lookupCtr += 1;
       switch (tree.get(k)) {
         case (?v) {
-          if (v.value != 0) size_ -= 1;
-          sum_ -= v.value;
+          let old_value = v.value;
           v.value := 0;
+          if (old_value != 0) size_ -= 1;
+          sum_ -= old_value;
           if (Option.isNull(v.lock)) {
             lookupCtr += 1;
             tree.delete(k);
           };
+          old_value;
         };
-        case (_) {};
+        case (_) 0;
       };
     };
 
