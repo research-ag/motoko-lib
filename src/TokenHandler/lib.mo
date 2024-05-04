@@ -95,26 +95,46 @@ module {
     /// 2) The index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
     public func queryJournal(startFrom : ?Nat) : ([Journal.JournalRecord], Nat) = journal.queryJournal(startFrom);
 
+    public func state() : {
+      journalLength : Nat;
+      balance : {
+        deposited : Nat;
+        underway : Nat;
+        queued : Nat;
+        consolidated : Nat;
+      };
+      flow : {
+        consolidated : Nat;
+        withdrawn : Nat;
+      };
+      credit : {
+        total : Int;
+      };
+      users : {
+        queued : Nat;
+      };
+    } = {
+      journalLength = journal.length();
+      balance = {
+        deposited = accountManager.depositedFunds();
+        underway = accountManager.underwayFunds();
+        queued = accountManager.queuedFunds();
+        consolidated = accountManager.consolidatedFunds();
+      };
+      flow = {
+        consolidated = accountManager.totalConsolidated();
+        withdrawn = accountManager.totalWithdrawn();
+      };
+      credit = {
+        total = creditRegistry.creditTotal();
+      };
+      users = {
+        queued = accountManager.depositsNumber();
+      };
+    };
+
     /// Query the "length" of the journal (total number of entries ever pushed)
     public func journalLength() : Nat = journal.length();
-
-    /// Retrieves the sum of all current deposits.
-    public func depositedFunds() : Nat = accountManager.depositedFunds();
-
-    /// Retrieves the sum of all successful consolidations
-    public func totalConsolidated() : Nat = accountManager.totalConsolidated();
-
-    /// Retrieves the sum of all deductions from the main account.
-    public func totalWithdrawn() : Nat = accountManager.totalWithdrawn();
-
-    /// Retrieves the calculated balance of the main account.
-    public func consolidatedFunds() : Nat = accountManager.consolidatedFunds();
-
-    /// Returns the size of the deposit registry.
-    public func depositsNumber() : Nat = accountManager.depositsNumber();
-
-    /// Retrieves the total credited funds in the credit registry.
-    public func creditTotal() : Int = creditRegistry.creditTotal();
 
     /// Gets the current credit amount associated with a specific principal.
     public func balance(p : Principal) : Int = creditRegistry.get(p);

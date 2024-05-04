@@ -183,17 +183,17 @@ module {
     };
 
     /// Attempts to consolidate the funds for a particular principal.
-    func consolidate(p : Principal) : async* Bool {
+    func consolidate(p : Principal, release : ?Nat -> Int) : async* () {
       let deposit = depositRegistry.get(p);
 
       let originalFee = fee_;
       let transferResult = await* processConsolidationTransfer(p, deposit);
 
-      switch (transferResult) {
+      let success = switch (transferResult) {
         case (#Err(#BadFee { expected_fee })) {
           debit(p, deposit - originalFee);
           setNewFee(expected_fee);
-
+          
           if (deposit > fee_) {
             credit(p, deposit - fee_);
           };
@@ -202,6 +202,11 @@ module {
         case (#Err _) false; // all other errors
         case (#Ok _) true;
       };
+      if (success or deposit <= fee_) {
+        ignore release(?0);
+      } else {
+        ignore release(null);
+      };
     };
 
     /// Triggers the proccessing first encountered deposit.
@@ -209,13 +214,8 @@ module {
       let ?p = depositRegistry.firstUnlocked() else return;
       let ?(deposit, release) = depositRegistry.obtainLock(p, #consolidate) else Debug.trap("Failed to obtain lock");
       underwayFunds_ += deposit;
-      let success = await* consolidate(p);
+      await* consolidate(p, release);
       underwayFunds_ -= deposit;
-      if (success or deposit <= fee_) {
-        ignore release(?0);
-      } else {
-        ignore release(null);
-      };
       assertIntegrity();
     };
 
@@ -295,9 +295,9 @@ module {
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee == prevFee) return;
       label L for ((p, info) in depositRegistry.entries()) {
-        if (info.lock == ?#consolidate or info.value == 0) continue L;
+        if (info.lock == ? #consolidate or info.value == 0) continue L;
         let deposit = info.value;
-        if (deposit <= prevFee) freezeCallback("deposit <= fee should not have been recorded");
+        if (deposit <= prevFee) freezeCallback("deposit <= fee should have been recorded as 0");
         if (deposit <= newFee) {
           depositRegistry.erase(p);
           debit(p, deposit - prevFee);
