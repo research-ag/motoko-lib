@@ -314,7 +314,7 @@ module {
       };
     };
 
-    func assertIntegrity() {
+    public func assertIntegrity() {
       let deposited : Int = depositRegistry.sum() - fee_ * depositRegistry.size(); // deposited funds with fees subtracted
       if (totalCredited != totalConsolidated_ + deposited + totalDebited) {
         let values : [Text] = [
