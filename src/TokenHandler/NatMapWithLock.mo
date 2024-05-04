@@ -11,11 +11,21 @@ module {
     let tree = RBTree.RBTree<K, V>(compare);
     var size_ : Nat = 0;
     var sum_ : Nat = 0;
+    var minimum_ : Nat = 0;
 
     // For benchmarking purposes we track how often we lookup a key in the tree
     // TODO: remove in production
     var lookupCtr = 0;
     public func lookups() : Nat = lookupCtr;
+
+    // Returns the number of non-zero entries in the map (locked or not).
+    public func size() : Nat = size_;
+
+    // Returns the sum of all entries.
+    public func sum() : Nat = sum_;
+
+    // Returns the minimum value.
+    public func minimum() : Nat = minimum_;
 
     // Returns the Nat value associated with the key `k`.
     public func get(k : K) : Nat {
@@ -25,12 +35,6 @@ module {
         case (null) 0;
       };
     };
-
-    // Returns the number of non-zero entries in the map (locked or not).
-    public func size() : Nat = size_;
-
-    // Returns the sum of all entries.
-    public func sum() : Nat = sum_;
 
     // Currently not used
     /*
@@ -70,18 +74,20 @@ module {
       func releaseLock(arg : ?Nat) : Int {
         if (not info.lock) Prim.trap("Cannot happen: lock must be set");
         info.lock := false;
+        // enter new value
         let delta : Int = switch (arg) {
-          case (?new_value) {
-            let old_value = info.value;
-            if (old_value == 0 and new_value > 0) size_ += 1;
-            if (old_value > 0 and new_value == 0) size_ -= 1;
-            sum_ -= old_value;
-            sum_ += new_value;
-            info.value := new_value;
-            new_value - old_value;
+          case (?v) {
+            let (old, new) = (info.value, if (v < minimum_) 0 else v);
+            if (old == 0 and new > 0) size_ += 1;
+            if (old > 0 and new == 0) size_ -= 1;
+            sum_ -= old;
+            sum_ += new;
+            info.value := new;
+            new - old;
           };
           case (null) 0;
         };
+        // clean if value is zero
         if (info.value == 0) {
           lookupCtr += 1;
           tree.delete(k);
