@@ -294,13 +294,15 @@ module {
     /// Recalculates the deposit registry after the fee change.
     /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
-      if (newFee > prevFee) {
-        label L for ((p, info) in depositRegistry.entries()) {
-          switch (info.lock) {
-            case (? #consolidate) continue L;
-            case (_) {};
-          };
-          let deposit = info.value;
+      if (newFee == prevFee) return;
+      label L for ((p, info) in depositRegistry.entries()) {
+        switch (info.lock) {
+          case (? #consolidate) continue L;
+          case (_) {};
+        };
+        let deposit = info.value;
+        if (deposit == 0) continue L;
+        if (newFee > prevFee) {
           if (deposit <= newFee) {
             depositRegistry.erase(p);
             debit(p, deposit - prevFee);
@@ -309,7 +311,8 @@ module {
             let feeDelta = Int.abs(newFee - prevFee);
             debit(p, feeDelta);
           };
-          continue L;
+        } else {
+          credit(p, prevFee - newFee);
         };
       };
     };
