@@ -17,7 +17,6 @@ module {
     Nat, // fee_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
-    Nat, // queuedFunds
   );
 
   public type LogEvent = {
@@ -56,11 +55,8 @@ module {
     /// Total amount withdrawn. Accumulated value.
     var totalWithdrawn_ : Nat = 0;
 
-    /// Total funds queued for consolidation.
-    var queuedFunds : Nat = 0;
-
     /// Total funds underway for consolidation.
-    var underwayFunds : Nat = 0;
+    var underwayFunds_ : Nat = 0;
 
     /// Total funds credited within deposit tracking and consolidation.
     /// Accumulated value.
@@ -94,6 +90,12 @@ module {
 
     /// Retrieves the sum of all current deposits.
     public func depositedFunds() : Nat = depositRegistry.sum();
+
+    /// Retrieves the sum of all current deposits.
+    public func underwayFunds() : Nat = underwayFunds_;
+
+    /// Retrieves the sum of all current deposits.
+    public func queuedFunds() : Nat = depositRegistry.sum() - underwayFunds_;
 
     /// Returns the size of the deposit registry.
     public func depositsNumber() : Nat = depositRegistry.size();
@@ -138,7 +140,6 @@ module {
         credit(p, inc);
       };
 
-      queuedFunds += inc;
       log(p, #newDeposit(inc));
 
       // schedule a canister self-call to initiate the consolidation
@@ -207,15 +208,13 @@ module {
     public func trigger() : async* () {
       let ?p = depositRegistry.firstUnlocked() else return;
       let ?(deposit, release) = depositRegistry.obtainLock(p, #consolidate) else Debug.trap("Failed to obtain lock");
-      queuedFunds -= deposit;
-      underwayFunds += deposit;
+      underwayFunds_ += deposit;
       let success = await* consolidate(p);
-      underwayFunds -= deposit;
+      underwayFunds_ -= deposit;
       if (success or deposit <= fee_) {
         ignore release(?0);
       } else {
         ignore release(null);
-        queuedFunds += deposit;
       };
       assertIntegrity();
     };
@@ -302,7 +301,6 @@ module {
         if (deposit <= newFee) {
           depositRegistry.erase(p);
           debit(p, deposit - prevFee);
-          queuedFunds -= deposit;
           continue L;
         };
         if (newFee > prevFee) {
@@ -327,15 +325,6 @@ module {
         return;
       };
 
-      if (depositRegistry.sum() != queuedFunds + underwayFunds) {
-        let values : [Text] = [
-          "Balances integrity failed",
-          "depositedFunds_=" # Nat.toText(depositRegistry.sum()),
-          "queuedFunds=" # Nat.toText(queuedFunds),
-          "underwayFunds=" # Nat.toText(underwayFunds),
-        ];
-        freezeCallback(Text.join("; ", Iter.fromArray(values)));
-      };
     };
 
     /// Fetches actual deposit for a principal from the ICRC1 ledger.
@@ -352,7 +341,6 @@ module {
       fee_,
       totalConsolidated_,
       totalWithdrawn_,
-      queuedFunds,
     );
 
     /// Deserializes the token handler data.
@@ -361,7 +349,6 @@ module {
       fee_ := values.1;
       totalConsolidated_ := values.2;
       totalWithdrawn_ := values.3;
-      queuedFunds := values.4;
     };
   };
 };
