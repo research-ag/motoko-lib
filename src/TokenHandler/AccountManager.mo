@@ -296,21 +296,17 @@ module {
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee == prevFee) return;
       label L for ((p, info) in depositRegistry.entries()) {
-        switch (info.lock) {
-          case (? #consolidate) continue L;
-          case (_) {};
-        };
+        if (info.lock == ?#consolidate or info.value == 0) continue L;
         let deposit = info.value;
-        if (deposit == 0) continue L;
+        if (deposit <= prevFee) freezeCallback("deposit <= fee should not have been recorded");
+        if (deposit <= newFee) {
+          depositRegistry.erase(p);
+          debit(p, deposit - prevFee);
+          queuedFunds -= deposit;
+          continue L;
+        };
         if (newFee > prevFee) {
-          if (deposit <= newFee) {
-            depositRegistry.erase(p);
-            debit(p, deposit - prevFee);
-            queuedFunds -= deposit;
-          } else {
-            let feeDelta = Int.abs(newFee - prevFee);
-            debit(p, feeDelta);
-          };
+          debit(p, newFee - prevFee);
         } else {
           credit(p, prevFee - newFee);
         };
