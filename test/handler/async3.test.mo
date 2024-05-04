@@ -25,19 +25,16 @@ func create_inc() : (Nat -> Nat, () -> Nat) {
 };
 
 func assert_state(handler : TokenHandler.TokenHandler, x : (Nat, Nat, Nat)) {
-  assert handler.depositedFunds() == x.0;
-  assert handler.consolidatedFunds() == x.1;
-  assert handler.depositsNumber() == x.2;
+  let s = handler.state();
+  assert s.balance.deposited == x.0;
+  assert s.balance.consolidated == x.1;
+  assert s.users.queued == x.2;
 };
 
 module Debug {
   public func state(handler : TokenHandler.TokenHandler) {
     print(
-      debug_show (
-        handler.depositedFunds(),
-        handler.consolidatedFunds(),
-        handler.depositsNumber(),
-      )
+      debug_show handler.state()
     );
   };
   public func journal(handler : TokenHandler.TokenHandler, ctr : Nat) {

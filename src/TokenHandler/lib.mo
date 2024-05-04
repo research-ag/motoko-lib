@@ -110,6 +110,9 @@ module {
       credit : {
         total : Int;
       };
+      users : {
+        queued : Nat;
+      };
     } = {
       journalLength = journal.length();
       balance = {
@@ -124,6 +127,9 @@ module {
       };
       credit = {
         total = creditRegistry.creditTotal();
+      };
+      users = {
+        queued = accountManager.depositsNumber();
       };
     };
 
