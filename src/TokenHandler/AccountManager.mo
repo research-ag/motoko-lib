@@ -11,9 +11,8 @@ import NatMap "NatMapWithLock";
 import Mapping "Mapping";
 
 module {
-  public type Lock = { #notify; #consolidate };
   public type StableData = (
-    NatMap.StableData<Principal, Lock>, // depositRegistry
+    NatMap.StableData<Principal>, // depositRegistry
     Nat, // fee_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
@@ -44,7 +43,7 @@ module {
   ) {
 
     /// Manages deposit balances for each user.
-    let depositRegistry = NatMap.NatMapWithLock<Principal, Lock>(Principal.compare);
+    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare);
 
     /// Current fee amount.
     var fee_ : Nat = initialFee;
@@ -133,7 +132,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      let ?(_, release) = depositRegistry.obtainLock(p, #notify) else return null;
+      let ?(_, release) = depositRegistry.obtainLock(p) else return null;
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
@@ -213,7 +212,7 @@ module {
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
       let ?p = depositRegistry.firstUnlocked() else return;
-      let ?(deposit, release) = depositRegistry.obtainLock(p, #consolidate) else Debug.trap("Failed to obtain lock");
+      let ?(deposit, release) = depositRegistry.obtainLock(p) else Debug.trap("Failed to obtain lock");
       underwayFunds_ += deposit;
       await* consolidate(p, release);
       underwayFunds_ -= deposit;

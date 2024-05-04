@@ -1,15 +1,14 @@
 import RBTree "mo:base/RBTree";
 import Iter "mo:base/Iter";
 import Order "mo:base/Order";
-import Option "mo:base/Option";
 import Prim "mo:prim";
 
 module {
-  type V<L> = { var value : Nat; var lock : ?L };
-  public type StableData<K, L> = (RBTree.Tree<K, V<L>>, Nat, Nat);
+  type V = { var value : Nat; var lock : Bool };
+  public type StableData<K> = (RBTree.Tree<K, V>, Nat, Nat);
 
-  public class NatMapWithLock<K, L>(compare : (K, K) -> Order.Order) {
-    let tree = RBTree.RBTree<K, V<L>>(compare);
+  public class NatMapWithLock<K>(compare : (K, K) -> Order.Order) {
+    let tree = RBTree.RBTree<K, V>(compare);
     var size_ : Nat = 0;
     var sum_ : Nat = 0;
 
@@ -33,13 +32,16 @@ module {
     // Returns the sum of all entries.
     public func sum() : Nat = sum_;
 
-    public func getLock(k : K) : ?L {
+    // Currently not used
+    /*
+    public func getLock(k : K) : Bool {
       lookupCtr += 1;
       switch (tree.get(k)) {
         case (?v) v.lock;
-        case (null) null;
+        case (null) false;
       };
     };
+    */
 
     // Obtains a lock on key `k`.
     // If successful, returns a function `f`.
@@ -47,18 +49,18 @@ module {
     // The function `f` can be used to write a new value to `k` and release the lock at the same time.
     // The new value is optional.
     // If `null` is supplied then `f` releases the lock without changing the value.
-    public func obtainLock(k : K, l : L) : ?(Nat, ?Nat -> Int) {
+    public func obtainLock(k : K) : ?(Nat, ?Nat -> Int) {
       lookupCtr += 1;
       let info = switch (tree.get(k)) {
         case (?r) {
-          if (Option.isSome(r.lock)) return null;
-          r.lock := ?l;
+          if (r.lock) return null;
+          r.lock := true;
           r;
         };
         case (null) {
           let r = {
             var value = 0;
-            var lock = ?l;
+            var lock = true;
           };
           lookupCtr += 1;
           tree.put(k, r);
@@ -66,8 +68,8 @@ module {
         };
       };
       func releaseLock(arg : ?Nat) : Int {
-        if (Option.isNull(info.lock)) Prim.trap("Cannot happen: lock must be set");
-        info.lock := null;
+        if (not info.lock) Prim.trap("Cannot happen: lock must be set");
+        info.lock := false;
         let delta : Int = switch (arg) {
           case (?new_value) {
             let old_value = info.value;
@@ -89,11 +91,11 @@ module {
       return ?(info.value, releaseLock);
     };
 
-    public func entries() : Iter.Iter<(K, V<L>)> = tree.entries();
+    public func entries() : Iter.Iter<(K, V)> = tree.entries();
 
     public func firstUnlocked() : ?K {
       for (e in tree.entries()) {
-        if (Option.isNull(e.1.lock)) return ?e.0;
+        if (not e.1.lock) return ?e.0;
       };
       return null;
     };
@@ -106,7 +108,7 @@ module {
           v.value := 0;
           if (old_value != 0) size_ -= 1;
           sum_ -= old_value;
-          if (Option.isNull(v.lock)) {
+          if (not v.lock) {
             lookupCtr += 1;
             tree.delete(k);
           };
@@ -116,8 +118,8 @@ module {
       };
     };
 
-    public func share() : StableData<K, L> = (tree.share(), sum_, size_);
-    public func unshare((t, sum, size) : StableData<K, L>) {
+    public func share() : StableData<K> = (tree.share(), sum_, size_);
+    public func unshare((t, sum, size) : StableData<K>) {
       tree.unshare(t);
       sum_ := sum;
       size_ := size;
