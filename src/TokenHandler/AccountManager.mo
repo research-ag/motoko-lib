@@ -146,11 +146,11 @@ module {
 
       if (inc > 0) {
         log(p, #newDeposit(inc));
-      };
 
-      // schedule a canister self-call to initiate the consolidation
-      // we need try-catch so that we don't trap if scheduling fails synchronously
-      try ignore trigger() catch (_) {};
+        // schedule a canister self-call to initiate the consolidation
+        // we need try-catch so that we don't trap if scheduling fails synchronously
+        try ignore trigger() catch (_) {};
+      };
 
       return ?inc;
     };
