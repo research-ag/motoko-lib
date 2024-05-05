@@ -4,7 +4,6 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
 
 import ICRC1 "ICRC1";
 import NatMap "NatMapWithLock";
@@ -72,6 +71,9 @@ module {
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
+    /// Retrieves the allowed minimal deposit.
+    public func minimum() : Nat = depositRegistry.minimum();
+
     /// Updates the fee amount based on the ICRC1 ledger.
     public func updateFee() : async* Nat {
       let newFee = await icrc1Ledger.fee();
@@ -82,6 +84,10 @@ module {
     func setNewFee(newFee : Nat) {
       if (fee_ != newFee) {
         log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
+        func zeroedCallback(p : Principal, old_value : Nat) {
+          debit(p, old_value - fee_);
+        };
+        depositRegistry.setMinimum(newFee + 1, zeroedCallback);
         recalculateDepositRegistry(newFee, fee_);
         fee_ := newFee;
       };
@@ -293,15 +299,12 @@ module {
     /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
     func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
       if (newFee == prevFee) return;
+
       label L for ((p, info) in depositRegistry.entries()) {
         if (info.value == 0) continue L;
         let deposit = info.value;
         if (deposit <= prevFee) freezeCallback("deposit <= fee should have been recorded as 0");
-        if (deposit <= newFee) {
-          ignore depositRegistry.erase(p);
-          debit(p, deposit - prevFee);
-          continue L;
-        };
+        if (deposit <= newFee) continue L;
         if (newFee > prevFee) {
           debit(p, newFee - prevFee);
         } else {

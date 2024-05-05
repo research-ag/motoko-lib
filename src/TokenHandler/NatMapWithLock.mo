@@ -37,8 +37,9 @@ module {
     };
 
     public func setMinimum(m : Nat, zeroed : (K, Nat) -> ()) {
-      if (m <= minimum_) return;
+      let increase =  m > minimum_;
       minimum_ := m;
+      if (not increase) return;
       label L for ((k, info) in tree.entries()) {
         let v = info.value;
         if (v == 0 or v >= m) continue L;

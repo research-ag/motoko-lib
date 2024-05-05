@@ -77,6 +77,9 @@ module {
     /// Returns the fee.
     public func fee() : Nat = accountManager.fee();
 
+    /// Returns the allowed minimal deposit.
+    public func minimum() : Nat = accountManager.minimum();
+
     /// Fetches and updates the fee from the ICRC1 ledger.
     public func updateFee() : async* Nat {
       await* accountManager.updateFee();
