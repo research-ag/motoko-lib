@@ -108,18 +108,20 @@ module {
         func releaseLock(arg : ?Nat) : Int {
           if (not info.lock) Prim.trap("Cannot happen: lock must be set");
           info.lock := false;
+          // enter new value
           let delta : Int = switch (arg) {
-            case (?new_value) {
-              let old_value = info.value;
-              if (old_value == 0 and new_value > 0) size_ += 1;
-              if (old_value > 0 and new_value == 0) size_ -= 1;
-              sum_ -= old_value;
-              sum_ += new_value;
-              info.value := new_value;
-              new_value - old_value;
+            case (?v) {
+              let (old, new) = (info.value, if (v < minimum_) 0 else v);
+              if (old == 0 and new > 0) size_ += 1;
+              if (old > 0 and new == 0) size_ -= 1;
+              sum_ -= old;
+              sum_ += new;
+              info.value := new;
+              new - old;
             };
             case (null) 0;
           };
+          // clean if value is zero
           if (info.value == 0) {
             lookupCtr += 1;
             tree.delete(k);
