@@ -45,11 +45,15 @@ module {
         info.value := 0;
         sum_ -= v;
         size_ -= 1;
-        if (not info.lock) {
-          lookupCtr += 1;
-          tree.delete(k);
-        };
+        clean(k, info);
         zeroed(k, v);
+      };
+    };
+
+    func clean(k : K, info : V) {
+      if (info.value == 0 and not info.lock) {
+        lookupCtr += 1;
+        tree.delete(k);
       };
     };
 
@@ -97,11 +101,7 @@ module {
           };
           case (null) 0;
         };
-        // clean if value is zero
-        if (info.value == 0) {
-          lookupCtr += 1;
-          tree.delete(k);
-        };
+        clean(k, info);
         delta;
       };
     };
@@ -127,10 +127,7 @@ module {
           v.value := 0;
           if (old_value != 0) size_ -= 1;
           sum_ -= old_value;
-          if (not v.lock) {
-            lookupCtr += 1;
-            tree.delete(k);
-          };
+          clean(k, v);
           old_value;
         };
         case (_) 0;
