@@ -71,10 +71,10 @@ module {
           r;
         };
       };
-      return ?(info.value, getReleaseFunc(k, info));
+      return ?(info.value, releaseFunc(k, info));
     };
 
-    func getReleaseFunc(k : K, info : V) : ?Nat -> Int {
+    func releaseFunc(k : K, info : V) : ?Nat -> Int {
       func(arg : ?Nat) : Int {
         if (not info.lock) Prim.trap("Cannot happen: lock must be set");
         info.lock := false;
@@ -108,7 +108,7 @@ module {
         if (info.lock) continue L;
         let k = e.0;
         info.lock := true;
-        return ?(k, info.value, getReleaseFunc(k, info));
+        return ?(k, info.value, releaseFunc(k, info));
       };
       return null;
     };
