@@ -36,6 +36,23 @@ module {
       };
     };
 
+    public func setMinimum(m : Nat, zeroed : (K, Nat) -> ()) {
+      if (m <= minimum_) return;
+      minimum_ := m;
+      label L for ((k, info) in tree.entries()) {
+        let v = info.value;
+        if (v == 0 or v >= m) continue L;
+        info.value := 0;
+        sum_ -= v;
+        size_ -= 1;
+        if (not info.lock) {
+          lookupCtr += 1;
+          tree.delete(k);
+        };
+        zeroed(k, v);
+      };
+    };
+
     // Currently not used
     /*
     public func getLock(k : K) : Bool {
