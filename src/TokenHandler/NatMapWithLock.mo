@@ -53,17 +53,6 @@ module {
       };
     };
 
-    // Currently not used
-    /*
-    public func getLock(k : K) : Bool {
-      lookupCtr += 1;
-      switch (tree.get(k)) {
-        case (?v) v.lock;
-        case (null) false;
-      };
-    };
-    */
-
     // Obtains a lock on key `k`.
     // If successful, returns a function `f`.
     // If non-successful, returns `null`.
