@@ -71,7 +71,11 @@ module {
           r;
         };
       };
-      func releaseLock(arg : ?Nat) : Int {
+      return ?(info.value, getReleaseFunc(k, info));
+    };
+
+    func getReleaseFunc(k : K, info : V) : ?Nat -> Int {
+      func(arg : ?Nat) : Int {
         if (not info.lock) Prim.trap("Cannot happen: lock must be set");
         info.lock := false;
         // enter new value
@@ -94,7 +98,6 @@ module {
         };
         delta;
       };
-      return ?(info.value, releaseLock);
     };
 
     public func entries() : Iter.Iter<(K, V)> = tree.entries();
@@ -105,30 +108,7 @@ module {
         if (info.lock) continue L;
         let k = e.0;
         info.lock := true;
-        func releaseLock(arg : ?Nat) : Int {
-          if (not info.lock) Prim.trap("Cannot happen: lock must be set");
-          info.lock := false;
-          // enter new value
-          let delta : Int = switch (arg) {
-            case (?v) {
-              let (old, new) = (info.value, if (v < minimum_) 0 else v);
-              if (old == 0 and new > 0) size_ += 1;
-              if (old > 0 and new == 0) size_ -= 1;
-              sum_ -= old;
-              sum_ += new;
-              info.value := new;
-              new - old;
-            };
-            case (null) 0;
-          };
-          // clean if value is zero
-          if (info.value == 0) {
-            lookupCtr += 1;
-            tree.delete(k);
-          };
-          delta;
-        };
-        return ?(k, info.value, releaseLock);
+        return ?(k, info.value, getReleaseFunc(k, info));
       };
       return null;
     };
