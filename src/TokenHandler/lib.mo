@@ -77,16 +77,22 @@ module {
     /// Returns the fee.
     public func fee() : Nat = accountManager.fee();
 
+    /// Returns the allowed minimal deposit.
+    public func minimum() : Nat = accountManager.minimum();
+
     /// Fetches and updates the fee from the ICRC1 ledger.
-    public func updateFee() : async* Nat {
-      await* accountManager.updateFee();
+    public func fetchFee() : async* Nat {
+      await* accountManager.fetchFee();
     };
 
-    /// Returns balances info for a principal - for debug purposes.
-    public func info(p : Principal) : AccountInfo = {
-      deposit = accountManager.getDeposit(p);
-      credit = creditRegistry.get(p);
+    /// Returns a user's current credit
+    public func getCredit(p : Principal) : Int {
+      creditRegistry.get(p);
     };
+
+    /// Returns a user's last know (= tracked) deposit
+    /// Null means the principal is locked, hence no value is available.
+    public func trackedDeposit(p : Principal) : ?Nat = accountManager.getDeposit(p);
 
     /// Queries the journal records starting from a specific index - for debug purposes.
     ///

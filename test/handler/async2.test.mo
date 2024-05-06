@@ -45,7 +45,7 @@ module Debug {
 // stage a response
 let release1 = ledger.fee_.stage(?5);
 // trigger call
-let fut1 = async { await* handler.updateFee() };
+let fut1 = async { await* handler.fetchFee() };
 // wait for staged response to be picked up
 // (necessary before a second response can be staged)
 await ledger.transfer_.clear();
@@ -53,7 +53,7 @@ await ledger.transfer_.clear();
 // stage a second response
 let release2 = ledger.fee_.stage(?10);
 // trigger call
-let fut2 = async { await* handler.updateFee() };
+let fut2 = async { await* handler.fetchFee() };
 
 // release second response
 release2();
@@ -81,7 +81,7 @@ do {
   assert_state(20, 0, 1);
   ledger.transfer_.stage(null)(); // error response
   await* handler.trigger();
-  assert inc(1); // #consolidationError
+  assert inc(3); // #consolidationError, #debited, #credited
   assert_state(20, 0, 1);
   ledger.transfer_.stage(?(#Ok 0))();
   await* handler.trigger();
