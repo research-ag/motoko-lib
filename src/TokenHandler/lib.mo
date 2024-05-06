@@ -90,6 +90,9 @@ module {
       creditRegistry.get(p);
     };
 
+    /// Returns a user's current credit
+    public func trackedDeposit(p : Principal) : ?Nat = accountManager.getDeposit(p);
+
     /// Queries the journal records starting from a specific index - for debug purposes.
     ///
     /// Returns:

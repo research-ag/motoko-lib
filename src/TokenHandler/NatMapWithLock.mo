@@ -36,6 +36,15 @@ module {
       };
     };
 
+    // Like `get` but returns null if key `k` is locked.
+    public func getOpt(k : K) : ?Nat {
+      lookupCtr += 1;
+      switch (tree.get(k)) {
+        case (?v) if (v.lock) null else ?v.value;
+        case (null) ?0;
+      };
+    };
+
     public func setMinimum(m : Nat, zeroed : (K, Nat) -> ()) {
       let increase =  m > minimum_;
       minimum_ := m;

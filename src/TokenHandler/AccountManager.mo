@@ -126,7 +126,7 @@ module {
     public func consolidatedFunds() : Nat = totalConsolidated_ - totalWithdrawn_;
 
     /// Retrieves the deposit of a principal.
-    public func getDeposit(p : Principal) : Nat = depositRegistry.get(p);
+    public func getDeposit(p : Principal) : ?Nat = depositRegistry.getOpt(p);
 
     func process_deposit(p : Principal, deposit : Nat, release : ?Nat -> Int) : Nat {
       if (deposit <= fee_) {
