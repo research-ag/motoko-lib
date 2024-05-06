@@ -75,30 +75,33 @@ module {
     public func minimum() : Nat = depositRegistry.minimum();
 
     /// Updates the fee amount based on the ICRC1 ledger.
-    public func updateFee() : async* Nat {
+    public func fetchFee() : async* Nat {
       let newFee = await icrc1Ledger.fee();
-      setNewFee(newFee);
+      updateFee(newFee);
       newFee;
     };
 
-    func setNewFee(newFee : Nat) {
-      if (fee_ != newFee) {
-        log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
-        depositRegistry.setMinimum(newFee + 1, func(p, v) {
-          debit(p, v - fee_);
-        });
-        depositRegistry.iterate(
-          func(p, v) {
-            if (v <= newFee) freezeCallback("deposit <= newFee should have been erased in previous step");
-            if (newFee > fee_) {
-              debit(p, newFee - fee_);
-            } else {
-              credit(p, fee_ - newFee);
-            };
-          }
-        );
-        fee_ := newFee;
-      };
+    func updateFee(newFee : Nat) {
+      if (fee_ == newFee) return;
+      // step 1: update the minimum deposit
+      // the callback debits the principal for deposits that are removed in this step
+      depositRegistry.setMinimum(
+        newFee + 1,
+        func (p, v) = debit(p, v - fee_)
+      );
+      // step 2: adjust credit for all queued deposits
+      depositRegistry.iterate(
+        func(p, v) {
+          if (v <= newFee) freezeCallback("deposit <= newFee should have been erased in previous step");
+          if (newFee > fee_) {
+            debit(p, newFee - fee_);
+          } else {
+            credit(p, fee_ - newFee);
+          };
+        }
+      );
+      log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
+      fee_ := newFee;
     };
 
     /// Retrieves the sum of all current deposits.
@@ -211,7 +214,7 @@ module {
 
       // catch #BadFee
       switch (transferResult) {
-        case (#Err(#BadFee { expected_fee })) setNewFee(expected_fee);
+        case (#Err(#BadFee { expected_fee })) updateFee(expected_fee);
         case (_) {};
       };
 
@@ -268,7 +271,7 @@ module {
           #ok(txIdx, amount - fee_);
         };
         case (#Err(#BadFee { expected_fee })) {
-          setNewFee(expected_fee);
+          updateFee(expected_fee);
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
             case (#Ok txIdx) {
