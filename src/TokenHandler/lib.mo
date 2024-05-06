@@ -90,7 +90,8 @@ module {
       creditRegistry.get(p);
     };
 
-    /// Returns a user's current credit
+    /// Returns a user's last know (= tracked) deposit
+    /// Null means the principal is locked, hence no value is available.
     public func trackedDeposit(p : Principal) : ?Nat = accountManager.getDeposit(p);
 
     /// Queries the journal records starting from a specific index - for debug purposes.
