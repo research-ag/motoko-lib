@@ -122,8 +122,6 @@ module {
       };
     };
 
-    public func entries() : Iter.Iter<(K, V)> = tree.entries();
-
     public func nextLock() : ?(K, Nat, ?Nat -> Int) {
       label L for (e in tree.entries()) {
         let info = e.1;
