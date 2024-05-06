@@ -85,10 +85,9 @@ module {
       await* accountManager.fetchFee();
     };
 
-    /// Returns balances info for a principal - for debug purposes.
-    public func info(p : Principal) : AccountInfo = {
-      deposit = accountManager.getDeposit(p);
-      credit = creditRegistry.get(p);
+    /// Returns a user's current credit
+    public func getCredit(p : Principal) : Int {
+      creditRegistry.get(p);
     };
 
     /// Queries the journal records starting from a specific index - for debug purposes.

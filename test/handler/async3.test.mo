@@ -194,7 +194,7 @@ do {
   await f1;
   assert state(handler) == (0, 0, 0); // consolidation failed with deposit reset
   assert handler.journalLength() == inc(3); // #consolidationError, #debited, #feeUpdated
-  assert handler.info(user1).credit == 0; // credit has been corrected after consolidation
+  assert handler.getCredit(user1) == 0; // credit has been corrected after consolidation
   print("tree lookups = " # debug_show handler.lookups());
 
   // increase fee while deposit is being consolidated (implicitly)
@@ -212,7 +212,7 @@ do {
   await f2;
   assert state(handler) == (20, 0, 1); // consolidation failed with updated deposit scheduled
   assert handler.journalLength() == inc(4); // #consolidationError, #debited, #feeUpdated, #credited 
-  assert handler.info(user1).credit == 5; // credit has been corrected after consolidation
+  assert handler.getCredit(user1) == 5; // credit has been corrected after consolidation
   print("tree lookups = " # debug_show handler.lookups());
 
   // increase fee while deposit is being consolidated (explicitly)
@@ -231,7 +231,7 @@ do {
   await f3;
   assert state(handler) == (0, 0, 0); // consolidation failed with deposit reset
   assert handler.journalLength() == inc(2); // #consolidationError, #debited
-  assert handler.info(user1).credit == 0; // credit has been corrected
+  assert handler.getCredit(user1) == 0; // credit has been corrected
   print("tree lookups = " # debug_show handler.lookups());
 
   // increase fee while deposit is being consolidated (explicitly)
@@ -253,7 +253,7 @@ do {
   await f4;
   assert state(handler) == (20, 0, 1); // consolidation failed with updated deposit scheduled
   assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
-  assert handler.info(user1).credit == 14; // credit has been corrected
+  assert handler.getCredit(user1) == 14; // credit has been corrected
   print("tree lookups = " # debug_show handler.lookups());
 
   // only 1 consolidation process can be triggered for same user at same time
@@ -268,7 +268,7 @@ do {
   assert ((await ledger.mock.transfer_count())) == transfer_count + 1; // only 1 transfer call has been made
   assert state(handler) == (0, 14, 0); // consolidation successful
   assert handler.journalLength() == inc(1); // #consolidated
-  assert handler.info(user1).credit == 14; // credit unchanged
+  assert handler.getCredit(user1) == 14; // credit unchanged
   print("tree lookups = " # debug_show handler.lookups());
 
   handler.assertIntegrity();
@@ -387,7 +387,7 @@ do {
   await ledger.mock.release_balance(); // let notify return
   assert (await f1) == ?(0, 0);
   assert state(handler) == (0, 0, 0); // state unchanged because deposit has not changed
-  assert handler.info(user1).credit == 0; // credit should not be corrected
+  assert handler.getCredit(user1) == 0; // credit should not be corrected
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -401,7 +401,7 @@ do {
   await ledger.mock.release_balance(); // let notify return
   assert (await f2) == ?(5, 3);
   assert state(handler) == (5, 0, 1); // state unchanged because deposit has not changed
-  assert handler.info(user1).credit == 3; // credit should not be corrected
+  assert handler.getCredit(user1) == 3; // credit should not be corrected
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -411,21 +411,21 @@ do {
   await ledger.mock.set_fee(1);
   ignore await* handler.fetchFee();
   assert handler.journalLength() == inc(2); // #feeUpdated, #credited
-  assert handler.info(user1).credit == 4; // credit corrected
+  assert handler.getCredit(user1) == 4; // credit corrected
   print("tree lookups = " # debug_show handler.lookups());
 
   // scenario 2: prev_fee < new_fee < deposit
   await ledger.mock.set_fee(3);
   ignore await* handler.fetchFee();
   assert handler.journalLength() == inc(2); // #feeUpdated, #debited
-  assert handler.info(user1).credit == 2; // credit corrected
+  assert handler.getCredit(user1) == 2; // credit corrected
   print("tree lookups = " # debug_show handler.lookups());
 
   // scenario 3: prev_fee < deposit <= new_fee
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
   assert handler.journalLength() == inc(2); // #feeUpdated, #debited
-  assert handler.info(user1).credit == 0; // credit corrected
+  assert handler.getCredit(user1) == 0; // credit corrected
   print("tree lookups = " # debug_show handler.lookups());
 
   handler.assertIntegrity();
