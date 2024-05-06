@@ -107,6 +107,12 @@ module {
       };
     };
 
+    public func iterate(f : (K, Nat) -> ()) {
+      for (e in tree.entries()) {
+        if (e.1.value != 0) f(e.0, e.1.value);
+      };
+    };
+
     public func entries() : Iter.Iter<(K, V)> = tree.entries();
 
     public func obtainAnyLock() : ?(K, Nat, ?Nat -> Int) {

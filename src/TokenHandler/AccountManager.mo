@@ -84,11 +84,19 @@ module {
     func setNewFee(newFee : Nat) {
       if (fee_ != newFee) {
         log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
-        func zeroedCallback(p : Principal, old_value : Nat) {
-          debit(p, old_value - fee_);
-        };
-        depositRegistry.setMinimum(newFee + 1, zeroedCallback);
-        recalculateDepositRegistry(newFee, fee_);
+        depositRegistry.setMinimum(newFee + 1, func(p, v) {
+          debit(p, v - fee_);
+        });
+        depositRegistry.iterate(
+          func(p, v) {
+            if (v <= newFee) freezeCallback("deposit <= newFee should have been erased in previous step");
+            if (newFee > fee_) {
+              debit(p, newFee - fee_);
+            } else {
+              credit(p, fee_ - newFee);
+            };
+          }
+        );
         fee_ := newFee;
       };
     };
@@ -139,6 +147,7 @@ module {
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
       let ?(_, release) = depositRegistry.obtainLock(p) else return null;
+
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
@@ -146,7 +155,7 @@ module {
         throw err;
       };
 
-      // This function calls release
+      // This function calls release() to release the lock
       let inc = process_deposit(p, latestDeposit, release);
 
       if (inc > 0) {
@@ -293,24 +302,6 @@ module {
     func debit(p : Principal, amount : Nat) {
       totalDebited += amount;
       debit_(p, amount);
-    };
-
-    /// Recalculates the deposit registry after the fee change.
-    /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
-    func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
-      if (newFee == prevFee) return;
-
-      label L for ((p, info) in depositRegistry.entries()) {
-        if (info.value == 0) continue L;
-        let deposit = info.value;
-        if (deposit <= prevFee) freezeCallback("deposit <= fee should have been recorded as 0");
-        if (deposit <= newFee) continue L;
-        if (newFee > prevFee) {
-          debit(p, newFee - prevFee);
-        } else {
-          credit(p, prevFee - newFee);
-        };
-      };
     };
 
     public func assertIntegrity() {
