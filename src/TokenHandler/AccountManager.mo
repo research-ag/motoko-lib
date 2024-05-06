@@ -149,7 +149,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      let ?(_, release) = depositRegistry.obtainLock(p) else return null;
+      let ?release = depositRegistry.obtainLock(p) else return null;
 
       let latestDeposit = try {
         await* loadDeposit(p);
@@ -229,7 +229,7 @@ module {
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
-      let ?(p, deposit, release) = depositRegistry.obtainAnyLock() else return;
+      let ?(p, deposit, release) = depositRegistry.nextLock() else return;
       underwayFunds_ += deposit;
       await* consolidate(p, release);
       underwayFunds_ -= deposit;
