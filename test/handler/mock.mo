@@ -1,6 +1,7 @@
+import Debug "mo:base/Debug";
+import Deque "mo:base/Deque";
 import Error "mo:base/Error";
 import Option "mo:base/Option";
-import Debug "mo:base/Debug";
 
 module {
 
@@ -30,22 +31,15 @@ module {
   };
 
   public class Method<T>() {
-    var register : ?Response<T> = null;
+    var queue : Deque.Deque<Response<T>> = Deque.empty<Response<T>>();
     public func stage(arg : ?T) : ReleaseFunc {
       let response = Response<T>(arg);
-      if (not Option.isNull(register)) Debug.trap("staging failed. register not empty.");
-      register := ?response;
+      queue := Deque.pushBack(queue, response);
       response.release;
     };
-    public func clear() : async () {
-      while (Option.isSome(register)) {
-        await async {};
-      };
-    };
-    public func read() : Response<T> {
-      Debug.print("read");
-      let ?r = register else Debug.trap("no response stage.");
-      register := null;
+    public func pop() : Response<T> {
+      let ?(r, q) = Deque.popFront(queue) else Debug.trap("no response staged.");
+      queue := q;
       r;
     };
   };

@@ -9,13 +9,13 @@ let ledger = object {
   public let balance_ = Mock.Method<Nat>();
   public let transfer_ = Mock.Method<ICRC1.TransferResult>();
   public shared func fee() : async Nat {
-    let r = fee_.read(); await* r.run(); r.response();
+    let r = fee_.pop(); await* r.run(); r.response();
   };
   public shared func balance_of(_ : ICRC1.Account) : async Nat {
-    let r = balance_.read(); await* r.run(); r.response();
+    let r = balance_.pop(); await* r.run(); r.response();
   };
   public shared func transfer(_ : ICRC1.TransferArgs) : async ICRC1.TransferResult {
-    let r = transfer_.read(); await* r.run(); r.response();
+    let r = transfer_.pop(); await* r.run(); r.response();
   };
 };
 
@@ -45,23 +45,19 @@ module Debug {
 
 // stage a response
 let release1 = ledger.fee_.stage(?5);
-// trigger call
-let fut1 = async { await* handler.updateFee() };
-// wait for staged response to be picked up
-// (necessary before a second response can be staged)
-await ledger.transfer_.clear();
-
 // stage a second response
 let release2 = ledger.fee_.stage(?10);
 // trigger call
+let fut1 = async { await* handler.updateFee() };
+// trigger second call
 let fut2 = async { await* handler.updateFee() };
 
-// release second response
+// release second response first
 release2();
 assert (await fut2) == 10;
 assert handler.journalLength() == inc(1); // #feeUpdate
 
-// release first response
+// release first response second
 release1();
 assert (await fut1) == 5;
 assert handler.journalLength() == inc(1); // #feeUpdate
