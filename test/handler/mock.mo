@@ -4,6 +4,7 @@ import Error "mo:base/Error";
 import Option "mo:base/Option";
 
 module {
+  let iteration_limit = 100;
 
   public type ReleaseFunc = () -> ();
 
@@ -11,11 +12,12 @@ module {
     var lock = true;
 
     public func run() : async* () {
-      var inc = 100;
+      var inc = iteration_limit;
       while (lock and inc > 0) {
         await async {};
         inc -= 1;
       };
+      if (inc == 0) Debug.trap("iteration limit reached.");
       if (Option.isNull(response_)) throw Error.reject("");
     };
 

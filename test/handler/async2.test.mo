@@ -83,3 +83,22 @@ do {
   await* handler.trigger();
   assert_state(0, 15, 0);
 };
+
+do {
+  // fresh handler
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  // give user1 20 credits
+  handler.credit(user1, 20);
+  // stage two responses
+  let release1 = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
+  let release2 = ledger.transfer_.stage(?(#Ok 0));
+  assert handler.fee() == 0;
+  // start withdrawal and move it to background task
+  let fut = async { await* handler.withdraw({ owner = user1; subaccount = null}, 10) };
+  // do something here before BadFee response comes back
+  release1();
+  release2();
+  ignore await fut;
+  // do something here after withdrawal has succeeded
+  assert handler.fee() == 10;
+};
