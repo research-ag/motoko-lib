@@ -24,6 +24,7 @@ module {
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
+    let max_pages : Nat64 = 256 ** (pointer_size_ - 2); 
     var nodeSize : Nat64 = children_number_ * pointer_size_;
 
     var region_ : ?Region.Region = null;
@@ -53,6 +54,7 @@ module {
 
     func newInternalNode(region : Region.Region) : Nat64 {
       if (regionSpace < nodeSize) {
+        assert Region.size(region) < max_pages;
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
@@ -64,6 +66,7 @@ module {
 
     func newLeaf(region : Region.Region, key : Blob, value : Blob) : Nat64 {
       if (regionSpace < leafSize) {
+        assert Region.size(region) < max_pages;
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace += 65536;
       };
