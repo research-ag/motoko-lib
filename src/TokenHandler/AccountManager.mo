@@ -87,7 +87,7 @@ module {
       // the callback debits the principal for deposits that are removed in this step
       depositRegistry.setMinimum(
         newFee + 1,
-        func (p, v) = debit(p, v - fee_)
+        func(p, v) = debit(p, v - fee_),
       );
       // step 2: adjust credit for all queued deposits
       depositRegistry.iterate(
@@ -177,7 +177,7 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
     } {
-      let transferAmount : Nat = Int.abs(deposit - fee_);
+      let transferAmount : Nat = deposit - fee_;
 
       let transferResult = try {
         await icrc1Ledger.transfer({
@@ -190,16 +190,6 @@ module {
         });
       } catch (_) {
         #Err(#CallIcrc1LedgerError);
-      };
-
-      switch (transferResult) {
-        case (#Ok _) {
-          totalConsolidated_ += transferAmount;
-          log(p, #consolidated({ deducted = deposit; credited = transferAmount }));
-        };
-        case (#Err err) {
-          log(p, #consolidationError(err));
-        };
       };
 
       transferResult;
@@ -219,8 +209,13 @@ module {
       };
 
       switch (transferResult) {
-        case (#Ok _) ignore release(null);
-        case (_) {
+        case (#Ok _) {
+          log(p, #consolidated({ deducted = deposit; credited = originalCredit }));
+          totalConsolidated_ += originalCredit;
+          ignore release(null);
+        };
+        case (#Err err) {
+          log(p, #consolidationError(err));
           debit(p, originalCredit);
           ignore process_deposit(p, deposit, release);
         };
