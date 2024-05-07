@@ -21,18 +21,17 @@ let ledger = object {
 
 let anon_p = Principal.fromBlob("");
 let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+
 var journalCtr = 0;
-func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
+func inc(n : Nat) : Bool { 
+  journalCtr += n;
+  journalCtr == handler.state().journalLength 
+};
 
 module Debug {
   public func state() {
     print(
-      debug_show (
-        handler.depositedFunds(),
-        handler.consolidatedFunds(),
-        handler.depositsNumber(),
-      )
-    );
+      debug_show handler.state());
   };
   public func journal(ctr : Nat) {
     print(
@@ -46,7 +45,7 @@ module Debug {
 // stage a response
 let release1 = ledger.fee_.stage(?5);
 // trigger call
-let fut1 = async { await* handler.updateFee() };
+let fut1 = async { await* handler.fetchFee() };
 // wait for staged response to be picked up
 // (necessary before a second response can be staged)
 await ledger.transfer_.clear();
@@ -54,34 +53,35 @@ await ledger.transfer_.clear();
 // stage a second response
 let release2 = ledger.fee_.stage(?10);
 // trigger call
-let fut2 = async { await* handler.updateFee() };
+let fut2 = async { await* handler.fetchFee() };
 
 // release second response
 release2();
 assert (await fut2) == 10;
-assert handler.journalLength() == inc(1); // #feeUpdate
+assert inc(1); // #feeUpdate
 
 // release first response
 release1();
 assert (await fut1) == 5;
-assert handler.journalLength() == inc(1); // #feeUpdate
+assert inc(1); // #feeUpdate
 
 let user1 = Principal.fromBlob("1");
 func assert_state(x : (Nat, Nat, Nat)) {
-  assert handler.depositedFunds() == x.0;
-  assert handler.consolidatedFunds() == x.1;
-  assert handler.depositsNumber() == x.2;
+  let s = handler.state();
+  assert s.balance.deposited == x.0;
+  assert s.balance.consolidated == x.1;
+  assert s.users.queued == x.2;
 };
 
 do {
   // stage a response and release it immediately
   ledger.balance_.stage(?20)();
   assert (await* handler.notify(user1)) == ?(20, 15); // (deposit, credit)
-  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert inc(2); // #credited, #newDeposit
   assert_state(20, 0, 1);
   ledger.transfer_.stage(null)(); // error response
   await* handler.trigger();
-  assert handler.journalLength() == inc(1); // #consolidationError
+  assert inc(3); // #consolidationError, #debited, #credited
   assert_state(20, 0, 1);
   ledger.transfer_.stage(?(#Ok 0))();
   await* handler.trigger();
