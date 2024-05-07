@@ -37,7 +37,7 @@ module {
         case (null) {
           let r = Region.new();
           assert Region.grow(r, 1) != 0xFFFF_FFFF_FFFF_FFFF;
-          regionSpace := 65536;
+          regionSpace := 65536 - (8 - pointer_size_);
           region_ := ?r;
           size_ := nodeSize;
           regionSpace -= nodeSize;
@@ -77,15 +77,17 @@ module {
       Nat64.bitset(pos << 1, 0);
     };
 
+    let loadMask : Nat64 = switch (pointer_size_) {
+      case (8) 0xffff_ffff_ffff_ffff;
+      case (6) 0xffff_ffff_ffff;
+      case (4) 0xffff_ffff;
+      case (2) 0xffff;
+      case (_) 0;
+    };
+
     public func getChild(region : Region.Region, node : Nat64, index : Nat8) : Nat64 {
       let offset = node >> 1 + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
-      switch (pointer_size_) {
-        case (8) Region.loadNat64(region, offset);
-        case (6) Nat32.toNat64(Region.loadNat32(region, offset)) ^ Nat32.toNat64(Nat16.toNat32(Region.loadNat16(region, offset + 4))) << 32;
-        case (4) Nat32.toNat64(Region.loadNat32(region, offset));
-        case (2) Nat32.toNat64(Nat16.toNat32(Region.loadNat16(region, offset)));
-        case (_) Debug.trap("Can never happen");
-      };
+      Region.loadNat64(region, offset) & loadMask;
     };
 
     public func setChild(region : Region.Region, node : Nat64, index : Nat8, child : Nat64) {
