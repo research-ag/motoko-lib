@@ -46,7 +46,6 @@ module {
       };
     };
 
-    let leafBit : Nat = pointer_size * 8 - 1;
     let leafSize : Nat64 = key_size_ + value_size_;
 
     let key_size_64 : Nat64 = Nat64.fromIntWrap(key_size);
@@ -60,7 +59,7 @@ module {
       let pos = size_;
       size_ += nodeSize;
       regionSpace -= nodeSize;
-      pos;
+      pos << 1;
     };
 
     func newLeaf(region : Region.Region, key : Blob, value : Blob) : Nat64 {
@@ -75,11 +74,11 @@ module {
       if (not empty_values) {
         Region.storeBlob(region, pos + key_size_64, value);
       };
-      Nat64.bitset(pos, leafBit);
+      Nat64.bitset(pos << 1, 0);
     };
 
     public func getChild(region : Region.Region, node : Nat64, index : Nat8) : Nat64 {
-      let offset = node + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
+      let offset = node >> 1 + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
       switch (pointer_size_) {
         case (8) Region.loadNat64(region, offset);
         case (6) Nat32.toNat64(Region.loadNat32(region, offset)) ^ Nat32.toNat64(Nat16.toNat32(Region.loadNat16(region, offset + 4))) << 32;
@@ -90,7 +89,7 @@ module {
     };
 
     public func setChild(region : Region.Region, node : Nat64, index : Nat8, child : Nat64) {
-      let offset = node + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
+      let offset = node >> 1 + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
       switch (pointer_size_) {
         case (8) Region.storeNat64(region, offset, child);
         case (6) {
@@ -104,12 +103,12 @@ module {
     };
 
     public func getKey(region : Region.Region, offset : Nat64) : Blob {
-      Region.loadBlob(region, Nat64.bitclear(offset, leafBit), key_size);
+      Region.loadBlob(region, offset >> 1, key_size);
     };
 
     public func value(region : Region.Region, offset : Nat64) : Blob {
       if (empty_values) return "";
-      Region.loadBlob(region, Nat64.bitclear(offset, leafBit) + Nat64.fromIntWrap(key_size), value_size);
+      Region.loadBlob(region, offset >> 1 + Nat64.fromIntWrap(key_size), value_size);
     };
 
     public func print(region : Region.Region, offset : Nat64) {
@@ -120,7 +119,7 @@ module {
             Iter.range(0, children_number - 1),
             func(x : Nat) : Text = switch (getChild(region, offset, Nat8.fromIntWrap(x))) {
               case (0) "null";
-              case (ch) if (Nat64.bittest(ch, leafBit)) debug_show (getKey(region, ch)) else Nat64.toText(ch);
+              case (ch) if (Nat64.bittest(ch, 0)) debug_show (getKey(region, ch)) else Nat64.toText(ch);
             },
           ),
         )
@@ -128,7 +127,7 @@ module {
       for (x in Iter.range(0, children_number - 1)) {
         switch (getChild(region, offset, Nat8.fromIntWrap(x))) {
           case (0) {};
-          case (ch) if (not Nat64.bittest(ch, leafBit)) print(region, ch);
+          case (ch) if (not Nat64.bittest(ch, 0)) print(region, ch);
         };
       };
     };
@@ -183,7 +182,7 @@ module {
             return true;
           };
           case (n) {
-            if (Nat64.bittest(n, leafBit)) {
+            if (Nat64.bittest(n, 0)) {
               old_leaf := n;
               break l idx;
             };
@@ -229,7 +228,7 @@ module {
             return null;
           };
           case (n) {
-            if (Nat64.bittest(n, leafBit)) {
+            if (Nat64.bittest(n, 0)) {
               if (getKey(reg, n) == key) return ?value(reg, n) else return null;
             };
             n;
