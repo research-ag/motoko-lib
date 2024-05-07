@@ -9,13 +9,19 @@ let ledger = object {
   public let balance_ = Mock.Method<Nat>();
   public let transfer_ = Mock.Method<ICRC1.TransferResult>();
   public shared func fee() : async Nat {
-    let r = fee_.read(); await* r.run(); r.response();
+    let r = fee_.read();
+    await* r.run();
+    r.response();
   };
   public shared func balance_of(_ : ICRC1.Account) : async Nat {
-    let r = balance_.read(); await* r.run(); r.response();
+    let r = balance_.read();
+    await* r.run();
+    r.response();
   };
   public shared func transfer(_ : ICRC1.TransferArgs) : async ICRC1.TransferResult {
-    let r = transfer_.read(); await* r.run(); r.response();
+    let r = transfer_.read();
+    await* r.run();
+    r.response();
   };
 };
 
@@ -23,15 +29,16 @@ let anon_p = Principal.fromBlob("");
 let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
 
 var journalCtr = 0;
-func inc(n : Nat) : Bool { 
+func inc(n : Nat) : Bool {
   journalCtr += n;
-  journalCtr == handler.state().journalLength 
+  journalCtr == handler.state().journalLength;
 };
 
 module Debug {
   public func state() {
     print(
-      debug_show handler.state());
+      debug_show handler.state()
+    );
   };
   public func journal(ctr : Nat) {
     print(
@@ -51,19 +58,19 @@ let fut1 = async { await* handler.fetchFee() };
 await ledger.transfer_.clear();
 
 // stage a second response
-let release2 = ledger.fee_.stage(?10);
+let release2 = ledger.fee_.stage(null);
 // trigger call
 let fut2 = async { await* handler.fetchFee() };
 
 // release second response
 release2();
-assert (await fut2) == 10;
-assert inc(1); // #feeUpdate
+assert (await fut2) == null;
+assert inc(0);
 
 // release first response
 release1();
-assert (await fut1) == 5;
-assert inc(1); // #feeUpdate
+assert (await fut1) == ?5;
+assert inc(2); // #minimumUpdated, #feeUpdated
 
 let user1 = Principal.fromBlob("1");
 func assert_state(x : (Nat, Nat, Nat)) {
