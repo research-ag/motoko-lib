@@ -412,6 +412,7 @@ do {
   ignore await* handler.fetchFee();
   assert handler.journalLength() == inc(2); // #feeUpdated, #credited
   assert handler.getCredit(user1) == 4; // credit corrected
+
   print("tree lookups = " # debug_show handler.lookups());
 
   // scenario 2: prev_fee < new_fee < deposit
