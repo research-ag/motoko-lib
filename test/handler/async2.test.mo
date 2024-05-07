@@ -44,9 +44,9 @@ module Debug {
 };
 
 // stage a response
-let release1 = ledger.fee_.stage(?5);
+let release1 = ledger.fee_.stage(?5).0;
 // stage a second response
-let release2 = ledger.fee_.stage(?10);
+let release2 = ledger.fee_.stage(?10).0;
 // trigger call
 let fut1 = async { await* handler.updateFee() };
 // trigger second call
@@ -71,34 +71,73 @@ func assert_state(x : (Nat, Nat, Nat)) {
 
 do {
   // stage a response and release it immediately
-  ledger.balance_.stage(?20)();
+  ledger.balance_.stage(?20).0();
   assert (await* handler.notify(user1)) == ?(20, 15); // (deposit, credit)
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
   assert_state(20, 0, 1);
-  ledger.transfer_.stage(null)(); // error response
+  ledger.transfer_.stage(null).0(); // error response
   await* handler.trigger();
   assert handler.journalLength() == inc(1); // #consolidationError
   assert_state(20, 0, 1);
-  ledger.transfer_.stage(?(#Ok 0))();
+  ledger.transfer_.stage(?(#Ok 0)).0();
   await* handler.trigger();
   assert_state(0, 15, 0);
 };
 
 do {
+  print("new test");
+  assert ledger.transfer_.isEmpty();
   // fresh handler
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   // give user1 20 credits
   handler.credit(user1, 20);
   // stage two responses
-  let release1 = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
-  let release2 = ledger.transfer_.stage(?(#Ok 0));
+  let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   assert handler.fee() == 0;
   // start withdrawal and move it to background task
-  let fut = async { await* handler.withdraw({ owner = user1; subaccount = null}, 10) };
-  // do something here before BadFee response comes back
+  let fut = async { 
+    await* handler.withdraw({ owner = user1; subaccount = null}, 10); 
+  };
+  assert handler.totalWithdrawn() == 0; // background task hasn't started yet
+  assert state() == #staged;
+  await async {};
+  assert handler.totalWithdrawn() == 10; // background task has started
+  assert state() == #running; // why has this changed already?
+  release();
+  await async {}; // loop needs to finish
+  assert state() == #ready;
+  await async {}; // caller needs to resume the continuation (because target has an async interface, not needed with async* interface)
+  assert handler.fee() == 10;
+  assert handler.totalWithdrawn() == 0;
+  // Note: handler fee is already updated
+  // we do not have to await fut
+  assert (await fut) == #err(#TooLowQuantity);
+};
+
+do {
+  print("new test");
+  assert ledger.transfer_.isEmpty();
+  // fresh handler
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  // give user1 20 credits
+  handler.credit(user1, 20);
+  // stage two responses
+  let (release1, state1) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
+  let (release2, state2) = ledger.transfer_.stage(?(#Ok 0));
+  assert handler.fee() == 0;
+  // start withdrawal and move it to background task
+  let fut = async { 
+    await* handler.withdraw({ owner = user1; subaccount = null}, 11); 
+  };
   release1();
+  assert state1() == #staged;
+  await async {};
+  assert state1() == #ready;
+  await async {};
+  assert handler.fee() == 10;
+  assert state2() == #running;
   release2();
-  ignore await fut;
-  // do something here after withdrawal has succeeded
+  assert (await fut) == #ok(0,1);
+  assert state2() == #ready;
   assert handler.fee() == 10;
 };
