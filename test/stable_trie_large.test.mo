@@ -31,7 +31,7 @@ do {
   };
 };
 
-let trie = StableTrie.StableTrie(4, key_size, 0);
+let trie = StableTrie.StableTrie(8, 4, key_size, 0);
 
 let max = 4096;
 var n1 = max;

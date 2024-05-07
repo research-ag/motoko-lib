@@ -7,27 +7,29 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
+import Nat32 "mo:base/Nat32";
 
 module {
-  let POINTER_SIZE : Nat64 = 8;
-
   type StableTrieState = {
     region : Region.Region;
     size : Nat;
   };
 
-  public class StableTrie(children_number : Nat, key_size : Nat, value_size : Nat) {
+  public class StableTrie(pointer_size : Nat, children_number : Nat, key_size : Nat, value_size : Nat) {
+    assert pointer_size % 2 == 0 and 2 <= pointer_size and pointer_size <= 8;
     assert children_number == 2 or children_number == 4 or children_number == 16 or children_number == 256;
     assert key_size >= 1;
 
     let children_number_ = Nat64.fromNat(children_number);
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
-    var nodeSize : Nat64 = children_number_ * POINTER_SIZE;
+    let pointer_size_ = Nat64.fromNat(pointer_size);
+    var nodeSize : Nat64 = children_number_ * pointer_size_;
 
     var region_ : ?Region.Region = null;
     var regionSpace : Nat64 = 0;
     var size_ : Nat64 = 0;
+    var count_ : Nat64 = 0;
 
     func region() : Region.Region {
       switch (region_) {
@@ -44,7 +46,7 @@ module {
       };
     };
 
-    let leafBit : Nat = Nat64.toNat(POINTER_SIZE) * 8 - 1;
+    let leafBit : Nat = pointer_size * 8 - 1;
     let leafSize : Nat64 = key_size_ + value_size_;
 
     let key_size_64 : Nat64 = Nat64.fromIntWrap(key_size);
@@ -77,11 +79,28 @@ module {
     };
 
     public func getChild(region : Region.Region, node : Nat64, index : Nat8) : Nat64 {
-      Region.loadNat64(region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE);
+      let offset = node + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
+      switch (pointer_size_) {
+        case (8) Region.loadNat64(region, offset);
+        case (6) Nat32.toNat64(Region.loadNat32(region, offset)) ^ Nat32.toNat64(Nat16.toNat32(Region.loadNat16(region, offset + 4))) << 32;
+        case (4) Nat32.toNat64(Region.loadNat32(region, offset));
+        case (2) Nat32.toNat64(Nat16.toNat32(Region.loadNat16(region, offset)));
+        case (_) Debug.trap("Can never happen");
+      };
     };
 
     public func setChild(region : Region.Region, node : Nat64, index : Nat8, child : Nat64) {
-      Region.storeNat64(region, node + Nat64.fromIntWrap(Nat8.toNat(index)) * POINTER_SIZE, child);
+      let offset = node + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
+      switch (pointer_size_) {
+        case (8) Region.storeNat64(region, offset, child);
+        case (6) {
+          Region.storeNat32(region, offset, Nat32.fromNat64(child & ((1 << 32) - 1)));
+          Region.storeNat16(region, offset + 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
+        };
+        case (4) Region.storeNat32(region, offset, Nat32.fromNat64(child));
+        case (2) Region.storeNat16(region, offset, Nat16.fromNat32(Nat32.fromNat64(child)));
+        case (_) Debug.trap("Can never happen");
+      };
     };
 
     public func getKey(region : Region.Region, offset : Nat64) : Blob {
@@ -148,6 +167,7 @@ module {
 
     public func add(key : Blob, value : Blob) : Bool {
       let reg = region();
+      assert (pointer_size_ == 8 or (count_ + 1) * (nodeSize + leafSize) <= 2 ** (pointer_size_ * 8));
       var node : Nat64 = 0; // root node
       var old_leaf : Nat64 = 0;
 
@@ -159,6 +179,7 @@ module {
         switch (getChild(reg, node, idx)) {
           case (0) {
             setChild(reg, node, idx, newLeaf(reg, key, value));
+            count_ += 1;
             return true;
           };
           case (n) {
@@ -192,6 +213,7 @@ module {
           break l;
         };
       };
+      count_ += 1;
       true;
     };
 
