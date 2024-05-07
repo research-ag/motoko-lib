@@ -19,6 +19,7 @@ module {
 
   public type LogEvent = {
     #feeUpdated : { old : Nat; new : Nat };
+    #minimumUpdated : { old : Nat; new : Nat };
     #newDeposit : Nat;
     #consolidated : { deducted : Nat; credited : Nat };
     #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
@@ -41,11 +42,11 @@ module {
     debit_ : (Principal, Nat) -> (),
   ) {
 
-    /// Manages deposit balances for each user.
-    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare);
-
     /// Current fee amount.
     var fee_ : Nat = initialFee;
+
+    /// Manages deposit balances for each user.
+    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare, fee_ + 1);
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
@@ -74,6 +75,20 @@ module {
     /// Retrieves the allowed minimal deposit.
     public func minimum() : Nat = depositRegistry.minimum();
 
+    /// Sets the minimum deposit allowed.
+    /// Returns the new minimum, or `null` if minimum == prev_min or min <= fee.
+    /// Minimum must be greater than current fee.
+    public func setMinimum(min : Nat) : ?Nat {
+      let oldMinimum = depositRegistry.minimum();
+      if (min == oldMinimum or min <= fee_) return null;
+      depositRegistry.setMinimum(
+        min,
+        func(p, v) = debit(p, v - fee_),
+      );
+      log(ownPrincipal, #minimumUpdated({ old = oldMinimum; new = min }));
+      ?min;
+    };
+
     var fetchFeeLock : Bool = false;
 
     /// Updates the fee amount based on the ICRC1 ledger.
@@ -91,10 +106,7 @@ module {
       if (fee_ == newFee) return;
       // step 1: update the minimum deposit
       // the callback debits the principal for deposits that are removed in this step
-      depositRegistry.setMinimum(
-        newFee + 1,
-        func(p, v) = debit(p, v - fee_),
-      );
+      ignore setMinimum(Nat.max(depositRegistry.minimum(), newFee + 1));
       // step 2: adjust credit for all queued deposits
       depositRegistry.iterate(
         func(p, v) {

@@ -80,6 +80,11 @@ module {
     /// Returns the allowed minimal deposit.
     public func minimum() : Nat = accountManager.minimum();
 
+    /// Sets the minimum deposit allowed.
+    /// Returns the new minimum, or `null` if minimum == prev_min or min <= fee.
+    /// Minimum must be greater than current fee.
+    public func setMinimum(min : Nat) : ?Nat = accountManager.setMinimum(min);
+
     /// Fetches and updates the fee from the ICRC1 ledger.
     /// Returns the new fee, or `null` if fetching is already in progress.
     public func fetchFee() : async* ?Nat {

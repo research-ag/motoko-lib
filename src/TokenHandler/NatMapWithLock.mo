@@ -1,5 +1,4 @@
 import RBTree "mo:base/RBTree";
-import Iter "mo:base/Iter";
 import Order "mo:base/Order";
 import Prim "mo:prim";
 
@@ -7,11 +6,11 @@ module {
   type V = { var value : Nat; var lock : Bool };
   public type StableData<K> = (RBTree.Tree<K, V>, Nat, Nat);
 
-  public class NatMapWithLock<K>(compare : (K, K) -> Order.Order) {
+  public class NatMapWithLock<K>(compare : (K, K) -> Order.Order, initialMinimum : Nat) {
     let tree = RBTree.RBTree<K, V>(compare);
     var size_ : Nat = 0;
     var sum_ : Nat = 0;
-    var minimum_ : Nat = 0;
+    var minimum_ : Nat = initialMinimum;
 
     // For benchmarking purposes we track how often we lookup a key in the tree
     // TODO: remove in production
@@ -46,7 +45,7 @@ module {
     };
 
     public func setMinimum(m : Nat, zeroed : (K, Nat) -> ()) {
-      let increase =  m > minimum_;
+      let increase = m > minimum_;
       minimum_ := m;
       if (not increase) return;
       label L for ((k, info) in tree.entries()) {
