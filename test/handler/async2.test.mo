@@ -85,59 +85,89 @@ do {
 };
 
 do {
-  print("new test");
+  print("new test: withdrawal error");
   assert ledger.transfer_.isEmpty();
   // fresh handler
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  var journalCtr = 0;
+  func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
   // give user1 20 credits
   handler.credit(user1, 20);
-  // stage two responses
+  assert handler.journalLength() == inc(1); // #credited
+  // stage a response
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   assert handler.fee() == 0;
   // start withdrawal and move it to background task
+  var has_started = false;
   let fut = async { 
+    has_started := true;
     await* handler.withdraw({ owner = user1; subaccount = null}, 10); 
   };
-  assert handler.totalWithdrawn() == 0; // background task hasn't started yet
-  assert state() == #staged;
-  await async {};
-  assert handler.totalWithdrawn() == 10; // background task has started
-  assert state() == #running; // why has this changed already?
+  // we wait for background task to start
+  // this can also be done with a single await async {} statement
+  // the loop seems more robust but is normally not necessary
+  while (not has_started) { await async {} }; 
+  // now the withdraw call has executed until its first commit point
+  // let's verify
+  assert handler.totalWithdrawn() == 10;
+  // also the call to the mock ledger method has been made
+  assert state() == #running;
+  // now everything is halted until we release the response
   release();
-  await async {}; // loop needs to finish
+  // we wait for loop to finish until the response is ready
+  while (state() == #running) { await async {} }; 
   assert state() == #ready;
-  await async {}; // caller needs to resume the continuation (because target has an async interface, not needed with async* interface)
-  assert handler.fee() == 10;
+  // the ledger has an async interface (not async*)
+  // hence one more wait is required before the caller resumes the continuation
+  // this cannot be done in a different way
+  // there is nothing specific that we can wait for in a while loop
+  await async {};
+  // now the continuation in the withdraw call has executed
+  // let's verify
+  assert handler.fee() == 10; // #BadFee has been processed
+  // because of the #TooLowQuantity error there is no further commit point
+  // the continuation runs to the end of the withdraw function 
+  // let's verify
   assert handler.totalWithdrawn() == 0;
-  // Note: handler fee is already updated
-  // we do not have to await fut
+  assert handler.journalLength() == inc(2); // feeUpdated, withdrawalError
+  // we do not have to await fut anymore, but we can:
   assert (await fut) == #err(#TooLowQuantity);
 };
 
 do {
-  print("new test");
+  print("new test: successful withdrawal");
   assert ledger.transfer_.isEmpty();
   // fresh handler
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  var journalCtr = 0;
+  func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
   // give user1 20 credits
   handler.credit(user1, 20);
+  assert handler.journalLength() == inc(1); // #credited
   // stage two responses
-  let (release1, state1) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
+  let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   let (release2, state2) = ledger.transfer_.stage(?(#Ok 0));
   assert handler.fee() == 0;
   // start withdrawal and move it to background task
   let fut = async { 
     await* handler.withdraw({ owner = user1; subaccount = null}, 11); 
   };
-  release1();
-  assert state1() == #staged;
+  // we wait for the response to be processed
+  release();
+  while (state() != #ready) { await async {} }; 
   await async {};
-  assert state1() == #ready;
-  await async {};
-  assert handler.fee() == 10;
-  assert state2() == #running;
+  // now the continuation in the withdraw call has executed to the second commit point
+  // let's verify
+  assert handler.fee() == 10; // #BadFee has been processed
+  assert handler.journalLength() == inc(1); // feeUpdated
+  // now everything is halted until we release the second response
+  // we wait for the second response to be processed
   release2();
-  assert (await fut) == #ok(0,1);
-  assert state2() == #ready;
-  assert handler.fee() == 10;
+  while (state2() != #ready) { await async {} }; 
+  await async {};
+  // now the second contination has executed and withdraw has run to the end
+  // let's verify
+  assert handler.journalLength() == inc(1); // #withdraw 
+  // we do not have to await fut anymore, but we can:
+  assert (await fut) == #ok (0,1);
 };
