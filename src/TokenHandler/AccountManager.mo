@@ -74,11 +74,17 @@ module {
     /// Retrieves the allowed minimal deposit.
     public func minimum() : Nat = depositRegistry.minimum();
 
+    var fetchFeeLock : Bool = false;
+
     /// Updates the fee amount based on the ICRC1 ledger.
-    public func fetchFee() : async* Nat {
+    /// Returns the new fee, or `null` if fetching is already in progress.
+    public func fetchFee() : async* ?Nat {
+      if (fetchFeeLock) return null;
+      fetchFeeLock := true;
       let newFee = await icrc1Ledger.fee();
+      fetchFeeLock := false;
       updateFee(newFee);
-      newFee;
+      ?newFee;
     };
 
     func updateFee(newFee : Nat) {

@@ -211,7 +211,7 @@ do {
   await ledger.mock.release_transfer(); // let transfer return
   await f2;
   assert state(handler) == (20, 0, 1); // consolidation failed with updated deposit scheduled
-  assert handler.journalLength() == inc(4); // #consolidationError, #debited, #feeUpdated, #credited 
+  assert handler.journalLength() == inc(4); // #consolidationError, #debited, #feeUpdated, #credited
   assert handler.getCredit(user1) == 5; // credit has been corrected after consolidation
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -431,4 +431,26 @@ do {
 
   handler.assertIntegrity();
   assert not handler.isFrozen();
+};
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
+  let (inc, _) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.fetchFee();
+  assert handler.fee() == 5;
+  assert handler.journalLength() == inc(1); // #feeUpdated
+
+  // fetching fee should not overlap
+  await ledger.mock.lock_fee("FETCHING_FEE_SHOULD_NOT_OVERLAP");
+  await ledger.mock.set_fee(6);
+  let f1 = async { await* handler.fetchFee() };
+  let f2 = async { await* handler.fetchFee() };
+  assert (await f2) == null;
+  await ledger.mock.release_fee();
+  assert (await f1) == ?6;
+  assert handler.journalLength() == inc(1); // #feeUpdated
 };

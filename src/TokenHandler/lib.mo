@@ -81,7 +81,8 @@ module {
     public func minimum() : Nat = accountManager.minimum();
 
     /// Fetches and updates the fee from the ICRC1 ledger.
-    public func fetchFee() : async* Nat {
+    /// Returns the new fee, or `null` if fetching is already in progress.
+    public func fetchFee() : async* ?Nat {
       await* accountManager.fetchFee();
     };
 
