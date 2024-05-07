@@ -168,7 +168,6 @@ module {
 
     public func add(key : Blob, value : Blob) : Bool {
       let reg = region();
-      assert (pointer_size_ == 8 or (count_ + 1) * (nodeSize + leafSize) <= 2 ** (pointer_size_ * 8));
       var node : Nat64 = 0; // root node
       var old_leaf : Nat64 = 0;
 
