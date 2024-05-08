@@ -24,8 +24,10 @@ module {
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
-    let max_pages : Nat64 = 256 ** (pointer_size_ - 2); 
-    var nodeSize : Nat64 = children_number_ * pointer_size_;
+    let max_pages : Nat64 = 1 << (8 * (pointer_size_ - 2)); 
+    let nodeSize : Nat64 = children_number_ * pointer_size_;
+    let leafSize : Nat64 = key_size_ + value_size_;
+    let empty_values : Bool = value_size == 0;
 
     var region_ : ?Region.Region = null;
     var regionSpace : Nat64 = 0;
@@ -46,11 +48,6 @@ module {
         };
       };
     };
-
-    let leafSize : Nat64 = key_size_ + value_size_;
-
-    let key_size_64 : Nat64 = Nat64.fromIntWrap(key_size);
-    let empty_values : Bool = value_size == 0;
 
     func newInternalNode(region : Region.Region) : Nat64 {
       if (regionSpace < nodeSize) {
@@ -75,7 +72,7 @@ module {
       regionSpace -= leafSize;
       Region.storeBlob(region, pos, key);
       if (not empty_values) {
-        Region.storeBlob(region, pos + key_size_64, value);
+        Region.storeBlob(region, pos + key_size_, value);
       };
       Nat64.bitset(pos << 1, 0);
     };
@@ -98,7 +95,7 @@ module {
       switch (pointer_size_) {
         case (8) Region.storeNat64(region, offset, child);
         case (6) {
-          Region.storeNat32(region, offset, Nat32.fromNat64(child & ((1 << 32) - 1)));
+          Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
           Region.storeNat16(region, offset + 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
         };
         case (4) Region.storeNat32(region, offset, Nat32.fromNat64(child));
