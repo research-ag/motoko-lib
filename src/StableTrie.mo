@@ -24,7 +24,11 @@ module {
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
-    let max_pages : Nat64 = 1 << (8 * (pointer_size_ - 2)); 
+    let max_size : Nat64 = 1 << (8 * pointer_size_ - 1); // maximum addressable space subtracting 1 leaf bit
+    let max_pages : Nat64 = switch (pointer_size) { // maximum addressable pages
+      case (2) 1;
+      case (p) max_size >> 16;
+    };
     let nodeSize : Nat64 = children_number_ * pointer_size_;
     let leafSize : Nat64 = key_size_ + value_size_;
     let empty_values : Bool = value_size == 0;
@@ -49,27 +53,24 @@ module {
       };
     };
 
-    func newInternalNode(region : Region.Region) : Nat64 {
-      if (regionSpace < nodeSize) {
+    func allocate(region : Region.Region, n : Nat64) : Nat64 {
+      if (regionSpace < n) {
         assert Region.size(region) < max_pages;
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace +%= 65536;
       };
       let pos = size_;
-      size_ +%= nodeSize;
-      regionSpace -%= nodeSize;
-      pos << 1;
+      size_ +%= n;
+      regionSpace -%= n;
+      pos;
+    };
+
+    func newInternalNode(region : Region.Region) : Nat64 {
+      allocate(region, nodeSize) << 1;
     };
 
     func newLeaf(region : Region.Region, key : Blob, value : Blob) : Nat64 {
-      if (regionSpace < leafSize) {
-        assert Region.size(region) < max_pages;
-        assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
-        regionSpace +%= 65536;
-      };
-      let pos = size_;
-      size_ +%= leafSize;
-      regionSpace -%= leafSize;
+      let pos = allocate(region, leafSize);
       Region.storeBlob(region, pos, key);
       if (not empty_values) {
         Region.storeBlob(region, pos +% key_size_, value);
