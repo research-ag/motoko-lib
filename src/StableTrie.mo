@@ -86,17 +86,17 @@ module {
     };
 
     public func getChild(region : Region.Region, node : Nat64, index : Nat8) : Nat64 {
-      let offset = node >> 1 + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
+      let offset = node >> 1 +% Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
       Region.loadNat64(region, offset) & loadMask;
     };
 
     public func setChild(region : Region.Region, node : Nat64, index : Nat8, child : Nat64) {
-      let offset = node >> 1 + Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
+      let offset = node >> 1 +% Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
       switch (pointer_size_) {
         case (8) Region.storeNat64(region, offset, child);
         case (6) {
           Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
-          Region.storeNat16(region, offset + 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
+          Region.storeNat16(region, offset +% 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
         };
         case (4) Region.storeNat32(region, offset, Nat32.fromNat64(child));
         case (2) Region.storeNat16(region, offset, Nat16.fromNat32(Nat32.fromNat64(child)));
@@ -110,7 +110,7 @@ module {
 
     public func value(region : Region.Region, offset : Nat64) : Blob {
       if (empty_values) return "";
-      Region.loadBlob(region, offset >> 1 + Nat64.fromIntWrap(key_size), value_size);
+      Region.loadBlob(region, offset >> 1 +% Nat64.fromIntWrap(key_size), value_size);
     };
 
     public func print(region : Region.Region, offset : Nat64) {
@@ -198,7 +198,7 @@ module {
         return false;
       };
 
-      let next_old_idx = keyToIndices(old_key, depth + 1);
+      let next_old_idx = keyToIndices(old_key, depth +% 1);
       label l loop {
         let add = newInternalNode(reg);
         setChild(reg, node, last, add);
