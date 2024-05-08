@@ -10,7 +10,7 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import StableTrie "../src/StableTrie";
 
-let n = 100;
+let n = 2**11;
 let key_size = 5;
 
 let rng = Prng.Seiran128();
@@ -29,20 +29,24 @@ let keys = gen();
 
 let keysAbsent = gen();
 
-let bits = [2, 4, 16, 256];
+// Note: bits = 256 and pointers = 2 requires smaller n
+let bits = [2, 4, 16];
+let pointers = [2, 4, 6, 8];
 for (bit in bits.vals()) {
-  let trie = StableTrie.StableTrie(bit, key_size, 0);
+  for (pointer in pointers.vals()) {
+    let trie = StableTrie.StableTrie(pointer, bit, key_size, 0);
 
-  for (key in keys.vals()) {
-    assert trie.add(key, "");
-  };
+    for (key in keys.vals()) {
+      assert trie.add(key, "");
+    };
 
-  for (key in keys.vals()) {
-    assert (trie.get(key) == ?"");
-  };
+    for (key in keys.vals()) {
+      assert (trie.get(key) == ?"");
+    };
 
-  for (key in keysAbsent.vals()) {
-    assert trie.get(key) == null;
+    for (key in keysAbsent.vals()) {
+      assert trie.get(key) == null;
+    };
   };
 };
 
@@ -63,7 +67,7 @@ func profile() {
     children_number.vals(),
     func(k) {
       let first = Nat.toText(k);
-      let trie = StableTrie.StableTrie(k, key_size, 0);
+      let trie = StableTrie.StableTrie(8, k, key_size, 0);
       let second = Iter.map<Nat, Text>(
         Iter.range(0, n),
         func(i) {
