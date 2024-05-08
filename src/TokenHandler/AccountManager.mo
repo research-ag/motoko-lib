@@ -80,31 +80,31 @@ module {
     public func minimum() : Nat = depositRegistry.minimum();
 
     /// Sets the minimum deposit allowed.
-    /// Returns the new minimum, or `null` if minimum == prev_min or min <= fee.
+    /// Returns `true` if successful, or `false` if minimum == prev_min or min <= fee.
     /// Minimum must be greater than current fee.
-    public func setMinimum(min : Nat) : ?Nat {
+    public func setMinimum(min : Nat) : Bool {
       let oldMinimum = depositRegistry.minimum();
-      if (min == oldMinimum or min <= fee_) return null;
+      if (min == oldMinimum or min <= fee_) return false;
       depositRegistry.setMinimum(
         min,
         func(p, v) = debit(p, v - fee_),
       );
       log(ownPrincipal, #minimumUpdated({ old = oldMinimum; new = min }));
-      ?min;
+      true;
     };
 
     /// Retrieves the allowed minimal withdrawal amount.
     public func minimumWithdrawal() : Nat = minimumWithdrawal_;
 
     /// Sets the minimum withdrawal amount allowed.
-    /// Returns the new minimum, or `null` if minimum == prev_min or min <= fee.
+    /// Returns `true` if successful, or `false` if minimum == prev_min or min <= fee.
     /// Minimum must be greater than current fee.
-    public func setMinimumWithdrawal(min : Nat) : ?Nat {
+    public func setMinimumWithdrawal(min : Nat) : Bool {
       let oldMinimum = minimumWithdrawal_;
-      if (min == oldMinimum or min <= fee_) return null;
+      if (min == oldMinimum or min <= fee_) return false;
       minimumWithdrawal_ := min;
       log(ownPrincipal, #minimumWithdrawalUpdated({ old = oldMinimum; new = min }));
-      ?min;
+      true;
     };
 
     var fetchFeeLock : Bool = false;
@@ -124,7 +124,7 @@ module {
       if (fee_ == newFee) return;
       // step 1: update the minimum deposit and the minimum withdrawal
       // the callback debits the principal for deposits that are removed in this step
-      ignore setMinimum(Nat.max(depositRegistry.minimum(), newFee + 1));
+      if (newFee >= depositRegistry.minimum()) ignore setMinimum(newFee + 1);
       if (newFee >= minimumWithdrawal_) ignore setMinimumWithdrawal(newFee + 1);
       // step 2: adjust credit for all queued deposits
       depositRegistry.iterate(

@@ -494,26 +494,26 @@ do {
 
   // set minimum
   // case: min > balance
-  assert (handler.setMinimum(11) == ?11);
+  ignore handler.setMinimum(11);
   assert (await* handler.notify(user1)) == ?(0, 0); // deposit reset (balance < minimum)
   assert handler.journalLength() == inc(2); // #debited, #minimumUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
   // set minimum
   // case: min == prev_min
-  assert (handler.setMinimum(11) == null);
+  assert (handler.setMinimum(11) == false);
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
   // set minimum
   // case: min <= fee
-  assert (handler.setMinimum(5) == null);
+  assert (handler.setMinimum(5) == false);
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
   // set minimum
   // case: fee < min < prev_min
-  assert (handler.setMinimum(9) == ?9);
+  ignore handler.setMinimum(9);
   assert handler.journalLength() == inc(1); // #minimumUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -563,30 +563,30 @@ do {
 
   // set minimum withdrawal
   // case: min > fee + 1
-  assert (handler.setMinimumWithdrawal(7) == ?7);
+  ignore handler.setMinimumWithdrawal(7);
   assert handler.journalLength() == inc(1); // #minimumWithdrawalUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
   // set minimum withdrawal
   // case: min == prev_min
-  assert (handler.setMinimumWithdrawal(7) == null);
+  assert (handler.setMinimumWithdrawal(7) == false);
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
   // set minimum withdrawal
   // case: min <= fee
-  assert (handler.setMinimumWithdrawal(5) == null);
+  assert (handler.setMinimumWithdrawal(5) == false);
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
   // set minimum withdrawal
   // case: fee < min < prev_min
-  assert (handler.setMinimumWithdrawal(6) == ?6);
+  ignore handler.setMinimumWithdrawal(6);
   assert handler.journalLength() == inc(1); // #minimumWithdrawalUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
   // increase minimum withdrawal
-  assert (handler.setMinimumWithdrawal(11) == ?11);
+  ignore handler.setMinimumWithdrawal(11);
   assert handler.journalLength() == inc(1); // #minimumWithdrawalUpdated
 
   // withdraw

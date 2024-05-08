@@ -57,20 +57,15 @@ let fut1 = async { await* handler.fetchFee() };
 // (necessary before a second response can be staged)
 await ledger.transfer_.clear();
 
-// stage a second response
-let release2 = ledger.fee_.stage(null);
 // trigger call
 let fut2 = async { await* handler.fetchFee() };
-
-// release second response
-release2();
 assert (await fut2) == null;
 assert inc(0);
 
 // release first response
 release1();
 assert (await fut1) == ?5;
-assert inc(2); // #minimumUpdated, #feeUpdated
+assert inc(3); // #minimumUpdated, #minimumWithdrawalUpdated, #feeUpdated
 
 let user1 = Principal.fromBlob("1");
 func assert_state(x : (Nat, Nat, Nat)) {
