@@ -53,11 +53,11 @@ module {
       if (regionSpace < nodeSize) {
         assert Region.size(region) < max_pages;
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
-        regionSpace += 65536;
+        regionSpace +%= 65536;
       };
       let pos = size_;
-      size_ += nodeSize;
-      regionSpace -= nodeSize;
+      size_ +%= nodeSize;
+      regionSpace -%= nodeSize;
       pos << 1;
     };
 
@@ -65,14 +65,14 @@ module {
       if (regionSpace < leafSize) {
         assert Region.size(region) < max_pages;
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
-        regionSpace += 65536;
+        regionSpace +%= 65536;
       };
       let pos = size_;
-      size_ += leafSize;
-      regionSpace -= leafSize;
+      size_ +%= leafSize;
+      regionSpace -%= leafSize;
       Region.storeBlob(region, pos, key);
       if (not empty_values) {
-        Region.storeBlob(region, pos + key_size_, value);
+        Region.storeBlob(region, pos +% key_size_, value);
       };
       Nat64.bitset(pos << 1, 0);
     };
@@ -147,7 +147,7 @@ module {
       let iter = key.vals();
       while (skipBits >= 8) {
         ignore iter.next();
-        skipBits -= 8;
+        skipBits -%= 8;
       };
       let ?first = iter.next() else Debug.trap("shoud not happen");
       var byte : Nat16 = (Nat8.toNat16(first) | 256) >> skipBits;
@@ -179,7 +179,7 @@ module {
         switch (getChild(reg, node, idx)) {
           case (0) {
             setChild(reg, node, idx, newLeaf(reg, key, value));
-            count_ += 1;
+            count_ +%= 1;
             return true;
           };
           case (n) {
@@ -188,7 +188,7 @@ module {
               break l idx;
             };
             node := n;
-            depth += 1;
+            depth +%= 1;
           };
         };
       };
@@ -213,7 +213,7 @@ module {
           break l;
         };
       };
-      count_ += 1;
+      count_ +%= 1;
       true;
     };
 
