@@ -24,7 +24,7 @@ module {
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
-    let max_pos : Nat64 = 1 << (8 * pointer_size_ - 1);
+    let pointer_bits = pointer_size_ * 8;
     let nodeSize : Nat64 = children_number_ * pointer_size_;
     let leafSize : Nat64 = key_size_ + value_size_;
     let empty_values : Bool = value_size == 0;
@@ -50,7 +50,7 @@ module {
     };
 
     func allocate(region : Region.Region, n : Nat64) : Nat64 {
-      assert size_ < max_pos;
+      assert size_ >> pointer_bits == 0;
       if (regionSpace < n) {
         assert Region.grow(region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         regionSpace +%= 65536;
