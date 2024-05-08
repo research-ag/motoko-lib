@@ -10,7 +10,7 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import StableTrie "../src/StableTrie";
 
-let n = 100;
+let n = 2**12;
 let key_size = 5;
 
 let rng = Prng.Seiran128();
