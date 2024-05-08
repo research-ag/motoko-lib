@@ -85,6 +85,14 @@ module {
     /// Minimum must be greater than current fee.
     public func setMinimum(min : Nat) : ?Nat = accountManager.setMinimum(min);
 
+    /// Retrieves the allowed minimal withdrawal amount.
+    public func minimumWithdrawal() : Nat = accountManager.minimumWithdrawal();
+
+    /// Sets the minimum withdrawal amount allowed.
+    /// Returns the new minimum, or `null` if minimum == prev_min or min <= fee.
+    /// Minimum must be greater than current fee.
+    public func setMinimumWithdrawal(min : Nat) : ?Nat = accountManager.setMinimumWithdrawal(min);
+
     /// Fetches and updates the fee from the ICRC1 ledger.
     /// Returns the new fee, or `null` if fetching is already in progress.
     public func fetchFee() : async* ?Nat {

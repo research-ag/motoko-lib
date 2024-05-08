@@ -20,6 +20,7 @@ module {
   public type LogEvent = {
     #feeUpdated : { old : Nat; new : Nat };
     #minimumUpdated : { old : Nat; new : Nat };
+    #minimumWithdrawalUpdated : { old : Nat; new : Nat };
     #newDeposit : Nat;
     #consolidated : { deducted : Nat; credited : Nat };
     #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
@@ -47,6 +48,9 @@ module {
 
     /// Manages deposit balances for each user.
     let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare, fee_ + 1);
+
+    /// Minimum withdrawal amount.
+    var minimumWithdrawal_ : Nat = fee_ + 1;
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
@@ -89,6 +93,20 @@ module {
       ?min;
     };
 
+    /// Retrieves the allowed minimal withdrawal amount.
+    public func minimumWithdrawal() : Nat = minimumWithdrawal_;
+
+    /// Sets the minimum withdrawal amount allowed.
+    /// Returns the new minimum, or `null` if minimum == prev_min or min <= fee.
+    /// Minimum must be greater than current fee.
+    public func setMinimumWithdrawal(min : Nat) : ?Nat {
+      let oldMinimum = minimumWithdrawal_;
+      if (min == oldMinimum or min <= fee_) return null;
+      minimumWithdrawal_ := min;
+      log(ownPrincipal, #minimumWithdrawalUpdated({ old = oldMinimum; new = min }));
+      ?min;
+    };
+
     var fetchFeeLock : Bool = false;
 
     /// Updates the fee amount based on the ICRC1 ledger.
@@ -104,9 +122,10 @@ module {
 
     func updateFee(newFee : Nat) {
       if (fee_ == newFee) return;
-      // step 1: update the minimum deposit
+      // step 1: update the minimum deposit and the minimum withdrawal
       // the callback debits the principal for deposits that are removed in this step
       ignore setMinimum(Nat.max(depositRegistry.minimum(), newFee + 1));
+      if (newFee >= minimumWithdrawal_) ignore setMinimumWithdrawal(newFee + 1);
       // step 2: adjust credit for all queued deposits
       depositRegistry.iterate(
         func(p, v) {
@@ -254,7 +273,7 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity };
     } {
-      if (amount <= fee_) return #Err(#TooLowQuantity);
+      if (amount < minimumWithdrawal_) return #Err(#TooLowQuantity);
 
       try {
         await icrc1Ledger.transfer({
