@@ -32,7 +32,7 @@ module {
     var region_ : ?Region.Region = null;
     var regionSpace : Nat64 = 0;
     var size_ : Nat64 = 0;
-    var count_ : Nat64 = 0;
+    var leaf_count_ : Nat64 = 0;
 
     func region() : Region.Region {
       switch (region_) {
@@ -74,6 +74,7 @@ module {
       if (not empty_values) {
         Region.storeBlob(region, pos +% key_size_, value);
       };
+      leaf_count_ +%= 1;
       Nat64.bitset(pos << 1, 0);
     };
 
@@ -179,7 +180,6 @@ module {
         switch (getChild(reg, node, idx)) {
           case (0) {
             setChild(reg, node, idx, newLeaf(reg, key, value));
-            count_ +%= 1;
             return true;
           };
           case (n) {
@@ -213,7 +213,6 @@ module {
           break l;
         };
       };
-      count_ +%= 1;
       true;
     };
 
