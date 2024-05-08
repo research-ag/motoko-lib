@@ -34,6 +34,22 @@ module {
     var size_ : Nat64 = 0;
     var leaf_count_ : Nat64 = 0;
 
+    let loadMask : Nat64 = switch (pointer_size_) {
+      case (8) 0xffff_ffff_ffff_ffff;
+      case (6) 0xffff_ffff_ffff;
+      case (4) 0xffff_ffff;
+      case (2) 0xffff;
+      case (_) 0;
+    };
+
+    let (bitlength, bitmask) : (Nat16, Nat16) = switch (children_number) {
+      case (2) (1, 0x1);
+      case (4) (2, 0x3);
+      case (16) (4, 0xf);
+      case (256) (8, 0xff);
+      case (_) (0, 0);
+    };
+
     func region() : Region.Region {
       switch (region_) {
         case (?r) r;
@@ -73,14 +89,6 @@ module {
       };
       leaf_count_ +%= 1;
       Nat64.bitset(pos << 1, 0);
-    };
-
-    let loadMask : Nat64 = switch (pointer_size_) {
-      case (8) 0xffff_ffff_ffff_ffff;
-      case (6) 0xffff_ffff_ffff;
-      case (4) 0xffff_ffff;
-      case (2) 0xffff;
-      case (_) 0;
     };
 
     public func getChild(region : Region.Region, node : Nat64, index : Nat8) : Nat64 {
@@ -130,14 +138,6 @@ module {
           case (ch) if (not Nat64.bittest(ch, 0)) print(region, ch);
         };
       };
-    };
-
-    let (bitlength, bitmask) : (Nat16, Nat16) = switch (children_number) {
-      case (2) (1, 0x1);
-      case (4) (2, 0x3);
-      case (16) (4, 0xf);
-      case (256) (8, 0xff);
-      case (_) (0, 0);
     };
 
     func keyToIndices(key : Blob, depth : Nat16) : () -> Nat8 {
@@ -238,6 +238,8 @@ module {
     };
 
     public func size() : Nat = Nat64.toNat(size_);
+
+    public func count() : Nat = Nat64.toNat(leaf_count_);
 
     public func share() : StableTrieState = {
       region = region();
