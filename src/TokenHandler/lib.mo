@@ -77,21 +77,23 @@ module {
     /// Returns the fee.
     public func fee() : Nat = accountManager.fee();
 
-    /// Returns the allowed minimal deposit.
-    public func minimum() : Nat = accountManager.minimum();
+    /// Retrieves the admin-defined deposit minimum.
+    public func definedDepositMinimum() : Nat = accountManager.definedDepositMinimum();
 
-    /// Sets the minimum deposit allowed.
-    /// Returns `true` if successful, or `false` if minimum == prev_min or min <= fee.
-    /// Minimum must be greater than current fee.
-    public func setMinimum(min : Nat) : Bool = accountManager.setMinimum(min);
+    /// Defines the admin-defined deposit minimum.
+    public func setDepositMinimum(min : Nat) = accountManager.setDepositMinimum(min);
 
-    /// Retrieves the allowed minimal withdrawal amount.
-    public func minimumWithdrawal() : Nat = accountManager.minimumWithdrawal();
+    /// Calculates the final deposit minimum.
+    public func depositMinimum() : Nat = accountManager.depositMinimum();
 
-    /// Sets the minimum withdrawal amount allowed.
-    /// Returns `true` if successful, or `false` if minimum == prev_min or min <= fee.
-    /// Minimum must be greater than current fee.
-    public func setMinimumWithdrawal(min : Nat) : Bool = accountManager.setMinimumWithdrawal(min);
+    /// Retrieves the admin-defined withdrawal minimum.
+    public func definedWithdrawalMinimum() : Nat = accountManager.definedWithdrawalMinimum();
+
+    /// Defines the admin-defined withdrawal minimum.
+    public func setWithdrawalMinimum(min : Nat) = accountManager.setWithdrawalMinimum(min);
+
+    /// Calculates the final withdrawal minimum.
+    public func withdrawalMinimum() : Nat = accountManager.withdrawalMinimum();
 
     /// Fetches and updates the fee from the ICRC1 ledger.
     /// Returns the new fee, or `null` if fetching is already in progress.

@@ -49,8 +49,15 @@ module {
     /// Manages deposit balances for each user.
     let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare, fee_ + 1);
 
-    /// Minimum withdrawal amount.
-    var minimumWithdrawal_ : Nat = fee_ + 1;
+    /// Admin-defined deposit minimum.
+    /// Can be less then the current fee.
+    /// Final minimum: max(admin_defined_min, fee + 1).
+    var definedDepositMinimum_ : Nat = fee_ + 1;
+
+    /// Admin-defined withdrawal minimum.
+    /// Can be less then the current fee.
+    /// Final minimum: max(admin_defined_min, fee + 1).
+    var definedWithdrawalMinimum_ : Nat = fee_ + 1;
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
@@ -76,36 +83,39 @@ module {
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
-    /// Retrieves the allowed minimal deposit.
-    public func minimum() : Nat = depositRegistry.minimum();
+    /// Retrieves the admin-defined deposit minimum.
+    public func definedDepositMinimum() : Nat = definedDepositMinimum_;
 
-    /// Sets the minimum deposit allowed.
-    /// Returns `true` if successful, or `false` if minimum == prev_min or min <= fee.
-    /// Minimum must be greater than current fee.
-    public func setMinimum(min : Nat) : Bool {
-      let oldMinimum = depositRegistry.minimum();
-      if (min == oldMinimum or min <= fee_) return false;
-      depositRegistry.setMinimum(
-        min,
-        func(p, v) = debit(p, v - fee_),
-      );
-      log(ownPrincipal, #minimumUpdated({ old = oldMinimum; new = min }));
-      true;
+    /// Defines the admin-defined deposit minimum.
+    public func setDepositMinimum(min : Nat) {
+      if (min == definedDepositMinimum_) return;
+      let prevDepositMin = depositMinimum();
+      definedDepositMinimum_ := min;
+      let newDepositMin = depositMinimum();
+      if (prevDepositMin != newDepositMin) {
+        log(ownPrincipal, #minimumUpdated({ old = prevDepositMin; new = newDepositMin }));
+      };
     };
 
-    /// Retrieves the allowed minimal withdrawal amount.
-    public func minimumWithdrawal() : Nat = minimumWithdrawal_;
+    /// Calculates the final deposit minimum.
+    public func depositMinimum() : Nat = Nat.max(definedDepositMinimum_, fee_ +1);
 
-    /// Sets the minimum withdrawal amount allowed.
-    /// Returns `true` if successful, or `false` if minimum == prev_min or min <= fee.
-    /// Minimum must be greater than current fee.
-    public func setMinimumWithdrawal(min : Nat) : Bool {
-      let oldMinimum = minimumWithdrawal_;
-      if (min == oldMinimum or min <= fee_) return false;
-      minimumWithdrawal_ := min;
-      log(ownPrincipal, #minimumWithdrawalUpdated({ old = oldMinimum; new = min }));
-      true;
+    /// Retrieves the admin-defined withdrawal minimum.
+    public func definedWithdrawalMinimum() : Nat = definedWithdrawalMinimum_;
+
+    /// Defines the admin-defined withdrawal minimum.
+    public func setWithdrawalMinimum(min : Nat) {
+      if (min == definedWithdrawalMinimum_) return;
+      let prevWithdrawalMin = withdrawalMinimum();
+      definedWithdrawalMinimum_ := min;
+      let newWithdrawalMin = withdrawalMinimum();
+      if (prevWithdrawalMin != newWithdrawalMin) {
+        log(ownPrincipal, #minimumWithdrawalUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
+      };
     };
+
+    /// Calculates the final withdrawal minimum.
+    public func withdrawalMinimum() : Nat = Nat.max(definedWithdrawalMinimum_, fee_ +1);
 
     var fetchFeeLock : Bool = false;
 
@@ -122,11 +132,12 @@ module {
 
     func updateFee(newFee : Nat) {
       if (fee_ == newFee) return;
-      // step 1: update the minimum deposit and the minimum withdrawal
+      let prevDepositMin = depositMinimum();
+      let prevWithdrawalMin = withdrawalMinimum();
+      // update the deposit minimum depending on the new fee
       // the callback debits the principal for deposits that are removed in this step
-      if (newFee >= depositRegistry.minimum()) ignore setMinimum(newFee + 1);
-      if (newFee >= minimumWithdrawal_) ignore setMinimumWithdrawal(newFee + 1);
-      // step 2: adjust credit for all queued deposits
+      depositRegistry.setMinimum(newFee + 1, func(p, v) = debit(p, v - fee_));
+      // adjust credit for all queued deposits
       depositRegistry.iterate(
         func(p, v) {
           if (v <= newFee) freezeCallback("deposit <= newFee should have been erased in previous step");
@@ -139,6 +150,16 @@ module {
       );
       log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
       fee_ := newFee;
+      // check if deposit minimum is updated
+      let newDepositMin = depositMinimum();
+      if (prevDepositMin != newDepositMin) {
+        log(ownPrincipal, #minimumUpdated({ old = prevDepositMin; new = newDepositMin }));
+      };
+      // check if withdrawal minimum is updated
+      let newWithdrawalMin = withdrawalMinimum();
+      if (prevWithdrawalMin != newWithdrawalMin) {
+        log(ownPrincipal, #minimumWithdrawalUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
+      };
     };
 
     /// Retrieves the sum of all current deposits.
@@ -166,7 +187,7 @@ module {
     public func getDeposit(p : Principal) : ?Nat = depositRegistry.getOpt(p);
 
     func process_deposit(p : Principal, deposit : Nat, release : ?Nat -> Int) : Nat {
-      if (deposit <= fee_) {
+      if (deposit < depositMinimum()) {
         ignore release(null);
         return 0;
       };
@@ -273,7 +294,7 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity };
     } {
-      if (amount < minimumWithdrawal_) return #Err(#TooLowQuantity);
+      if (amount < withdrawalMinimum()) return #Err(#TooLowQuantity);
 
       try {
         await icrc1Ledger.transfer({

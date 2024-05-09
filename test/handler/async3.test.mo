@@ -143,9 +143,7 @@ do {
   await ledger.mock.set_fee(10); // fee 15 -> 10
   assert state(handler) == (20, 0, 1); // state from before
   ignore await* handler.fetchFee();
-  ignore handler.setMinimum(11); // adjust minimum after fee decreased
-  assert handler.minimum() == 11;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #credited, #minimumUpdated
+  assert handler.journalLength() == inc(4); // #feeUpdated, #credited, #minimumUpdated, #minimumWithdrawalUpdated
   assert state(handler) == (20, 0, 1); // state unchanged
   await ledger.mock.release_balance(); // let notify return
   assert (await f3) == ?(0, 10); // credit increased
@@ -241,9 +239,7 @@ do {
   // consolidation should fail and deposit should be adjusted with new fee
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  ignore handler.setMinimum(6); // adjust minimum after fee decreased
-  assert handler.minimum() == 6;
-  assert handler.journalLength() == inc(2); // #feeUpdated, #minimumUpdated
+  assert handler.journalLength() == inc(3); // #feeUpdated, #minimumUpdated, #minimumWithdrawalUpdated
   assert (await* handler.notify(user1)) == ?(20, 15); // deposit = 20, credit = 15
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
   assert state(handler) == (20, 0, 1);
@@ -251,7 +247,7 @@ do {
   let f4 = async { await* handler.trigger() };
   await ledger.mock.set_fee(6);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(2); // #feeUpdated, #minimumUpdated
+  assert handler.journalLength() == inc(3); // #feeUpdated, #minimumUpdated, #minimumWithdrawalUpdated
   await ledger.mock.set_response([#Err(#BadFee { expected_fee = 6 })]);
   await ledger.mock.release_transfer(); // let transfer return
   await f4;
@@ -309,10 +305,6 @@ do {
   // should be successful
   await ledger.mock.set_fee(1);
   ignore await* handler.fetchFee();
-  ignore handler.setMinimum(2); // adjust minimum after fee decreased
-  assert handler.minimum() == 2;
-  ignore handler.setMinimumWithdrawal(2); // adjust minimum withdrawal after fee decreased
-  assert handler.minimumWithdrawal() == 2;
   assert handler.journalLength() == inc(3); // #feeUpdated, #minimumUpdated, #minimumWithdrawalUpdated
   await ledger.mock.set_response([#Ok 42]);
   assert (await* handler.withdraw(account, 5)) == #ok(42, 4);
@@ -405,9 +397,7 @@ do {
   let f2 = async { await* handler.notify(user1) };
   await ledger.mock.set_fee(2);
   ignore await* handler.fetchFee();
-  ignore handler.setMinimum(3); // adjust minimum after fee decreased
-  assert handler.minimum() == 3;
-  assert handler.journalLength() == inc(2); // #feeUpdated, #minimumUpdated
+  assert handler.journalLength() == inc(3); // #feeUpdated, #minimumUpdated, #minimumWithdrawalUpdated
   await ledger.mock.release_balance(); // let notify return
   assert (await f2) == ?(5, 3);
   assert state(handler) == (5, 0, 1); // state unchanged because deposit has not changed
@@ -420,9 +410,7 @@ do {
   // scenario 1: new_fee < prev_fee < deposit
   await ledger.mock.set_fee(1);
   ignore await* handler.fetchFee();
-  ignore handler.setMinimum(2); // adjust minimum after fee decreased
-  assert handler.minimum() == 2;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #credited, #minimumUpdated
+  assert handler.journalLength() == inc(4); // #feeUpdated, #credited, #minimumUpdated, #minimumWithdrawalUpdated
   assert handler.getCredit(user1) == 4; // credit corrected
 
   print("tree lookups = " # debug_show handler.lookups());
@@ -430,14 +418,14 @@ do {
   // scenario 2: prev_fee < new_fee < deposit
   await ledger.mock.set_fee(3);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #debited, #minimumUpdated
+  assert handler.journalLength() == inc(4); // #feeUpdated, #debited, #minimumUpdated, #minimumWithdrawalUpdated
   assert handler.getCredit(user1) == 2; // credit corrected
   print("tree lookups = " # debug_show handler.lookups());
 
   // scenario 3: prev_fee < deposit <= new_fee
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #debited, #minimumUpdated
+  assert handler.journalLength() == inc(4); // #feeUpdated, #debited, #minimumUpdated, #minimumWithdrawalUpdated
   assert handler.getCredit(user1) == 0; // credit corrected
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -481,54 +469,64 @@ do {
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
   assert handler.fee() == 5;
-  assert handler.minimum() == 6;
+  assert handler.depositMinimum() == 6;
+  assert handler.withdrawalMinimum() == 6;
   assert handler.journalLength() == inc(3); // #feeUpdated, #minimumUpdated, #minimumWithdrawalUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
-  // notify with balance > fee
-  await ledger.mock.set_balance(10);
-  assert (await* handler.notify(user1)) == ?(10, 5); // deposit = 10, credit = 5
-  assert state(handler) == (10, 0, 1);
-  assert handler.journalLength() == inc(2); // #credited, #newDeposit
-  print("tree lookups = " # debug_show handler.lookups());
+  // set deposit minimum
+  // case: min > fee
+  handler.setDepositMinimum(12);
+  assert handler.depositMinimum() == 12;
+  assert handler.journalLength() == inc(1); // #minimumUpdated
 
-  // set minimum
-  // case: min > balance
-  ignore handler.setMinimum(11);
-  assert (await* handler.notify(user1)) == ?(0, 0); // deposit reset (balance < minimum)
-  assert handler.journalLength() == inc(2); // #debited, #minimumUpdated
-  print("tree lookups = " # debug_show handler.lookups());
-
-  // set minimum
+  // set deposit minimum
   // case: min == prev_min
-  assert (handler.setMinimum(11) == false);
+  handler.setDepositMinimum(12);
+  assert handler.depositMinimum() == 12;
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
-  // set minimum
-  // case: min <= fee
-  assert (handler.setMinimum(5) == false);
-  assert handler.journalLength() == inc(0);
-  print("tree lookups = " # debug_show handler.lookups());
-
-  // set minimum
-  // case: fee < min < prev_min
-  ignore handler.setMinimum(9);
+  // set deposit minimum
+  // case: min < fee
+  handler.setDepositMinimum(4);
+  assert handler.depositMinimum() == 6; // fee + 1
   assert handler.journalLength() == inc(1); // #minimumUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
+  // set deposit minimum
+  // case: min == fee
+  handler.setDepositMinimum(5);
+  assert handler.depositMinimum() == 6;
+  assert handler.journalLength() == inc(0);
+  print("tree lookups = " # debug_show handler.lookups());
+
   // notify
-  // case: fee < balance < minimum
+  // case: fee < balance < min
+  handler.setDepositMinimum(9);
+  assert handler.depositMinimum() == 9;
+  assert handler.journalLength() == inc(1); // #minimumUpdated
   await ledger.mock.set_balance(8);
   assert (await* handler.notify(user1)) == ?(0, 0);
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
   // notify
-  // case: fee < minimum <= balance
+  // case: fee < min <= balance
   await ledger.mock.set_balance(9);
   assert (await* handler.notify(user1)) == ?(9, 4);
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // notify
+  // case: fee < balance < min, old deposit exists
+  // old deposit should not be reset because it was made before minimum increase
+  handler.setDepositMinimum(15);
+  assert handler.depositMinimum() == 15;
+  assert handler.journalLength() == inc(1); // #minimumUpdated
+  await ledger.mock.set_balance(12);
+  assert (await* handler.notify(user1)) == ?(0, 4); // deposit not updated
+  assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
   handler.assertIntegrity();
@@ -544,6 +542,8 @@ do {
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
   assert handler.fee() == 5;
+  assert handler.depositMinimum() == 6;
+  assert handler.withdrawalMinimum() == 6;
   assert handler.journalLength() == inc(3); // #feeUpdated, #minimumUpdated, #minimumWithdrawalUpdated
 
   // increase deposit again
@@ -561,32 +561,36 @@ do {
   assert handler.journalLength() == inc(1); // #consolidated
   print("tree lookups = " # debug_show handler.lookups());
 
-  // set minimum withdrawal
-  // case: min > fee + 1
-  ignore handler.setMinimumWithdrawal(7);
+  // set withdrawal minimum
+  // case: min > fee
+  handler.setWithdrawalMinimum(12);
+  assert handler.withdrawalMinimum() == 12;
   assert handler.journalLength() == inc(1); // #minimumWithdrawalUpdated
-  print("tree lookups = " # debug_show handler.lookups());
 
-  // set minimum withdrawal
+  // set withdrawal minimum
   // case: min == prev_min
-  assert (handler.setMinimumWithdrawal(7) == false);
+  handler.setWithdrawalMinimum(12);
+  assert handler.withdrawalMinimum() == 12;
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
-  // set minimum withdrawal
-  // case: min <= fee
-  assert (handler.setMinimumWithdrawal(5) == false);
+  // set withdrawal minimum
+  // case: min < fee
+  handler.setWithdrawalMinimum(4);
+  assert handler.withdrawalMinimum() == 6; // fee + 1
+  assert handler.journalLength() == inc(1); // #minimumUpdated
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // set withdrawal minimum
+  // case: min == fee
+  handler.setWithdrawalMinimum(5);
+  assert handler.withdrawalMinimum() == 6;
   assert handler.journalLength() == inc(0);
   print("tree lookups = " # debug_show handler.lookups());
 
-  // set minimum withdrawal
-  // case: fee < min < prev_min
-  ignore handler.setMinimumWithdrawal(6);
-  assert handler.journalLength() == inc(1); // #minimumWithdrawalUpdated
-  print("tree lookups = " # debug_show handler.lookups());
-
-  // increase minimum withdrawal
-  ignore handler.setMinimumWithdrawal(11);
+  // increase withdrawal minimum
+  handler.setWithdrawalMinimum(11);
+  assert handler.withdrawalMinimum() == 11;
   assert handler.journalLength() == inc(1); // #minimumWithdrawalUpdated
 
   // withdraw
