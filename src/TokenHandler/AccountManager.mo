@@ -1,4 +1,5 @@
 import Principal "mo:base/Principal";
+import { print } "mo:base/Debug";
 import Int "mo:base/Int";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
@@ -6,17 +7,15 @@ import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
 
 import ICRC1 "ICRC1";
-import DepositRegistry "DepositRegistry";
+import NatMap "NatMapWithLock";
 import Mapping "Mapping";
 
 module {
   public type StableData = (
-    DepositRegistry.StableData, // depositRegistry
+    NatMap.StableData<Principal>, // depositRegistry
     Nat, // fee_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
-    Nat, // depositedFunds_
-    Nat, // queuedFunds
   );
 
   public type LogEvent = {
@@ -44,13 +43,10 @@ module {
   ) {
 
     /// Manages deposit balances for each user.
-    let depositRegistry : DepositRegistry.DepositRegistry = DepositRegistry.DepositRegistry(freezeCallback);
+    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare);
 
     /// Current fee amount.
     var fee_ : Nat = initialFee;
-
-    /// Total deposited funds across all accounts.
-    var depositedFunds_ : Nat = 0;
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
@@ -58,11 +54,8 @@ module {
     /// Total amount withdrawn. Accumulated value.
     var totalWithdrawn_ : Nat = 0;
 
-    /// Total funds queued for consolidation.
-    var queuedFunds : Nat = 0;
-
     /// Total funds underway for consolidation.
-    var underwayFunds : Nat = 0;
+    var underwayFunds_ : Nat = 0;
 
     /// Total funds credited within deposit tracking and consolidation.
     /// Accumulated value.
@@ -79,23 +72,47 @@ module {
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
+    /// Retrieves the allowed minimal deposit.
+    public func minimum() : Nat = depositRegistry.minimum();
+
     /// Updates the fee amount based on the ICRC1 ledger.
-    public func updateFee() : async* Nat {
+    public func fetchFee() : async* Nat {
       let newFee = await icrc1Ledger.fee();
-      setNewFee(newFee);
+      updateFee(newFee);
       newFee;
     };
 
-    func setNewFee(newFee : Nat) {
-      if (fee_ != newFee) {
-        log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
-        recalculateDepositRegistry(newFee, fee_);
-        fee_ := newFee;
-      };
+    func updateFee(newFee : Nat) {
+      if (fee_ == newFee) return;
+      // step 1: update the minimum deposit
+      // the callback debits the principal for deposits that are removed in this step
+      depositRegistry.setMinimum(
+        newFee + 1,
+        func(p, v) = debit(p, v - fee_),
+      );
+      // step 2: adjust credit for all queued deposits
+      depositRegistry.iterate(
+        func(p, v) {
+          if (v <= newFee) freezeCallback("deposit <= newFee should have been erased in previous step");
+          if (newFee > fee_) {
+            debit(p, newFee - fee_);
+          } else {
+            credit(p, fee_ - newFee);
+          };
+        }
+      );
+      log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
+      fee_ := newFee;
     };
 
     /// Retrieves the sum of all current deposits.
-    public func depositedFunds() : Nat = depositedFunds_;
+    public func depositedFunds() : Nat = depositRegistry.sum() + underwayFunds_;
+
+    /// Retrieves the sum of all current deposits.
+    public func underwayFunds() : Nat = underwayFunds_;
+
+    /// Retrieves the sum of all current deposits.
+    public func queuedFunds() : Nat = depositRegistry.sum();
 
     /// Returns the size of the deposit registry.
     public func depositsNumber() : Nat = depositRegistry.size();
@@ -107,48 +124,57 @@ module {
     public func totalWithdrawn() : Nat = totalWithdrawn_;
 
     /// Retrieves the calculated balance of the main account.
-    public func consolidatedFunds() : Nat = totalConsolidated_ - totalWithdrawn_;
+    public func consolidatedFunds() : Nat {
+      print("totalConsolidated_ = " # debug_show totalConsolidated_);
+      print("totalWithdrawn_ = " # debug_show totalWithdrawn_);
+      totalConsolidated_ - totalWithdrawn_;
+    };
 
     /// Retrieves the deposit of a principal.
-    public func getDeposit(p : Principal) : Nat = depositRegistry.get(p).deposit;
+    public func getDeposit(p : Principal) : ?Nat = depositRegistry.getOpt(p);
+
+    func process_deposit(p : Principal, deposit : Nat, release : ?Nat -> Int) : Nat {
+      if (deposit <= fee_) {
+        ignore release(null);
+        return 0;
+      };
+      let delta = release(?deposit);
+      if (delta < 0) freezeCallback("latestDeposit < prevDeposit on notify");
+      if (delta == 0) return 0;
+      let inc = Int.abs(delta);
+
+      if (deposit == inc) {
+        credit(p, deposit - fee_);
+      } else {
+        credit(p, inc);
+      };
+      inc;
+    };
 
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      if (depositRegistry.isLock(p)) return null;
+      let ?release = depositRegistry.obtainLock(p) else return null;
 
-      depositRegistry.lock(p, #notify);
       let latestDeposit = try {
         await* loadDeposit(p);
       } catch (err) {
-        depositRegistry.unlock(p);
+        ignore release(null);
         throw err;
       };
-      depositRegistry.unlock(p);
 
-      if (latestDeposit <= fee_) return ?0;
+      // This function calls release() to release the lock
+      let inc = process_deposit(p, latestDeposit, release);
 
-      let prevDeposit = updateDeposit(p, latestDeposit);
+      if (inc > 0) {
+        log(p, #newDeposit(inc));
 
-      if (latestDeposit < prevDeposit) freezeCallback("latestDeposit < prevDeposit on notify");
-      let depositDelta = latestDeposit - prevDeposit : Nat;
-      if (depositDelta == 0) return ?0;
-
-      // precredit incremental difference
-      if (prevDeposit == 0) {
-        credit(p, latestDeposit - fee_);
-      } else {
-        credit(p, depositDelta);
+        // schedule a canister self-call to initiate the consolidation
+        // we need try-catch so that we don't trap if scheduling fails synchronously
+        try ignore trigger() catch (_) {};
       };
 
-      queuedFunds += depositDelta;
-      log(p, #newDeposit(depositDelta));
-
-      // schedule a canister self-call to initiate the consolidation
-      // we need try-catch so that we don't trap if scheduling fails synchronously
-      try ignore trigger() catch (_) {};
-
-      return ?depositDelta;
+      return ?inc;
     };
 
     /// Processes the consolidation transfer for a principal.
@@ -156,7 +182,7 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
     } {
-      let transferAmount : Nat = Int.abs(deposit - fee_);
+      let transferAmount : Nat = deposit - fee_;
 
       let transferResult = try {
         await icrc1Ledger.transfer({
@@ -171,71 +197,43 @@ module {
         #Err(#CallIcrc1LedgerError);
       };
 
-      switch (transferResult) {
-        case (#Ok _) {
-          ignore updateDeposit(p, 0);
-          totalConsolidated_ += transferAmount;
-          log(p, #consolidated({ deducted = deposit; credited = transferAmount }));
-        };
-        case (#Err err) {
-          log(p, #consolidationError(err));
-        };
-      };
-
       transferResult;
     };
 
     /// Attempts to consolidate the funds for a particular principal.
-    func consolidate(p : Principal) : async* () {
-      let deposit = depositRegistry.get(p).deposit;
+    func consolidate(p : Principal, release : ?Nat -> Int) : async* () {
+      let deposit = depositRegistry.erase(p);
+      let originalCredit : Nat = deposit - fee_;
 
-      let originalFee = fee_;
       let transferResult = await* processConsolidationTransfer(p, deposit);
 
+      // catch #BadFee
       switch (transferResult) {
-        case (#Err(#BadFee { expected_fee })) {
-          debit(p, deposit - originalFee);
-          setNewFee(expected_fee);
+        case (#Err(#BadFee { expected_fee })) updateFee(expected_fee);
+        case (_) {};
+      };
 
-          if (deposit <= fee_) {
-            ignore updateDeposit(p, 0);
-          } else {
-            credit(p, deposit - expected_fee);
-            queuedFunds += deposit;
-          };
+      switch (transferResult) {
+        case (#Ok _) {
+          log(p, #consolidated({ deducted = deposit; credited = originalCredit }));
+          totalConsolidated_ += originalCredit;
+          ignore release(null);
         };
-        case (#Err _) {
-          // all other errors
-          queuedFunds += deposit;
+        case (#Err err) {
+          log(p, #consolidationError(err));
+          debit(p, originalCredit);
+          ignore process_deposit(p, deposit, release);
         };
-        case (#Ok _) {};
       };
     };
 
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
-      var entry : ?(Principal, DepositRegistry.DepositInfo) = null;
-
-      label L for (v in depositRegistry.entries()) {
-        if (not depositRegistry.isLock(v.0)) {
-          entry := ?v;
-          break L;
-        };
-      };
-
-      switch (entry) {
-        case (null) { return };
-        case (?(p, depositInfo)) {
-          let deposit = depositInfo.deposit;
-          depositRegistry.lock(p, #consolidate);
-          queuedFunds -= deposit;
-          underwayFunds += deposit;
-          await* consolidate(p);
-          underwayFunds -= deposit;
-          depositRegistry.unlock(p);
-          assertIntegrity();
-        };
-      };
+      let ?(p, deposit, release) = depositRegistry.nextLock() else return;
+      underwayFunds_ += deposit;
+      await* consolidate(p, release);
+      underwayFunds_ -= deposit;
+      assertIntegrity();
     };
 
     /// Processes the transfer of funds for withdrawal.
@@ -273,7 +271,7 @@ module {
           #ok(txIdx, amount - fee_);
         };
         case (#Err(#BadFee { expected_fee })) {
-          setNewFee(expected_fee);
+          updateFee(expected_fee);
           let retryResult = await* processWithdrawTransfer(to, amount);
           switch (retryResult) {
             case (#Ok txIdx) {
@@ -309,30 +307,8 @@ module {
       debit_(p, amount);
     };
 
-    /// Recalculates the deposit registry after the fee change.
-    /// Reason: Some amounts in the deposit registry can be insufficient for consolidation.
-    func recalculateDepositRegistry(newFee : Nat, prevFee : Nat) {
-      if (newFee == prevFee) return;
-      label L for ((p, info) in depositRegistry.entries()) {
-        let deposit = info.deposit;
-        if (info.lock == #consolidate or deposit == 0) continue L;
-        if (newFee > prevFee) {
-          if (deposit <= newFee) {
-            ignore updateDeposit(p, 0);
-            debit(p, deposit - prevFee);
-            queuedFunds -= deposit;
-          } else {
-            let feeDelta = Int.abs(newFee - prevFee);
-            debit(p, feeDelta);
-          };
-          continue L;
-        };
-        credit(p, prevFee - newFee);
-      };
-    };
-
     public func assertIntegrity() {
-      let deposited : Int = depositedFunds_ - fee_ * depositRegistry.size(); // deposited funds with fees subtracted
+      let deposited : Int = depositRegistry.sum() - fee_ * depositRegistry.size(); // deposited funds with fees subtracted
       if (totalCredited != totalConsolidated_ + deposited + totalDebited) {
         let values : [Text] = [
           "Balances integrity failed",
@@ -345,24 +321,6 @@ module {
         return;
       };
 
-      if (depositedFunds_ != queuedFunds + underwayFunds) {
-        let values : [Text] = [
-          "Balances integrity failed",
-          "depositedFunds_=" # Nat.toText(depositedFunds_),
-          "queuedFunds=" # Nat.toText(queuedFunds),
-          "underwayFunds=" # Nat.toText(underwayFunds),
-        ];
-        freezeCallback(Text.join("; ", Iter.fromArray(values)));
-      };
-    };
-
-    /// Updates the specified principal's deposit. Returns previous deposit.
-    func updateDeposit(p : Principal, deposit : Nat) : Nat {
-      var prevDeposit = depositRegistry.get(p).deposit;
-      depositRegistry.setDeposit(p, deposit);
-      depositedFunds_ += deposit;
-      depositedFunds_ -= prevDeposit;
-      prevDeposit;
     };
 
     /// Fetches actual deposit for a principal from the ICRC1 ledger.
@@ -379,8 +337,6 @@ module {
       fee_,
       totalConsolidated_,
       totalWithdrawn_,
-      depositedFunds_,
-      queuedFunds,
     );
 
     /// Deserializes the token handler data.
@@ -389,8 +345,6 @@ module {
       fee_ := values.1;
       totalConsolidated_ := values.2;
       totalWithdrawn_ := values.3;
-      depositedFunds_ := values.4;
-      queuedFunds := values.5;
     };
   };
 };

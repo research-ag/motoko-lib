@@ -22,7 +22,7 @@ module {
     credit : Int;
   };
 
-  public func defaultStableData() : StableData = (([], 0, 0, 0, 0, 0), ([]), ([var], 0, 0));
+  public func defaultStableData() : StableData = (((#leaf, 0, 0), 0, 0, 0), ([]), ([var], 0, 0));
 
   /// Converts `Principal` to `ICRC1.Subaccount`.
   public func toSubaccount(p : Principal) : ICRC1.Subaccount = Mapping.toSubaccount(p);
@@ -77,16 +77,22 @@ module {
     /// Returns the fee.
     public func fee() : Nat = accountManager.fee();
 
+    /// Returns the allowed minimal deposit.
+    public func minimum() : Nat = accountManager.minimum();
+
     /// Fetches and updates the fee from the ICRC1 ledger.
-    public func updateFee() : async* Nat {
-      await* accountManager.updateFee();
+    public func fetchFee() : async* Nat {
+      await* accountManager.fetchFee();
     };
 
-    /// Returns balances info for a principal - for debug purposes.
-    public func info(p : Principal) : AccountInfo = {
-      deposit = accountManager.getDeposit(p);
-      credit = creditRegistry.get(p);
+    /// Returns a user's current credit
+    public func getCredit(p : Principal) : Int {
+      creditRegistry.get(p);
     };
+
+    /// Returns a user's last know (= tracked) deposit
+    /// Null means the principal is locked, hence no value is available.
+    public func trackedDeposit(p : Principal) : ?Nat = accountManager.getDeposit(p);
 
     /// Queries the journal records starting from a specific index - for debug purposes.
     ///
@@ -95,26 +101,46 @@ module {
     /// 2) The index of next upcoming journal log. Use this value as "startFrom" in your next journal query to fetch next entries
     public func queryJournal(startFrom : ?Nat) : ([Journal.JournalRecord], Nat) = journal.queryJournal(startFrom);
 
+    public func state() : {
+      journalLength : Nat;
+      balance : {
+        deposited : Nat;
+        underway : Nat;
+        queued : Nat;
+        consolidated : Nat;
+      };
+      flow : {
+        consolidated : Nat;
+        withdrawn : Nat;
+      };
+      credit : {
+        total : Int;
+      };
+      users : {
+        queued : Nat;
+      };
+    } = {
+      journalLength = journal.length();
+      balance = {
+        deposited = accountManager.depositedFunds();
+        underway = accountManager.underwayFunds();
+        queued = accountManager.queuedFunds();
+        consolidated = accountManager.consolidatedFunds();
+      };
+      flow = {
+        consolidated = accountManager.totalConsolidated();
+        withdrawn = accountManager.totalWithdrawn();
+      };
+      credit = {
+        total = creditRegistry.creditTotal();
+      };
+      users = {
+        queued = accountManager.depositsNumber();
+      };
+    };
+
     /// Query the "length" of the journal (total number of entries ever pushed)
     public func journalLength() : Nat = journal.length();
-
-    /// Retrieves the sum of all current deposits.
-    public func depositedFunds() : Nat = accountManager.depositedFunds();
-
-    /// Retrieves the sum of all successful consolidations
-    public func totalConsolidated() : Nat = accountManager.totalConsolidated();
-
-    /// Retrieves the sum of all deductions from the main account.
-    public func totalWithdrawn() : Nat = accountManager.totalWithdrawn();
-
-    /// Retrieves the calculated balance of the main account.
-    public func consolidatedFunds() : Nat = accountManager.consolidatedFunds();
-
-    /// Returns the size of the deposit registry.
-    public func depositsNumber() : Nat = accountManager.depositsNumber();
-
-    /// Retrieves the total credited funds in the credit registry.
-    public func creditTotal() : Int = creditRegistry.creditTotal();
 
     /// Gets the current credit amount associated with a specific principal.
     public func balance(p : Principal) : Int = creditRegistry.get(p);

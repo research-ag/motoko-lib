@@ -21,20 +21,19 @@ let ledger = object {
 
 let anon_p = Principal.fromBlob("");
 let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+
 var journalCtr = 0;
-func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
+func inc(n : Nat) : Bool { 
+  journalCtr += n;
+  journalCtr == handler.state().journalLength 
+};
 
 module Debug {
-  public func state() {
+  public func state(handler : TokenHandler.TokenHandler) {
     print(
-      debug_show (
-        handler.depositedFunds(),
-        handler.consolidatedFunds(),
-        handler.depositsNumber(),
-      )
-    );
+      debug_show handler.state());
   };
-  public func journal(ctr : Nat) {
+  public func journal(handler : TokenHandler.TokenHandler, ctr : Nat) {
     print(
       debug_show (
         handler.queryJournal(?ctr)
@@ -48,39 +47,41 @@ let release1 = ledger.fee_.stage(?5).0;
 // stage a second response
 let release2 = ledger.fee_.stage(?10).0;
 // trigger call
-let fut1 = async { await* handler.updateFee() };
+let fut1 = async { await* handler.fetchFee() };
 // trigger second call
-let fut2 = async { await* handler.updateFee() };
+let fut2 = async { await* handler.fetchFee() };
 
 // release second response first
 release2();
 assert (await fut2) == 10;
-assert handler.journalLength() == inc(1); // #feeUpdate
+assert inc(1); // #feeUpdate
 
 // release first response second
 release1();
 assert (await fut1) == 5;
-assert handler.journalLength() == inc(1); // #feeUpdate
+assert inc(1); // #feeUpdate
 
 let user1 = Principal.fromBlob("1");
 func assert_state(x : (Nat, Nat, Nat)) {
-  assert handler.depositedFunds() == x.0;
-  assert handler.consolidatedFunds() == x.1;
-  assert handler.depositsNumber() == x.2;
+  let s = handler.state();
+  assert s.balance.deposited == x.0;
+  assert s.balance.consolidated == x.1;
+  assert s.users.queued == x.2;
 };
 
 do {
   // stage a response and release it immediately
   ledger.balance_.stage(?20).0();
   assert (await* handler.notify(user1)) == ?(20, 15); // (deposit, credit)
-  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert inc(2); // #credited, #newDeposit
   assert_state(20, 0, 1);
   ledger.transfer_.stage(null).0(); // error response
   await* handler.trigger();
-  assert handler.journalLength() == inc(1); // #consolidationError
+  assert inc(3); // #consolidationError, #debited, #credited
   assert_state(20, 0, 1);
   ledger.transfer_.stage(?(#Ok 0)).0();
   await* handler.trigger();
+  assert inc(1); // #credited
   assert_state(0, 15, 0);
 };
 
@@ -91,9 +92,13 @@ do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   var journalCtr = 0;
   func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
-  // give user1 20 credits
-  handler.credit(user1, 20);
-  assert handler.journalLength() == inc(1); // #credited
+  // giver user1 credit and put funds into the consolidated balance
+  ledger.balance_.stage(?20).0();
+  ledger.transfer_.stage(?(#Ok 0)).0();
+  assert (await* handler.notify(user1)) == ?(20, 20); // (deposit, credit)
+  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  await* handler.trigger();
+  assert handler.journalLength() == inc(1); // #consolidated
   // stage a response
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   assert handler.fee() == 0;
@@ -109,7 +114,7 @@ do {
   while (not has_started) { await async {} }; 
   // now the withdraw call has executed until its first commit point
   // let's verify
-  assert handler.totalWithdrawn() == 10;
+  assert handler.state().flow.withdrawn == 10;
   // also the call to the mock ledger method has been made
   assert state() == #running;
   // now everything is halted until we release the response
@@ -128,7 +133,7 @@ do {
   // because of the #TooLowQuantity error there is no further commit point
   // the continuation runs to the end of the withdraw function 
   // let's verify
-  assert handler.totalWithdrawn() == 0;
+  assert handler.state().flow.withdrawn == 0;
   assert handler.journalLength() == inc(2); // feeUpdated, withdrawalError
   // we do not have to await fut anymore, but we can:
   assert (await fut) == #err(#TooLowQuantity);
