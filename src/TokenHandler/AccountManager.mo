@@ -1,4 +1,5 @@
 import Principal "mo:base/Principal";
+import { print } "mo:base/Debug";
 import Int "mo:base/Int";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
@@ -123,7 +124,11 @@ module {
     public func totalWithdrawn() : Nat = totalWithdrawn_;
 
     /// Retrieves the calculated balance of the main account.
-    public func consolidatedFunds() : Nat = totalConsolidated_ - totalWithdrawn_;
+    public func consolidatedFunds() : Nat {
+      print("totalConsolidated_ = " # debug_show totalConsolidated_);
+      print("totalWithdrawn_ = " # debug_show totalWithdrawn_);
+      totalConsolidated_ - totalWithdrawn_;
+    };
 
     /// Retrieves the deposit of a principal.
     public func getDeposit(p : Principal) : ?Nat = depositRegistry.getOpt(p);
