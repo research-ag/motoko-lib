@@ -19,8 +19,8 @@ module {
 
   public type LogEvent = {
     #feeUpdated : { old : Nat; new : Nat };
-    #minimumUpdated : { old : Nat; new : Nat };
-    #minimumWithdrawalUpdated : { old : Nat; new : Nat };
+    #depositMinimumUpdated : { old : Nat; new : Nat };
+    #withdrawalMinimumUpdated : { old : Nat; new : Nat };
     #newDeposit : Nat;
     #consolidated : { deducted : Nat; credited : Nat };
     #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
@@ -93,7 +93,7 @@ module {
       definedDepositMinimum_ := min;
       let newDepositMin = depositMinimum();
       if (prevDepositMin != newDepositMin) {
-        log(ownPrincipal, #minimumUpdated({ old = prevDepositMin; new = newDepositMin }));
+        log(ownPrincipal, #depositMinimumUpdated({ old = prevDepositMin; new = newDepositMin }));
       };
     };
 
@@ -110,7 +110,7 @@ module {
       definedWithdrawalMinimum_ := min;
       let newWithdrawalMin = withdrawalMinimum();
       if (prevWithdrawalMin != newWithdrawalMin) {
-        log(ownPrincipal, #minimumWithdrawalUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
+        log(ownPrincipal, #withdrawalMinimumUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
       };
     };
 
@@ -153,12 +153,12 @@ module {
       // check if deposit minimum is updated
       let newDepositMin = depositMinimum();
       if (prevDepositMin != newDepositMin) {
-        log(ownPrincipal, #minimumUpdated({ old = prevDepositMin; new = newDepositMin }));
+        log(ownPrincipal, #depositMinimumUpdated({ old = prevDepositMin; new = newDepositMin }));
       };
       // check if withdrawal minimum is updated
       let newWithdrawalMin = withdrawalMinimum();
       if (prevWithdrawalMin != newWithdrawalMin) {
-        log(ownPrincipal, #minimumWithdrawalUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
+        log(ownPrincipal, #withdrawalMinimumUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
       };
     };
 
