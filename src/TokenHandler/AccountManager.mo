@@ -89,38 +89,33 @@ module {
     public func fee() : Nat = fee_;
 
     /// Retrieves the admin-defined minimum of the specific type.
-    public func definedMinimum(minimumType : MinimumType) : Nat = switch (minimumType) {
+    public func definedMinimum(t : MinimumType) : Nat = switch (t) {
       case (#deposit) definedDepositMinimum_;
       case (#withdrawal) definedWithdrawalMinimum_;
     };
 
     /// Calculates the final minimum of the specific type.
-    public func minimum(minimumType : MinimumType) : Nat = Nat.max(definedMinimum(minimumType), fee_ + 1);
+    public func minimum(t : MinimumType) : Nat = Nat.max(definedMinimum(t), fee_ + 1);
+
+    // check if the minimum has changed compared to old value and log if yes
+    func logMinimum(t : MinimumType, old : Nat) {
+      let new = minimum(t);
+      if (old == new) return;
+      switch (t) {
+        case (#deposit) log(ownPrincipal, #depositMinimumUpdated({ old = old; new = new }));
+        case (#withdrawal) log(ownPrincipal, #withdrawalMinimumUpdated({ old = old; new = new }));
+      };
+    };
 
     /// Defines the admin-defined minimum of the specific type.
-    public func setMinimum(minimumType : MinimumType, min : Nat) {
-      if (min == definedMinimum(minimumType)) return;
-      let prevMin = minimum(minimumType);
-      switch (minimumType) {
+    public func setMinimum(t : MinimumType, min : Nat) {
+      if (min == definedMinimum(t)) return;
+      let old = minimum(t);
+      switch (t) {
         case (#deposit) definedDepositMinimum_ := min;
         case (#withdrawal) definedWithdrawalMinimum_ := min;
       };
-      let nextMin = minimum(minimumType);
-      if (prevMin != nextMin) {
-        log(
-          ownPrincipal,
-          switch (minimumType) {
-            case (#deposit) #depositMinimumUpdated({
-              old = prevMin;
-              new = nextMin;
-            });
-            case (#withdrawal) #withdrawalMinimumUpdated({
-              old = prevMin;
-              new = nextMin;
-            });
-          },
-        );
-      };
+      logMinimum(t, old);
     };
 
     var fetchFeeLock : Bool = false;
@@ -138,8 +133,7 @@ module {
 
     func updateFee(newFee : Nat) {
       if (fee_ == newFee) return;
-      let prevDepositMin = minimum(#deposit);
-      let prevWithdrawalMin = minimum(#withdrawal);
+      let prev = (minimum(#deposit), minimum(#withdrawal));
       // update the deposit minimum depending on the new fee
       // the callback debits the principal for deposits that are removed in this step
       depositRegistry.setMinimum(newFee + 1, func(p, v) = debit(p, v - fee_));
@@ -156,16 +150,9 @@ module {
       );
       log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
       fee_ := newFee;
-      // check if deposit minimum is updated
-      let newDepositMin = minimum(#deposit);
-      if (prevDepositMin != newDepositMin) {
-        log(ownPrincipal, #depositMinimumUpdated({ old = prevDepositMin; new = newDepositMin }));
-      };
-      // check if withdrawal minimum is updated
-      let newWithdrawalMin = minimum(#withdrawal);
-      if (prevWithdrawalMin != newWithdrawalMin) {
-        log(ownPrincipal, #withdrawalMinimumUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
-      };
+      // log possible changes in deposit/withdrawal minima
+      logMinimum(#deposit, prev.0);
+      logMinimum(#withdrawal, prev.1);
     };
 
     /// Retrieves the sum of all current deposits.
