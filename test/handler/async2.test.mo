@@ -9,19 +9,13 @@ let ledger = object {
   public let balance_ = Mock.Method<Nat>();
   public let transfer_ = Mock.Method<ICRC1.TransferResult>();
   public shared func fee() : async Nat {
-    let r = fee_.pop();
-    await* r.run();
-    r.response();
+    let r = fee_.pop(); await* r.run(); r.response();
   };
   public shared func balance_of(_ : ICRC1.Account) : async Nat {
-    let r = balance_.pop();
-    await* r.run();
-    r.response();
+    let r = balance_.pop(); await* r.run(); r.response();
   };
   public shared func transfer(_ : ICRC1.TransferArgs) : async ICRC1.TransferResult {
-    let r = transfer_.pop();
-    await* r.run();
-    r.response();
+    let r = transfer_.pop(); await* r.run(); r.response();
   };
   public func isEmpty() : Bool {
     fee_.isEmpty() and balance_.isEmpty() and transfer_.isEmpty();
