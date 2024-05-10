@@ -57,12 +57,12 @@ module {
     /// Admin-defined deposit minimum.
     /// Can be less then the current fee.
     /// Final minimum: max(admin_defined_min, fee + 1).
-    var definedDepositMinimum_ : Nat = 1;
+    var definedDepositMinimum_ : Nat = 0;
 
     /// Admin-defined withdrawal minimum.
     /// Can be less then the current fee.
     /// Final minimum: max(admin_defined_min, fee + 1).
-    var definedWithdrawalMinimum_ : Nat = 1;
+    var definedWithdrawalMinimum_ : Nat = 0;
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
