@@ -31,6 +31,11 @@ module {
     };
   };
 
+  public type MinimumType = {
+    #deposit;
+    #withdrawal;
+  };
+
   /// Manages accounts and funds for users.
   /// Handles deposit, withdrawal, and consolidation operations.
   public class AccountManager(
@@ -83,39 +88,44 @@ module {
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
-    /// Retrieves the admin-defined deposit minimum.
-    public func definedDepositMinimum() : Nat = definedDepositMinimum_;
+    /// Retrieves the admin-defined minimum of the specific type.
+    public func definedMinimum(minimumType : MinimumType) : Nat = switch (minimumType) {
+      case (#deposit) definedDepositMinimum_;
+      case (#withdrawal) definedWithdrawalMinimum_;
+    };
+
+    /// Calculates the final minimum of the specific type.
+    public func minimum(minimumType : MinimumType) : Nat = Nat.max(definedMinimum(minimumType), fee_ + 1);
+
+    /// Defines the admin-defined minimum of the specific type.
+    public func setMinimum(minimumType : MinimumType, min : Nat) {
+      switch (minimumType) {
+        case (#deposit) setDepositMinimum(min);
+        case (#withdrawal) setWithdrawalMinimum(min);
+      };
+    };
 
     /// Defines the admin-defined deposit minimum.
-    public func setDepositMinimum(min : Nat) {
+    func setDepositMinimum(min : Nat) {
       if (min == definedDepositMinimum_) return;
-      let prevDepositMin = depositMinimum();
+      let prevDepositMin = minimum(#deposit);
       definedDepositMinimum_ := min;
-      let newDepositMin = depositMinimum();
+      let newDepositMin = minimum(#deposit);
       if (prevDepositMin != newDepositMin) {
         log(ownPrincipal, #depositMinimumUpdated({ old = prevDepositMin; new = newDepositMin }));
       };
     };
 
-    /// Calculates the final deposit minimum.
-    public func depositMinimum() : Nat = Nat.max(definedDepositMinimum_, fee_ + 1);
-
-    /// Retrieves the admin-defined withdrawal minimum.
-    public func definedWithdrawalMinimum() : Nat = definedWithdrawalMinimum_;
-
     /// Defines the admin-defined withdrawal minimum.
-    public func setWithdrawalMinimum(min : Nat) {
+    func setWithdrawalMinimum(min : Nat) {
       if (min == definedWithdrawalMinimum_) return;
-      let prevWithdrawalMin = withdrawalMinimum();
+      let prevWithdrawalMin = minimum(#withdrawal);
       definedWithdrawalMinimum_ := min;
-      let newWithdrawalMin = withdrawalMinimum();
+      let newWithdrawalMin = minimum(#withdrawal);
       if (prevWithdrawalMin != newWithdrawalMin) {
         log(ownPrincipal, #withdrawalMinimumUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
       };
     };
-
-    /// Calculates the final withdrawal minimum.
-    public func withdrawalMinimum() : Nat = Nat.max(definedWithdrawalMinimum_, fee_ + 1);
 
     var fetchFeeLock : Bool = false;
 
@@ -132,8 +142,8 @@ module {
 
     func updateFee(newFee : Nat) {
       if (fee_ == newFee) return;
-      let prevDepositMin = depositMinimum();
-      let prevWithdrawalMin = withdrawalMinimum();
+      let prevDepositMin = minimum(#deposit);
+      let prevWithdrawalMin = minimum(#withdrawal);
       // update the deposit minimum depending on the new fee
       // the callback debits the principal for deposits that are removed in this step
       depositRegistry.setMinimum(newFee + 1, func(p, v) = debit(p, v - fee_));
@@ -151,12 +161,12 @@ module {
       log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
       fee_ := newFee;
       // check if deposit minimum is updated
-      let newDepositMin = depositMinimum();
+      let newDepositMin = minimum(#deposit);
       if (prevDepositMin != newDepositMin) {
         log(ownPrincipal, #depositMinimumUpdated({ old = prevDepositMin; new = newDepositMin }));
       };
       // check if withdrawal minimum is updated
-      let newWithdrawalMin = withdrawalMinimum();
+      let newWithdrawalMin = minimum(#withdrawal);
       if (prevWithdrawalMin != newWithdrawalMin) {
         log(ownPrincipal, #withdrawalMinimumUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
       };
@@ -216,7 +226,7 @@ module {
         throw err;
       };
 
-      if (latestDeposit < depositMinimum()) {
+      if (latestDeposit < minimum(#deposit)) {
         ignore release(null);
         return ?0;
       };
@@ -299,7 +309,7 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity };
     } {
-      if (amount < withdrawalMinimum()) return #Err(#TooLowQuantity);
+      if (amount < minimum(#withdrawal)) return #Err(#TooLowQuantity);
 
       try {
         await icrc1Ledger.transfer({

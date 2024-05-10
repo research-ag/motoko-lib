@@ -77,23 +77,14 @@ module {
     /// Returns the fee.
     public func fee() : Nat = accountManager.fee();
 
-    /// Retrieves the admin-defined deposit minimum.
-    public func definedDepositMinimum() : Nat = accountManager.definedDepositMinimum();
+    /// Retrieves the admin-defined minimum of the specific type.
+    public func definedMinimum(minimumType : AccountManager.MinimumType) : Nat = accountManager.definedMinimum(minimumType);
 
-    /// Defines the admin-defined deposit minimum.
-    public func setDepositMinimum(min : Nat) = accountManager.setDepositMinimum(min);
+    /// Calculates the final minimum of the specific type.
+    public func minimum(minimumType : AccountManager.MinimumType) : Nat = accountManager.minimum(minimumType);
 
-    /// Calculates the final deposit minimum.
-    public func depositMinimum() : Nat = accountManager.depositMinimum();
-
-    /// Retrieves the admin-defined withdrawal minimum.
-    public func definedWithdrawalMinimum() : Nat = accountManager.definedWithdrawalMinimum();
-
-    /// Defines the admin-defined withdrawal minimum.
-    public func setWithdrawalMinimum(min : Nat) = accountManager.setWithdrawalMinimum(min);
-
-    /// Calculates the final withdrawal minimum.
-    public func withdrawalMinimum() : Nat = accountManager.withdrawalMinimum();
+    /// Defines the admin-defined minimum of the specific type.
+    public func setMinimum(minimumType : AccountManager.MinimumType, min : Nat) = accountManager.setMinimum(minimumType, min);
 
     /// Fetches and updates the fee from the ICRC1 ledger.
     /// Returns the new fee, or `null` if fetching is already in progress.
