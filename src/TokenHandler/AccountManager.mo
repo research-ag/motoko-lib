@@ -99,31 +99,27 @@ module {
 
     /// Defines the admin-defined minimum of the specific type.
     public func setMinimum(minimumType : MinimumType, min : Nat) {
+      if (min == definedMinimum(minimumType)) return;
+      let prevMin = minimum(minimumType);
       switch (minimumType) {
-        case (#deposit) setDepositMinimum(min);
-        case (#withdrawal) setWithdrawalMinimum(min);
+        case (#deposit) definedDepositMinimum_ := min;
+        case (#withdrawal) definedWithdrawalMinimum_ := min;
       };
-    };
-
-    /// Defines the admin-defined deposit minimum.
-    func setDepositMinimum(min : Nat) {
-      if (min == definedDepositMinimum_) return;
-      let prevDepositMin = minimum(#deposit);
-      definedDepositMinimum_ := min;
-      let newDepositMin = minimum(#deposit);
-      if (prevDepositMin != newDepositMin) {
-        log(ownPrincipal, #depositMinimumUpdated({ old = prevDepositMin; new = newDepositMin }));
-      };
-    };
-
-    /// Defines the admin-defined withdrawal minimum.
-    func setWithdrawalMinimum(min : Nat) {
-      if (min == definedWithdrawalMinimum_) return;
-      let prevWithdrawalMin = minimum(#withdrawal);
-      definedWithdrawalMinimum_ := min;
-      let newWithdrawalMin = minimum(#withdrawal);
-      if (prevWithdrawalMin != newWithdrawalMin) {
-        log(ownPrincipal, #withdrawalMinimumUpdated({ old = prevWithdrawalMin; new = newWithdrawalMin }));
+      let nextMin = minimum(minimumType);
+      if (prevMin != nextMin) {
+        log(
+          ownPrincipal,
+          switch (minimumType) {
+            case (#deposit) #depositMinimumUpdated({
+              old = prevMin;
+              new = nextMin;
+            });
+            case (#withdrawal) #withdrawalMinimumUpdated({
+              old = prevMin;
+              new = nextMin;
+            });
+          },
+        );
       };
     };
 
