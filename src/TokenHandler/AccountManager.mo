@@ -1,5 +1,4 @@
 import Principal "mo:base/Principal";
-import { print } "mo:base/Debug";
 import Int "mo:base/Int";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
@@ -20,6 +19,8 @@ module {
 
   public type LogEvent = {
     #feeUpdated : { old : Nat; new : Nat };
+    #depositMinimumUpdated : { old : Nat; new : Nat };
+    #withdrawalMinimumUpdated : { old : Nat; new : Nat };
     #newDeposit : Nat;
     #consolidated : { deducted : Nat; credited : Nat };
     #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
@@ -28,6 +29,11 @@ module {
       #CallIcrc1LedgerError;
       #TooLowQuantity;
     };
+  };
+
+  public type MinimumType = {
+    #deposit;
+    #withdrawal;
   };
 
   /// Manages accounts and funds for users.
@@ -42,11 +48,21 @@ module {
     debit_ : (Principal, Nat) -> (),
   ) {
 
-    /// Manages deposit balances for each user.
-    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare);
-
     /// Current fee amount.
     var fee_ : Nat = initialFee;
+
+    /// Manages deposit balances for each user.
+    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare, fee_ + 1);
+
+    /// Admin-defined deposit minimum.
+    /// Can be less then the current fee.
+    /// Final minimum: max(admin_defined_min, fee + 1).
+    var definedDepositMinimum_ : Nat = 0;
+
+    /// Admin-defined withdrawal minimum.
+    /// Can be less then the current fee.
+    /// Final minimum: max(admin_defined_min, fee + 1).
+    var definedWithdrawalMinimum_ : Nat = 0;
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
@@ -72,25 +88,56 @@ module {
     /// Retrieves the current fee amount.
     public func fee() : Nat = fee_;
 
-    /// Retrieves the allowed minimal deposit.
-    public func minimum() : Nat = depositRegistry.minimum();
+    /// Retrieves the admin-defined minimum of the specific type.
+    public func definedMinimum(t : MinimumType) : Nat = switch (t) {
+      case (#deposit) definedDepositMinimum_;
+      case (#withdrawal) definedWithdrawalMinimum_;
+    };
+
+    /// Calculates the final minimum of the specific type.
+    public func minimum(t : MinimumType) : Nat = Nat.max(definedMinimum(t), fee_ + 1);
+
+    // check if the minimum has changed compared to old value and log if yes
+    func logMinimum(t : MinimumType, old : Nat) {
+      let new = minimum(t);
+      if (old == new) return;
+      switch (t) {
+        case (#deposit) log(ownPrincipal, #depositMinimumUpdated({ old = old; new = new }));
+        case (#withdrawal) log(ownPrincipal, #withdrawalMinimumUpdated({ old = old; new = new }));
+      };
+    };
+
+    /// Defines the admin-defined minimum of the specific type.
+    public func setMinimum(t : MinimumType, min : Nat) {
+      if (min == definedMinimum(t)) return;
+      let old = minimum(t);
+      switch (t) {
+        case (#deposit) definedDepositMinimum_ := min;
+        case (#withdrawal) definedWithdrawalMinimum_ := min;
+      };
+      logMinimum(t, old);
+    };
+
+    var fetchFeeLock : Bool = false;
 
     /// Updates the fee amount based on the ICRC1 ledger.
-    public func fetchFee() : async* Nat {
+    /// Returns the new fee, or `null` if fetching is already in progress.
+    public func fetchFee() : async* ?Nat {
+      if (fetchFeeLock) return null;
+      fetchFeeLock := true;
       let newFee = await icrc1Ledger.fee();
+      fetchFeeLock := false;
       updateFee(newFee);
-      newFee;
+      ?newFee;
     };
 
     func updateFee(newFee : Nat) {
       if (fee_ == newFee) return;
-      // step 1: update the minimum deposit
+      let prev = (minimum(#deposit), minimum(#withdrawal));
+      // update the deposit minimum depending on the new fee
       // the callback debits the principal for deposits that are removed in this step
-      depositRegistry.setMinimum(
-        newFee + 1,
-        func(p, v) = debit(p, v - fee_),
-      );
-      // step 2: adjust credit for all queued deposits
+      depositRegistry.setMinimum(newFee + 1, func(p, v) = debit(p, v - fee_));
+      // adjust credit for all queued deposits
       depositRegistry.iterate(
         func(p, v) {
           if (v <= newFee) freezeCallback("deposit <= newFee should have been erased in previous step");
@@ -103,6 +150,9 @@ module {
       );
       log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
       fee_ := newFee;
+      // log possible changes in deposit/withdrawal minima
+      logMinimum(#deposit, prev.0);
+      logMinimum(#withdrawal, prev.1);
     };
 
     /// Retrieves the sum of all current deposits.
@@ -124,11 +174,7 @@ module {
     public func totalWithdrawn() : Nat = totalWithdrawn_;
 
     /// Retrieves the calculated balance of the main account.
-    public func consolidatedFunds() : Nat {
-      print("totalConsolidated_ = " # debug_show totalConsolidated_);
-      print("totalWithdrawn_ = " # debug_show totalWithdrawn_);
-      totalConsolidated_ - totalWithdrawn_;
-    };
+    public func consolidatedFunds() : Nat = totalConsolidated_ - totalWithdrawn_;
 
     /// Retrieves the deposit of a principal.
     public func getDeposit(p : Principal) : ?Nat = depositRegistry.getOpt(p);
@@ -161,6 +207,11 @@ module {
       } catch (err) {
         ignore release(null);
         throw err;
+      };
+
+      if (latestDeposit < minimum(#deposit)) {
+        ignore release(null);
+        return ?0;
       };
 
       // This function calls release() to release the lock
@@ -241,7 +292,7 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity };
     } {
-      if (amount <= fee_) return #Err(#TooLowQuantity);
+      if (amount < minimum(#withdrawal)) return #Err(#TooLowQuantity);
 
       try {
         await icrc1Ledger.transfer({

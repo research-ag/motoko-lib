@@ -29,6 +29,8 @@ module {
 
   public actor class MockLedger() {
     var fee : Nat = 0;
+    var fee_lock : Bool = false;
+    var fee_lock_key : Text = "";
     var balance : Nat = 0;
     var balance_lock : Bool = false;
     var balance_lock_key : Text = "";
@@ -50,8 +52,27 @@ module {
       transfer_res_i_ := 0;
     };
 
-    public func icrc1_fee() : async Nat { fee };
+    public func icrc1_fee() : async Nat {
+      var inc : Nat = 0;
+      while (fee_lock and inc < 100) {
+        await async {};
+        inc += 1;
+      };
+      if (inc == 100) {
+        Debug.print("lock key: " # fee_lock_key);
+        assert false;
+      };
+      fee;
+    };
     public func set_fee(x : Nat) : async () { fee := x };
+    public func lock_fee(key : Text) : async () {
+      fee_lock := true;
+      fee_lock_key := key;
+    };
+    public func release_fee() : async () {
+      fee_lock := false;
+      fee_lock_key := "";
+    };
 
     public func icrc1_balance_of(_ : Account) : async Nat {
       var inc : Nat = 0;
