@@ -187,7 +187,7 @@ module {
     public func getDeposit(p : Principal) : ?Nat = depositRegistry.getOpt(p);
 
     func process_deposit(p : Principal, deposit : Nat, release : ?Nat -> Int) : Nat {
-      if (deposit < depositMinimum()) {
+      if (deposit <= fee_) {
         ignore release(null);
         return 0;
       };
@@ -214,6 +214,11 @@ module {
       } catch (err) {
         ignore release(null);
         throw err;
+      };
+
+      if (latestDeposit < depositMinimum()) {
+        ignore release(null);
+        return ?0;
       };
 
       // This function calls release() to release the lock
