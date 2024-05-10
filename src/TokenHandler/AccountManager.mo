@@ -52,12 +52,12 @@ module {
     /// Admin-defined deposit minimum.
     /// Can be less then the current fee.
     /// Final minimum: max(admin_defined_min, fee + 1).
-    var definedDepositMinimum_ : Nat = fee_ + 1;
+    var definedDepositMinimum_ : Nat = 1;
 
     /// Admin-defined withdrawal minimum.
     /// Can be less then the current fee.
     /// Final minimum: max(admin_defined_min, fee + 1).
-    var definedWithdrawalMinimum_ : Nat = fee_ + 1;
+    var definedWithdrawalMinimum_ : Nat = 1;
 
     /// Total amount consolidated. Accumulated value.
     var totalConsolidated_ : Nat = 0;
@@ -98,7 +98,7 @@ module {
     };
 
     /// Calculates the final deposit minimum.
-    public func depositMinimum() : Nat = Nat.max(definedDepositMinimum_, fee_ +1);
+    public func depositMinimum() : Nat = Nat.max(definedDepositMinimum_, fee_ + 1);
 
     /// Retrieves the admin-defined withdrawal minimum.
     public func definedWithdrawalMinimum() : Nat = definedWithdrawalMinimum_;
@@ -115,7 +115,7 @@ module {
     };
 
     /// Calculates the final withdrawal minimum.
-    public func withdrawalMinimum() : Nat = Nat.max(definedWithdrawalMinimum_, fee_ +1);
+    public func withdrawalMinimum() : Nat = Nat.max(definedWithdrawalMinimum_, fee_ + 1);
 
     var fetchFeeLock : Bool = false;
 
