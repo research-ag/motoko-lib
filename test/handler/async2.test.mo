@@ -9,26 +9,40 @@ let ledger = object {
   public let balance_ = Mock.Method<Nat>();
   public let transfer_ = Mock.Method<ICRC1.TransferResult>();
   public shared func fee() : async Nat {
-    let r = fee_.pop(); await* r.run(); r.response();
+    let r = fee_.pop();
+    await* r.run();
+    r.response();
   };
   public shared func balance_of(_ : ICRC1.Account) : async Nat {
-    let r = balance_.pop(); await* r.run(); r.response();
+    let r = balance_.pop();
+    await* r.run();
+    r.response();
   };
   public shared func transfer(_ : ICRC1.TransferArgs) : async ICRC1.TransferResult {
-    let r = transfer_.pop(); await* r.run(); r.response();
+    let r = transfer_.pop();
+    await* r.run();
+    r.response();
   };
   public func isEmpty() : Bool {
     fee_.isEmpty() and balance_.isEmpty() and transfer_.isEmpty();
   };
 };
-
 let anon_p = Principal.fromBlob("");
-let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+let user1 = Principal.fromBlob("1");
 
-var journalCtr = 0;
-func inc(n : Nat) : Bool {
-  journalCtr += n;
-  journalCtr == handler.state().journalLength;
+func create_inc() : (Nat -> Nat, () -> Nat) {
+  var ctr = 0;
+  func inc(n : Nat) : Nat { ctr += n; ctr };
+  (inc, func() { ctr });
+};
+
+func state(handler : TokenHandler.TokenHandler) : (Nat, Nat, Nat) {
+  let s = handler.state();
+  (
+    s.balance.deposited,
+    s.balance.consolidated,
+    s.users.queued,
+  );
 };
 
 module Debug {
@@ -46,43 +60,37 @@ module Debug {
   };
 };
 
-// stage a response
-let (release, state) = ledger.fee_.stage(?5);
-// trigger call
-let fut1 = async { await* handler.fetchFee() };
-// wait for call to arrive
-while (state() == #staged) await async {};
-// trigger second call
-assert (await* handler.fetchFee()) == null;
-// release response
-release();
-assert (await fut1) == ?5;
-assert inc(3); // #minimumUpdated, #minimumWithdrawalUpdated, #feeUpdated
-
-let user1 = Principal.fromBlob("1");
-func assert_state(x : (Nat, Nat, Nat)) {
-  let s = handler.state();
-  assert s.balance.deposited == x.0;
-  assert s.balance.consolidated == x.1;
-  assert s.users.queued == x.2;
-};
-
 do {
-  // make sure no staged responses are left from previous tests
-  assert ledger.isEmpty();
+  print("new test: change fee plus notify");
+  // fresh handler
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let (inc, _) = create_inc();
+  // stage a response
+  let (release, status) = ledger.fee_.stage(?5);
+  // trigger call
+  let fut1 = async { await* handler.fetchFee() };
+  // wait for call to arrive
+  while (status() == #staged) await async {};
+  // trigger second call
+  assert (await* handler.fetchFee()) == null;
+  // release response
+  release();
+  assert (await fut1) == ?5;
+  assert handler.journalLength() == inc(3); // #minimumUpdated, #minimumWithdrawalUpdated, #feeUpdated
+
   // stage a response and release it immediately
   ledger.balance_.stage(?20).0 ();
   assert (await* handler.notify(user1)) == ?(20, 15); // (deposit, credit)
-  assert inc(2); // #credited, #newDeposit
-  assert_state(20, 0, 1);
+  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert state(handler) == (20, 0, 1);
   ledger.transfer_.stage(null).0 (); // error response
   await* handler.trigger();
-  assert inc(3); // #consolidationError, #debited, #credited
-  assert_state(20, 0, 1);
+  assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
+  assert state(handler) == (20, 0, 1);
   ledger.transfer_.stage(?(#Ok 0)).0 ();
   await* handler.trigger();
-  assert inc(1); // #credited
-  assert_state(0, 15, 0);
+  assert handler.journalLength() == inc(1); // #credited
+  assert state(handler) == (0, 15, 0);
 };
 
 do {
@@ -91,8 +99,7 @@ do {
   assert ledger.isEmpty();
   // fresh handler
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
-  var journalCtr = 0;
-  func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
+  let (inc, _) = create_inc();
   // giver user1 credit and put funds into the consolidated balance
   ledger.balance_.stage(?20).0 ();
   ledger.transfer_.stage(?(#Ok 0)).0 ();
@@ -146,8 +153,7 @@ do {
   assert ledger.isEmpty();
   // fresh handler
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
-  var journalCtr = 0;
-  func inc(n : Nat) : Nat { journalCtr += n; journalCtr };
+  let (inc, _) = create_inc();
   // give user1 20 credits
   handler.credit(user1, 20);
   assert handler.journalLength() == inc(1); // #credited
