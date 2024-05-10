@@ -13,10 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4 # node seems to be required for mops @testmode wasi
-      - uses: ZenVoich/setup-mops@v1
+      - uses: ZenVoich/setup-mops@v1.2.0
 
-      # - name: make sure moc is installed
-      #   run: mops toolchain bin moc || mops toolchain use moc latest
+      - name: make sure moc is installed
+        run: | 
+          mops install
+          mops toolchain bin moc || mops toolchain use moc latest
+
+      - name: debug output
+        run: |
+          mops --version
+          $(mops toolchain bin moc) --version
 
       - name: run tests
         run: mops test
