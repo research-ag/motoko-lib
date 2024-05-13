@@ -32,7 +32,8 @@ module {
     var region_ : ?Region.Region = null;
     var regionSpace : Nat64 = 0;
     var size_ : Nat64 = 0;
-    var leaf_count_ : Nat64 = 0;
+    var leaf_count : Nat = 0;
+    var node_count : Nat = 0;
 
     let loadMask : Nat64 = switch (pointer_size_) {
       case (8) 0xffff_ffff_ffff_ffff;
@@ -55,11 +56,9 @@ module {
         case (?r) r;
         case (null) {
           let r = Region.new();
-          assert Region.grow(r, 1) != 0xFFFF_FFFF_FFFF_FFFF;
-          regionSpace := 65536 - (8 - pointer_size_);
           region_ := ?r;
-          size_ := nodeSize;
-          regionSpace -= nodeSize;
+          ignore newInternalNode(r); // root node
+          regionSpace -= 8 - pointer_size_; // padding at the end so that we can always load a Nat64
           r;
         };
       };
@@ -78,7 +77,9 @@ module {
     };
 
     func newInternalNode(region : Region.Region) : Nat64 {
-      allocate(region, nodeSize) << 1;
+      let pos = allocate(region, nodeSize);
+      node_count += 1;
+      pos << 1;
     };
 
     func newLeaf(region : Region.Region, key : Blob, value : Blob) : Nat64 {
@@ -87,7 +88,7 @@ module {
       if (not empty_values) {
         Region.storeBlob(region, pos +% key_size_, value);
       };
-      leaf_count_ +%= 1;
+      leaf_count += 1;
       Nat64.bitset(pos << 1, 0);
     };
 
@@ -238,6 +239,8 @@ module {
     };
 
     public func size() : Nat = Nat64.toNat(size_);
+    public func nodes() : Nat = node_count;
+    public func leafs() : Nat = leaf_count;
 
     public func count() : Nat = Nat64.toNat(leaf_count_);
 

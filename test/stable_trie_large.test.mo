@@ -4,9 +4,12 @@ import Prng "mo:prng";
 import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Debug "mo:base/Debug";
+import Float "mo:base/Float";
 import StableTrie "../src/StableTrie";
 
 let key_size = 8;
+let pointer_size = 6;
+let k = 4;
 
 let rng = Prng.Seiran128();
 rng.init(0);
@@ -31,7 +34,7 @@ do {
   };
 };
 
-let trie = StableTrie.StableTrie(8, 4, key_size, 0);
+let trie = StableTrie.StableTrie(pointer_size, k, key_size, 0);
 
 let max = 4096;
 var n1 = max;
@@ -53,7 +56,14 @@ while (n1 > 0) {
   pos1 += 8;
 };
 
-
-Debug.print("trie size: " # debug_show trie.size());
-Debug.print("trie keys: " # debug_show (max * max));
+Debug.print("children number: " # debug_show k);
+Debug.print("keys: " # debug_show (max * max));
+Debug.print("size: " # debug_show trie.size());
 Debug.print("bytes per key: " # debug_show (trie.size() / (max * max)));
+let (leafs, nodes) = (trie.leafs(), trie.nodes());
+Debug.print("leafs (=keys): " # debug_show leafs);
+Debug.print("nodes: " # debug_show nodes);
+Debug.print("nodes per leaf: " # debug_show (Float.fromInt(nodes) / Float.fromInt(leafs)));
+Debug.print("pointers per leaf: " # debug_show (Float.fromInt(nodes * k) / Float.fromInt(leafs)));
+Debug.print("children per node: " # debug_show (Float.fromInt(nodes + leafs) / Float.fromInt(nodes)));
+Debug.print("children utilization: " # debug_show (Float.fromInt(nodes + leafs) / Float.fromInt(nodes * k)));
