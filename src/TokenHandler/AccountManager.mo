@@ -36,6 +36,15 @@ module {
     #withdrawal;
   };
 
+  type WithdrawResultOk = (transactionIndex : Nat, withdrawnAmount : Nat);
+
+  type WithdrawResultErr = ICRC1.TransferError or {
+    #CallIcrc1LedgerError;
+    #TooLowQuantity;
+  };
+
+  public type WithdrawResponse = Result.Result<WithdrawResultOk, WithdrawResultErr>;
+
   /// Manages accounts and funds for users.
   /// Handles deposit, withdrawal, and consolidation operations.
   public class AccountManager(
@@ -46,6 +55,7 @@ module {
     freezeCallback : (text : Text) -> (),
     credit_ : (Principal, Nat) -> (),
     debit_ : (Principal, Nat) -> (),
+    getCredit : (p : Principal) -> Int,
   ) {
 
     /// Current fee amount.
@@ -310,7 +320,7 @@ module {
 
     /// Initiates a withdrawal by transferring tokens to another account.
     /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
-    public func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<(transactionIndex : Nat, withdrawnAmount : Nat), ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
+    public func withdraw(to : ICRC1.Account, amount : Nat) : async* WithdrawResponse {
 
       totalWithdrawn_ += amount;
 
@@ -342,6 +352,24 @@ module {
           #err(err);
         };
       };
+    };
+
+    /// Initiates a withdrawal by transferring tokens to another account.
+    /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
+    /// At the same time, it reduces the user's credit. Accordingly, amount < credit should be satisfied.
+    public func withdrawFromCredit(p : Principal, to : ICRC1.Account, amount : Nat) : async* WithdrawResponse {
+      if (amount > getCredit(p)) {
+        let err = #TooLowQuantity;
+        log(ownPrincipal, #withdrawalError(err));
+        return #err(err);
+      };
+      let result = await* withdraw(to, amount);
+      switch (result) {
+        // sync credit after successful withdrawal
+        case (#ok(_, _)) { debit_(p, amount) };
+        case (_) {};
+      };
+      result;
     };
 
     /// Increases the credit amount associated with a specific principal.

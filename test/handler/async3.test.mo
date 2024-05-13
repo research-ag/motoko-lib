@@ -16,6 +16,7 @@ let ledger : TestLedgerAPI = {
 
 let anon_p = Principal.fromBlob("");
 let user1 = Principal.fromBlob("1");
+let user2 = Principal.fromBlob("2");
 let account = { owner = Principal.fromBlob("1"); subaccount = null };
 
 func create_inc() : (Nat -> Nat, () -> Nat) {
@@ -321,7 +322,7 @@ do {
   assert state(handler) == (0, 10, 0); // state unchanged
   assert handler.journalLength() == inc(1); // #withdrawError
 
-  // withdraw (consolidated_funds < amount - fee)
+  // withdraw (consolidated_funds < amount)
   await ledger.mock.set_response([#Err(#InsufficientFunds({ balance = 10 }))]);
   assert (await* handler.withdraw(account, 100)) == #err(#InsufficientFunds({ balance = 10 }));
   assert state(handler) == (0, 10, 0); // state unchanged
@@ -357,6 +358,75 @@ do {
   assert (await ledger.mock.transfer_count()) == transfer_count + 1; // the second transfer call is avoided
   assert state(handler) == (0, 5, 0); // state unchanged
   assert handler.journalLength() == inc(4); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated, #withdrawalError
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
+};
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
+  let (inc, _) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.fetchFee();
+  assert handler.fee() == 5;
+  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+
+  // another user deposit + consolidation
+  await ledger.mock.set_balance(300);
+  assert (await* handler.notify(user2)) == ?(300, 295); // deposit = 300, credit = 295
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+  await ledger.mock.set_response([#Ok 42]);
+  await* handler.trigger();
+  await ledger.mock.set_balance(0);
+  assert state(handler) == (0, 295, 0); // consolidation successful
+  assert handler.journalLength() == inc(1); // #consolidated
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // increase deposit
+  await ledger.mock.set_balance(20);
+  assert (await* handler.notify(user1)) == ?(20, 15); // deposit = 20, credit = 15
+  assert state(handler) == (20, 295, 1);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // trigger consolidation
+  await ledger.mock.set_response([#Ok 42]);
+  await* handler.trigger();
+  await ledger.mock.set_balance(0);
+  assert state(handler) == (0, 310, 0); // consolidation successful
+  assert handler.journalLength() == inc(1); // #consolidated
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // withdraw from credit (fee < amount =< consolidated_funds)
+  // should be successful
+  await ledger.mock.set_fee(1);
+  ignore await* handler.fetchFee();
+  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  await ledger.mock.set_response([#Ok 42]);
+  assert (await* handler.withdrawFromCredit(user1, account, 5)) == #ok(42, 4);
+  assert handler.journalLength() == inc(2); // #withdraw, #debited
+  assert state(handler) == (0, 305, 0);
+  assert handler.getCredit(user1) == 10;
+
+  // withdraw (amount <= fee_ =< consolidated_funds)
+  var transfer_count = await ledger.mock.transfer_count();
+  await ledger.mock.set_response([#Ok 42]); // transfer call should not be executed anyway
+  assert (await* handler.withdrawFromCredit(user1, account, 1)) == #err(#TooLowQuantity);
+  assert (await ledger.mock.transfer_count()) == transfer_count; // no transfer call
+  assert state(handler) == (0, 305, 0); // state unchanged
+  assert handler.journalLength() == inc(1); // #withdrawError
+
+  // withdraw from credit (credit < amount)
+  // insufficient user credit
+  transfer_count := await ledger.mock.transfer_count();
+  await ledger.mock.set_response([#Ok 42]); // transfer call should not be executed anyway
+  assert (await* handler.withdrawFromCredit(user1, account, 12)) == #err(#TooLowQuantity); // amount 12 > credit 10
+  assert (await ledger.mock.transfer_count()) == transfer_count; // no transfer call
+  assert state(handler) == (0, 305, 0); // state unchanged
+  assert handler.journalLength() == inc(1); // #withdrawError
 
   handler.assertIntegrity();
   assert not handler.isFrozen();

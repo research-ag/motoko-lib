@@ -72,6 +72,7 @@ module {
       freezeTokenHandler,
       creditRegistry.credit,
       creditRegistry.debit,
+      creditRegistry.get,
     );
 
     /// Returns the fee.
@@ -180,8 +181,15 @@ module {
 
     /// Initiates a withdrawal by transferring tokens to another account.
     /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
-    public func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<(transactionIndex : Nat, withdrawnAmount : Nat), ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
+    public func withdraw(to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
       await* accountManager.withdraw(to, amount);
+    };
+
+    /// Initiates a withdrawal by transferring tokens to another account.
+    /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
+    /// At the same time, it reduces the user's credit. Accordingly, amount < credit should be satisfied.
+    public func withdrawFromCredit(p : Principal, to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
+      await* accountManager.withdrawFromCredit(p, to, amount);
     };
 
     /// For testing purposes
