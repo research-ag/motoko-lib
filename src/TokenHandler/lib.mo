@@ -35,7 +35,6 @@ module {
   public class TokenHandler(
     ledgerApi : LedgerAPI,
     ownPrincipal : Principal,
-    issuerPrincipal : Principal,
     journalCapacity : Nat,
     initialFee : Nat,
   ) {
@@ -61,7 +60,7 @@ module {
     var journal = Journal.Journal(journalCapacity);
 
     /// Tracks credited funds (usable balance) associated with each principal.
-    let creditRegistry = CreditRegistry.CreditRegistry(issuerPrincipal, journal.push);
+    let creditRegistry = CreditRegistry.CreditRegistry(ownPrincipal, journal.push);
 
     /// Manages accounts and funds for users.
     /// Handles deposit, withdrawal, and consolidation operations.
@@ -156,6 +155,12 @@ module {
 
     /// Gets the current credit amount of the issuer account.
     public func issuer() : Int = creditRegistry.issuer();
+
+    /// Deducts amount from the issuer account credit.
+    public func debitIssuer(amount : Nat) = creditRegistry.debitIssuer(amount);
+
+    /// Increases the current issuer account credit.
+    public func creditIssuer(amount : Nat) = creditRegistry.creditIssuer(amount);
 
     /// Deducts amount from P’s usable balance.
     /// With checking the availability of sufficient funds.

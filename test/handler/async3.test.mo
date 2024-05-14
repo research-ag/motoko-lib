@@ -15,7 +15,6 @@ let ledger : TestLedgerAPI = {
 };
 
 let anon_p = Principal.fromBlob("");
-let issuer = Principal.fromBlob("0");
 let user1 = Principal.fromBlob("1");
 let user2 = Principal.fromBlob("2");
 let account = { owner = Principal.fromBlob("o"); subaccount = null };
@@ -51,7 +50,7 @@ module Debug {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -171,7 +170,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -278,7 +277,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -311,7 +310,7 @@ do {
   await ledger.mock.set_response([#Ok 42]);
   assert (await* handler.withdraw(account, 5)) == #ok(42, 4);
   assert handler.journalLength() == inc(1); // #withdraw
-  ignore handler.debitStrict(user1, 5);
+  handler.debit(user1, 5);
   assert state(handler) == (0, 10, 0);
   assert handler.journalLength() == inc(1); // #debited
 
@@ -342,7 +341,7 @@ do {
   assert (await ledger.mock.transfer_count()) == transfer_count + 2;
   assert handler.journalLength() == inc(4); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated, #withdraw
   assert state(handler) == (0, 5, 0); // state has changed
-  ignore handler.debitStrict(user1, 5);
+  handler.debit(user1, 5);
   assert handler.journalLength() == inc(1); // #debited
 
   // increase fee while withdraw is being underway
@@ -365,7 +364,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -434,7 +433,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -505,7 +504,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -532,7 +531,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -605,7 +604,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -679,7 +678,7 @@ do {
   await ledger.mock.set_response([#Ok 42]);
   assert (await* handler.withdraw(account, 11)) == #ok(42, 6);
   assert handler.journalLength() == inc(1); // #withdraw
-  ignore handler.debitStrict(user1, 11);
+  handler.debit(user1, 11);
   assert state(handler) == (0, 4, 0);
   assert handler.journalLength() == inc(1); // #debited
 
@@ -688,65 +687,46 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
-  // update fee first time
-  await ledger.mock.set_fee(2);
-  ignore await* handler.fetchFee();
-  assert handler.fee() == 2;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  // credit issuer
+  handler.creditIssuer(20);
+  assert handler.issuer() == 20;
+  assert handler.journalLength() == inc(1); // #issuerCredited
 
-  // issuer account deposit + consolidation
-  await ledger.mock.set_balance(22);
-  assert (await* handler.notify(issuer)) == ?(22, 20); // deposit = 22, credit = 20
-  assert handler.journalLength() == inc(2); // #newDeposit, #credited
-  await ledger.mock.set_response([#Ok 42]);
-  await* handler.trigger();
-  await ledger.mock.set_balance(0);
-  assert state(handler) == (0, 20, 0); // consolidation successful
-  assert handler.journalLength() == inc(1); // #consolidated
-  print("tree lookups = " # debug_show handler.lookups());
+  // debit issuer
+  handler.debitIssuer(5);
+  assert handler.issuer() == 15;
+  assert handler.journalLength() == inc(1); // #issuerCredited
 
   // credit (strict)
   // case: issuer_credit < amount
-  assert handler.issuer() == 20;
   assert (handler.creditStrict(user1, 30)) == false;
   assert handler.journalLength() == inc(0);
-  assert handler.issuer() == 20;
+  assert handler.issuer() == 15;
   assert handler.getCredit(user1) == 0;
 
   // credit (strict)
   // case: issuer_credit <= amount
-  assert handler.issuer() == 20;
-  assert (handler.creditStrict(user1, 20)) == true;
-  assert handler.journalLength() == inc(1); // #credited
+  assert (handler.creditStrict(user1, 15)) == true;
+  assert handler.journalLength() == inc(2); // #credited, #issuerDebited
   assert handler.issuer() == 0;
-  assert handler.getCredit(user1) == 20;
-
-  // credit issuer
-  handler.credit(issuer, 18);
-  assert handler.issuer() == 18;
-  assert handler.journalLength() == inc(1); // #credited
-
-  // debit issuer
-  handler.debit(issuer, 18);
-  assert handler.issuer() == 0;
-  assert handler.journalLength() == inc(1); // #debited
+  assert handler.getCredit(user1) == 15;
 
   // debit (strict)
   // case: credit < amount
-  assert (handler.debitStrict(user1, 21)) == false;
+  assert (handler.debitStrict(user1, 16)) == false;
   assert handler.journalLength() == inc(0);
   assert handler.issuer() == 0;
-  assert handler.getCredit(user1) == 20;
+  assert handler.getCredit(user1) == 15;
 
   // debit (strict)
   // case: credit >= amount
-  assert (handler.debitStrict(user1, 20)) == true;
-  assert handler.journalLength() == inc(1);
-  assert handler.issuer() == 20;
+  assert (handler.debitStrict(user1, 15)) == true;
+  assert handler.journalLength() == inc(2); // #debited, #issuerCredited
+  assert handler.issuer() == 15;
   assert handler.getCredit(user1) == 0;
 
   handler.assertIntegrity();
