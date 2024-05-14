@@ -28,6 +28,7 @@ let ledger = object {
   };
 };
 let anon_p = Principal.fromBlob("");
+let issuer = Principal.fromBlob("0");
 let user1 = Principal.fromBlob("1");
 
 func create_inc() : (Nat -> Nat, () -> Nat) {
@@ -63,7 +64,7 @@ module Debug {
 do {
   print("new test: change fee plus notify");
   // fresh handler
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
   let (inc, _) = create_inc();
   // stage a response
   let (release, status) = ledger.fee_.stage(?5);
@@ -98,7 +99,7 @@ do {
   // make sure no staged responses are left from previous tests
   assert ledger.isEmpty();
   // fresh handler
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
   let (inc, _) = create_inc();
   // giver user1 credit and put funds into the consolidated balance
   ledger.balance_.stage(?20).0 ();
@@ -152,7 +153,7 @@ do {
   // make sure no staged responses are left from previous tests
   assert ledger.isEmpty();
   // fresh handler
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, issuer, 1000, 0);
   let (inc, _) = create_inc();
   // give user1 20 credits
   handler.credit(user1, 20);
