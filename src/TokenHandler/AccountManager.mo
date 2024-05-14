@@ -25,10 +25,7 @@ module {
     #consolidated : { deducted : Nat; credited : Nat };
     #consolidationError : ICRC1.TransferError or { #CallIcrc1LedgerError };
     #withdraw : { to : ICRC1.Account; amount : Nat };
-    #withdrawalError : ICRC1.TransferError or {
-      #CallIcrc1LedgerError;
-      #TooLowQuantity;
-    };
+    #withdrawalError : WithdrawError;
   };
 
   public type MinimumType = {
@@ -36,14 +33,15 @@ module {
     #withdrawal;
   };
 
-  type WithdrawResultOk = (transactionIndex : Nat, withdrawnAmount : Nat);
+  type WithdrawResult = (transactionIndex : Nat, withdrawnAmount : Nat);
 
-  type WithdrawResultErr = ICRC1.TransferError or {
+  type WithdrawError = ICRC1.TransferError or {
     #CallIcrc1LedgerError;
     #TooLowQuantity;
+    #InsufficientCredit;
   };
 
-  public type WithdrawResponse = Result.Result<WithdrawResultOk, WithdrawResultErr>;
+  public type WithdrawResponse = Result.Result<WithdrawResult, WithdrawError>;
 
   /// Manages accounts and funds for users.
   /// Handles deposit, withdrawal, and consolidation operations.
@@ -55,7 +53,6 @@ module {
     freezeCallback : (text : Text) -> (),
     credit_ : (Principal, Nat) -> (),
     debit_ : (Principal, Nat) -> (),
-    getCredit : (p : Principal) -> Int,
   ) {
 
     /// Current fee amount.
@@ -352,24 +349,6 @@ module {
           #err(err);
         };
       };
-    };
-
-    /// Initiates a withdrawal by transferring tokens to another account.
-    /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
-    /// At the same time, it reduces the user's credit. Accordingly, amount < credit should be satisfied.
-    public func withdrawFromCredit(p : Principal, to : ICRC1.Account, amount : Nat) : async* WithdrawResponse {
-      if (amount > getCredit(p)) {
-        let err = #TooLowQuantity;
-        log(ownPrincipal, #withdrawalError(err));
-        return #err(err);
-      };
-      let result = await* withdraw(to, amount);
-      switch (result) {
-        // sync credit after successful withdrawal
-        case (#ok(_, _)) { debit_(p, amount) };
-        case (_) {};
-      };
-      result;
     };
 
     /// Increases the credit amount associated with a specific principal.

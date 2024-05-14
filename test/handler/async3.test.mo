@@ -400,7 +400,7 @@ do {
   assert handler.journalLength() == inc(1); // #consolidated
   print("tree lookups = " # debug_show handler.lookups());
 
-  // withdraw from credit (fee < amount =< consolidated_funds)
+  // withdraw from credit (fee < amount =< credit)
   // should be successful
   await ledger.mock.set_fee(1);
   ignore await* handler.fetchFee();
@@ -411,7 +411,7 @@ do {
   assert state(handler) == (0, 305, 0);
   assert handler.getCredit(user1) == 10;
 
-  // withdraw (amount <= fee_ =< consolidated_funds)
+  // withdraw from credit (amount <= fee_ =< credit)
   var transfer_count = await ledger.mock.transfer_count();
   await ledger.mock.set_response([#Ok 42]); // transfer call should not be executed anyway
   assert (await* handler.withdrawFromCredit(user1, account, 1)) == #err(#TooLowQuantity);
@@ -423,7 +423,7 @@ do {
   // insufficient user credit
   transfer_count := await ledger.mock.transfer_count();
   await ledger.mock.set_response([#Ok 42]); // transfer call should not be executed anyway
-  assert (await* handler.withdrawFromCredit(user1, account, 12)) == #err(#TooLowQuantity); // amount 12 > credit 10
+  assert (await* handler.withdrawFromCredit(user1, account, 12)) == #err(#InsufficientCredit); // amount 12 > credit 10
   assert (await ledger.mock.transfer_count()) == transfer_count; // no transfer call
   assert state(handler) == (0, 305, 0); // state unchanged
   assert handler.journalLength() == inc(1); // #withdrawError

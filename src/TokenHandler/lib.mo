@@ -1,4 +1,3 @@
-import Result "mo:base/Result";
 import Principal "mo:base/Principal";
 import Int "mo:base/Int";
 import Text "mo:base/Text";
@@ -72,7 +71,6 @@ module {
       freezeTokenHandler,
       creditRegistry.credit,
       creditRegistry.debit,
-      creditRegistry.get,
     );
 
     /// Returns the fee.
@@ -202,7 +200,18 @@ module {
     /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
     /// At the same time, it reduces the user's credit. Accordingly, amount < credit should be satisfied.
     public func withdrawFromCredit(p : Principal, to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
-      await* accountManager.withdrawFromCredit(p, to, amount);
+      if (amount > creditRegistry.get(p)) {
+        let err = #InsufficientCredit;
+        journal.push(ownPrincipal, #withdrawalError(err));
+        return #err(err);
+      };
+      let result = await* accountManager.withdraw(to, amount);
+      switch (result) {
+        // sync credit after successful withdrawal
+        case (#ok(_, _)) { creditRegistry.debit(p, amount) };
+        case (_) {};
+      };
+      result;
     };
 
     /// For testing purposes
