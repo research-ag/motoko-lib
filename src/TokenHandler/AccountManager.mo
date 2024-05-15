@@ -34,6 +34,7 @@ module {
     #consolidationError : ICRC1.TransferError or ICRC1.TransferFromError or {
       #CallIcrc1LedgerError;
       #TooLowQuantity;
+      #InsufficientCredit;
     };
     #withdraw : { to : ICRC1.Account; amount : Nat };
     #withdrawalError : WithdrawError;
@@ -76,8 +77,7 @@ module {
     log : (Principal, LogEvent) -> (),
     initialFee : Nat,
     freezeCallback : (text : Text) -> (),
-    credit_ : (Principal, Nat) -> (),
-    debit_ : (Principal, Nat) -> (),
+    issue_ : (Principal, Int) -> (),
   ) {
 
     /// If `true` new notifications are paused.
@@ -217,15 +217,15 @@ module {
       // update the deposit minimum depending on the new fee
       // the callback debits the principal for deposits that are removed in this step
       let depositFee = fee(#deposit);
-      depositRegistry.setMinimum(newDepositFee + 1, func(p, v) = debit(p, v - depositFee));
+      depositRegistry.setMinimum(newDepositFee + 1, func(p, v) = burn(p, v - depositFee));
       // adjust credit for all queued deposits
       depositRegistry.iterate(
         func(p, v) {
           if (v <= newDepositFee) freezeCallback("deposit <= newFee should have been erased in previous step");
           if (newDepositFee > depositFee) {
-            debit(p, newDepositFee - depositFee);
+            burn(p, newDepositFee - depositFee);
           } else {
-            credit(p, depositFee - newDepositFee);
+            issue(p, depositFee - newDepositFee);
           };
         }
       );
@@ -285,9 +285,9 @@ module {
       let inc = Int.abs(delta);
 
       if (deposit == inc) {
-        credit(p, deposit - fee(#deposit));
+        issue(p, deposit - fee(#deposit));
       } else {
-        credit(p, inc);
+        issue(p, inc);
       };
       inc;
     };
@@ -364,7 +364,7 @@ module {
           log(p, #consolidated({ deducted = amount; credited = originalCredit }));
           log(p, #newDeposit(originalCredit));
           totalConsolidated_ += originalCredit;
-          credit(p, originalCredit);
+          issue(p, originalCredit);
           return #ok(originalCredit);
         };
         case (#Err(#BadFee { expected_fee })) {
@@ -376,7 +376,7 @@ module {
               log(p, #consolidated({ deducted = amount; credited = originalCredit_2 }));
               log(p, #newDeposit(originalCredit_2));
               totalConsolidated_ += originalCredit_2;
-              credit(p, originalCredit_2);
+              issue(p, originalCredit_2);
               return #ok(originalCredit_2);
             };
             case (#Err err) {
@@ -436,7 +436,7 @@ module {
         };
         case (#Err err) {
           log(p, #consolidationError(err));
-          debit(p, originalCredit);
+          burn(p, originalCredit);
           ignore process_deposit(p, deposit, release);
         };
       };
@@ -510,16 +510,16 @@ module {
 
     /// Increases the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
-    func credit(p : Principal, amount : Nat) {
+    func issue(p : Principal, amount : Nat) {
       totalCredited += amount;
-      credit_(p, amount);
+      issue_(p, amount);
     };
 
     /// Deducts the credit amount associated with a specific principal.
     /// For internal use only - within deposit tracking and consolidation.
-    func debit(p : Principal, amount : Nat) {
+    func burn(p : Principal, amount : Nat) {
       totalDebited += amount;
-      debit_(p, amount);
+      issue_(p, -amount);
     };
 
     public func assertIntegrity() {

@@ -116,11 +116,14 @@ do {
   // stage a response
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   assert handler.fee(#deposit) == 0;
+  // transfer 20 credits from user to pool
+  assert handler.debitUser(user1, 20);
+  assert handler.journalLength() == inc(1); // debited
   // start withdrawal and move it to background task
   var has_started = false;
   let fut = async {
     has_started := true;
-    await* handler.withdraw({ owner = user1; subaccount = null }, 10);
+    await* handler.withdrawFromPool({ owner = user1; subaccount = null }, 10);
   };
   // we wait for background task to start
   // this can also be done with a single await async {} statement
@@ -148,7 +151,7 @@ do {
   // the continuation runs to the end of the withdraw function
   // let's verify
   assert handler.state().flow.withdrawn == 0;
-  assert handler.journalLength() == inc(6); // feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated, withdrawalError
+  assert handler.journalLength() == inc(8); // burned, feeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated, depositFeeUpdated, withdrawalFeeUpdated, withdrawalError, , issued
   // we do not have to await fut anymore, but we can:
   assert (await fut) == #err(#TooLowQuantity);
 };
@@ -161,15 +164,18 @@ do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   let (inc, _) = create_inc();
   // give user1 20 credits
-  handler.credit(user1, 20);
+  handler.issue_(#user user1, 20);
   assert handler.journalLength() == inc(1); // #credited
   // stage two responses
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   let (release2, state2) = ledger.transfer_.stage(?(#Ok 0));
   assert handler.fee(#deposit) == 0;
+  // transfer 20 credits from user to pool
+  assert handler.debitUser(user1, 20);
+  assert handler.journalLength() == inc(1); // debited
   // start withdrawal and move it to background task
   let fut = async {
-    await* handler.withdraw({ owner = user1; subaccount = null }, 11);
+    await* handler.withdrawFromPool({ owner = user1; subaccount = null }, 11);
   };
   // we wait for the response to be processed
   release();
@@ -178,7 +184,9 @@ do {
   // now the continuation in the withdraw call has executed to the second commit point
   // let's verify
   assert handler.fee(#deposit) == 10; // #BadFee has been processed
-  assert handler.journalLength() == inc(5); // feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated
+  //assert handler.journalLength() == inc(5); // feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated
+  Debug.journal(handler, 0);
+  assert handler.journalLength() == inc(6); // burned, feeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated, depositFeeUpdated, withdrawalFeeUpdated
   // now everything is halted until we release the second response
   // we wait for the second response to be processed
   release2();
