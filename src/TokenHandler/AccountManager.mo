@@ -4,6 +4,10 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
+import Option "mo:base/Option";
+import Time "mo:base/Time";
+import Nat64 "mo:base/Nat64";
+import Int64 "mo:base/Int64";
 
 import ICRC1 "ICRC1";
 import NatMap "NatMapWithLock";
@@ -42,6 +46,17 @@ module {
   };
 
   public type WithdrawResponse = Result.Result<WithdrawResult, WithdrawError>;
+
+  public type DepositFromAllowanceResult = (credited : Nat);
+
+  public type DepositFromAllowanceError = ICRC1.TransferError or {
+    #CallIcrc1LedgerError;
+    #TooLowQuantity;
+    #InsufficientAllowance;
+    #AllowanceExpired;
+  };
+
+  public type DepositFromAllowanceResponse = Result.Result<DepositFromAllowanceResult, DepositFromAllowanceError>;
 
   /// Manages accounts and funds for users.
   /// Handles deposit, withdrawal, and consolidation operations.
@@ -233,6 +248,52 @@ module {
       };
 
       return ?inc;
+    };
+
+    public func depositFromAllowance(account : ICRC1.Account, amount : Nat) : async* DepositFromAllowanceResponse {
+      if (amount < minimum(#deposit)) return #err(#TooLowQuantity);
+
+      try {
+        let response = await icrc1Ledger.allowance({
+          account = account;
+          spender = {
+            owner = ownPrincipal;
+            subaccount = null;
+          };
+        });
+
+        if (response.allowance < amount) return #err(#InsufficientAllowance);
+        let expires_at = Int64.toInt(Int64.fromNat64(Option.get(response.expires_at, 0 : Nat64)));
+        if ((expires_at > 0 and expires_at <= (Time.now() + 60_000_000_000))) return #err(#AllowanceExpired);
+      } catch (_) {
+        return #err(#CallIcrc1LedgerError);
+      };
+
+      let p = account.owner;
+
+      let originalCredit : Nat = amount - fee_;
+
+      let transferResult = await* processConsolidationTransfer(p, amount);
+
+      // catch #BadFee
+      switch (transferResult) {
+        case (#Err(#BadFee { expected_fee })) updateFee(expected_fee);
+        case (_) {};
+      };
+
+      switch (transferResult) {
+        case (#Ok _) {
+          log(p, #consolidated({ deducted = amount; credited = originalCredit }));
+          log(p, #newDeposit(originalCredit));
+          totalConsolidated_ += originalCredit;
+          credit(p, originalCredit);
+          return #ok(originalCredit);
+        };
+        case (#Err err) {
+          log(p, #consolidationError(err));
+          return #err(err);
+        };
+      };
     };
 
     /// Processes the consolidation transfer for a principal.

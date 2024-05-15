@@ -184,6 +184,10 @@ module {
       ?(depositDelta, creditRegistry.get(p));
     };
 
+    public func depositFromAllowance(account : ICRC1.Account, amount : Nat) : async* AccountManager.DepositFromAllowanceResponse {
+      await* accountManager.depositFromAllowance(account, amount);
+    };
+
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
       if isFrozen_ return;

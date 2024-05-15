@@ -26,6 +26,14 @@ module {
     #Ok : Nat;
     #Err : TransferError;
   };
+  type AllowanceArgs = {
+    account : Account;
+    spender : Account;
+  };
+  type AllowanceResult = {
+    allowance : Nat;
+    expires_at : ?Nat64;
+  };
 
   public actor class MockLedger() {
     var fee : Nat = 0;
@@ -39,6 +47,7 @@ module {
     var transfer_lock_key : Text = "";
     var transfer_count_ : Nat = 0;
     var transfer_res_i_ : Nat = 0;
+    var allowance_res : AllowanceResult = { allowance = 0; expires_at = null };
 
     public func reset_state() : async () {
       fee := 0;
@@ -128,6 +137,13 @@ module {
       transfer_res_i_ := 0;
     };
     public func transfer_count() : async Nat { transfer_count_ };
+
+    public func icrc2_allowance(_ : AllowanceArgs) : async (AllowanceResult) {
+      allowance_res;
+    };
+    public func set_allowance_res(r : AllowanceResult) : async () {
+      allowance_res := r;
+    };
   };
 
 };

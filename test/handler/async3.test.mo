@@ -11,6 +11,7 @@ let ledger : TestLedgerAPI = {
   fee = mock_ledger.icrc1_fee;
   balance_of = mock_ledger.icrc1_balance_of;
   transfer = mock_ledger.icrc1_transfer;
+  allowance = mock_ledger.icrc2_allowance;
   mock = mock_ledger; // mock ledger for controlling responses
 };
 
@@ -18,6 +19,7 @@ let anon_p = Principal.fromBlob("");
 let user1 = Principal.fromBlob("1");
 let user2 = Principal.fromBlob("2");
 let account = { owner = Principal.fromBlob("o"); subaccount = null };
+let user1_account = { owner = user1; subaccount = null };
 
 func create_inc() : (Nat -> Nat, () -> Nat) {
   var ctr = 0;
@@ -731,4 +733,32 @@ do {
 
   handler.assertIntegrity();
   assert not handler.isFrozen();
+};
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
+  let (inc, _) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.fetchFee();
+  assert handler.fee() == 5;
+  assert handler.minimum(#deposit) == 6;
+  assert handler.minimum(#withdrawal) == 6;
+  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+
+  // deposit with allowance < amount
+  await ledger.mock.set_allowance_res({ allowance = 8; expires_at = null });
+  assert (await* handler.depositFromAllowance(user1_account, 9)) == #err(#InsufficientAllowance);
+  assert state(handler) == (0, 0, 0);
+  assert handler.journalLength() == inc(0);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // deposit with allowance >= amount
+  await ledger.mock.set_allowance_res({ allowance = 8; expires_at = null });
+  assert (await* handler.depositFromAllowance(user1_account, 8)) == #ok(3);
+  assert state(handler) == (0, 3, 0);
+  assert handler.journalLength() == inc(3); // #consolidated, #newDeposit, #credited
+  print("tree lookups = " # debug_show handler.lookups());
 };
