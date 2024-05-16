@@ -26,13 +26,28 @@ module {
     #Ok : Nat;
     #Err : TransferError;
   };
-  type AllowanceArgs = {
-    account : Account;
-    spender : Account;
+  type TransferFromError = {
+    #BadFee : { expected_fee : Nat };
+    #BadBurn : { min_burn_amount : Nat };
+    #InsufficientFunds : { balance : Nat };
+    #InsufficientAllowance : { allowance : Nat };
+    #CreatedInFuture : { ledger_time : Nat64 };
+    #Duplicate : { duplicate_of : Nat };
+    #TemporarilyUnavailable;
+    #GenericError : { error_code : Nat; message : Text };
   };
-  type AllowanceResult = {
-    allowance : Nat;
-    expires_at : ?Nat64;
+  type TransferFromArgs = {
+    spender_subaccount : ?Blob;
+    from : Account;
+    to : Account;
+    amount : Nat;
+    fee : ?Nat;
+    memo : ?Blob;
+    created_at_time : ?Nat64;
+  };
+  type TransferFromResult = {
+    #Ok : Nat;
+    #Err : TransferFromError;
   };
 
   public actor class MockLedger() {
@@ -47,7 +62,9 @@ module {
     var transfer_lock_key : Text = "";
     var transfer_count_ : Nat = 0;
     var transfer_res_i_ : Nat = 0;
-    var allowance_res : AllowanceResult = { allowance = 0; expires_at = null };
+
+    var transfer_from_res : [TransferFromResult] = [#Ok 42];
+    var transfer_from_res_i_ : Nat = 0;
 
     public func reset_state() : async () {
       fee := 0;
@@ -138,11 +155,14 @@ module {
     };
     public func transfer_count() : async Nat { transfer_count_ };
 
-    public func icrc2_allowance(_ : AllowanceArgs) : async (AllowanceResult) {
-      allowance_res;
+    public func icrc2_transfer_from(_ : TransferFromArgs) : async (TransferFromResult) {
+      let res = transfer_from_res[transfer_res_i_];
+      transfer_from_res_i_ := (transfer_from_res_i_ + 1) % transfer_from_res.size();
+      res;
     };
-    public func set_allowance_res(r : AllowanceResult) : async () {
-      allowance_res := r;
+    public func set_transfer_from_res(r : [TransferFromResult]) : async () {
+      transfer_from_res := r;
+      transfer_res_i_ := 0;
     };
   };
 

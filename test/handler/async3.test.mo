@@ -11,7 +11,7 @@ let ledger : TestLedgerAPI = {
   fee = mock_ledger.icrc1_fee;
   balance_of = mock_ledger.icrc1_balance_of;
   transfer = mock_ledger.icrc1_transfer;
-  allowance = mock_ledger.icrc2_allowance;
+  transfer_from = mock_ledger.icrc2_transfer_from;
   mock = mock_ledger; // mock ledger for controlling responses
 };
 
@@ -749,14 +749,14 @@ do {
   assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // deposit with allowance < amount
-  await ledger.mock.set_allowance_res({ allowance = 8; expires_at = null });
-  assert (await* handler.depositFromAllowance(user1_account, 9)) == #err(#InsufficientAllowance);
+  await ledger.mock.set_transfer_from_res([#Err(#InsufficientAllowance({ allowance = 8 }))]);
+  assert (await* handler.depositFromAllowance(user1_account, 9)) == #err(#InsufficientAllowance({ allowance = 8 }));
   assert state(handler) == (0, 0, 0);
-  assert handler.journalLength() == inc(0);
+  assert handler.journalLength() == inc(1); // #consolidationError
   print("tree lookups = " # debug_show handler.lookups());
 
   // deposit with allowance >= amount
-  await ledger.mock.set_allowance_res({ allowance = 8; expires_at = null });
+  await ledger.mock.set_transfer_from_res([#Ok 42]);
   assert (await* handler.depositFromAllowance(user1_account, 8)) == #ok(3);
   assert state(handler) == (0, 3, 0);
   assert handler.journalLength() == inc(3); // #consolidated, #newDeposit, #credited

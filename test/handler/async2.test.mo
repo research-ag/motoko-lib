@@ -8,7 +8,7 @@ let ledger = object {
   public let fee_ = Mock.Method<Nat>();
   public let balance_ = Mock.Method<Nat>();
   public let transfer_ = Mock.Method<ICRC1.TransferResult>();
-  public let allowance_ = Mock.Method<ICRC1.AllowanceResult>();
+  public let transfer_from_ = Mock.Method<ICRC1.TransferFromResult>();
   public shared func fee() : async Nat {
     let r = fee_.pop();
     await* r.run();
@@ -24,8 +24,8 @@ let ledger = object {
     await* r.run();
     r.response();
   };
-  public shared func allowance(_ : ICRC1.AllowanceArgs) : async ICRC1.AllowanceResult {
-    let r = allowance_.pop();
+  public shared func transfer_from(_ : ICRC1.TransferFromArgs) : async ICRC1.TransferFromResult {
+    let r = transfer_from_.pop();
     await* r.run();
     r.response();
   };
