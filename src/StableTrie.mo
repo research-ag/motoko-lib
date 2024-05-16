@@ -16,27 +16,22 @@ module {
     var freeSpace : Nat64;
   };
 
-  type StableTrieState = (Region, Region);
+  type StableTrieState = {
+    nodes : Region;
+    leaves : Region;
+    root : Region.Region;
+  };
 
-  public class StableTrie(pointer_size : Nat, children_number : Nat, key_size : Nat, value_size : Nat) {
+  public class StableTrie(pointer_size : Nat, children_number : Nat, root_size : Nat, key_size : Nat, value_size : Nat) {
 
     assert pointer_size % 2 == 0 and 2 <= pointer_size and pointer_size <= 8;
     assert children_number == 2 or children_number == 4 or children_number == 16 or children_number == 256;
     assert key_size >= 1;
-
     let children_number_ = Nat64.fromNat(children_number);
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
-    let address_bits = pointer_size_ * 8 - 1;
-    let node_size : Nat64 = children_number_ * pointer_size_;
-    let leaf_size : Nat64 = key_size_ + value_size_;
-    let empty_values : Bool = value_size == 0;
-
-    var regions_ : ?(Region, Region) = null;
-
-    var leaf_count : Nat64 = 0;
-    var node_count : Nat64 = 0;
+    let root_size_ = Nat64.fromNat(root_size);
 
     let loadMask : Nat64 = switch (pointer_size_) {
       case (8) 0xffff_ffff_ffff_ffff;
@@ -53,30 +48,49 @@ module {
       case (256) (8, 0xff);
       case (_) (0, 0);
     };
+    let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
-    func regions() : (Region, Region) {
+    let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_ + 1;
+    assert Nat64.bitcountNonZero(root_size_) == 1 and Nat64.bitcountTrailingZero(root_size_) % bitlength_ == 0;
+
+    let node_size : Nat64 = children_number_ * pointer_size_;
+    let leaf_size : Nat64 = key_size_ + value_size_;
+    let empty_values : Bool = value_size == 0;
+
+    var regions_ : ?StableTrieState = null;
+
+    var leaf_count : Nat64 = 0;
+    var node_count : Nat64 = 0;
+
+    func regions() : StableTrieState {
       switch (regions_) {
         case (?r) r;
         case (null) {
-          let tree : Region = {
+          let nodes : Region = {
             region = Region.new();
             var size = 0;
             var freeSpace = 65536 - (8 - pointer_size_);
           };
-          assert Region.grow(tree.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
-          assert newInternalNode(tree) == 0;
+          assert Region.grow(nodes.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+          assert newInternalNode(nodes) == 0;
 
-          let data : Region = {
+          let leaves : Region = {
             region = Region.new();
             var size = 0;
             var freeSpace = 0;
           };
-          regions_ := ?(tree, data);
-          (tree, data);
+
+          let root = Region.new();
+          assert Region.grow(root, (root_size_ * pointer_size_ + + (8 - pointer_size_) + 65536 - 1) / 65536) != 0xFFFF_FFFF_FFFF_FFFF;
+
+          let ret = { nodes = nodes; leaves = leaves; root = root };
+          regions_ := ?ret;
+          ret;
         };
       };
     };
 
+    // allocate can only be used for n <= 65536
     func allocate(region : Region, n : Nat64) : Nat64 {
       // TODO: assert treeSize >> address_bits == 0;
       if (region.freeSpace < n) {
@@ -90,18 +104,19 @@ module {
     };
 
     func newInternalNode(region : Region) : Nat64 {
+      ignore allocate(region, node_size);
       node_count +%= 1;
-      (allocate(region, node_size) / node_size) << 1;
+      node_count << 1;
     };
 
     func newLeaf(region : Region, key : Blob, value : Blob) : Nat64 {
       let pos = allocate(region, leaf_size);
+      leaf_count +%= 1;
       Region.storeBlob(region.region, pos, key);
       if (not empty_values) {
         Region.storeBlob(region.region, pos +% key_size_, value);
       };
-      leaf_count +%= 1;
-      ((pos / leaf_size) << 1) | 1;
+      (leaf_count << 1) | 1;
     };
 
     func getOffset(node : Nat64, index : Nat8) : Nat64 {
@@ -136,27 +151,46 @@ module {
       Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
 
-    public func print() = print_(regions().0, regions().1, 0);
+    // public func print() = print_(regions().0, regions().1, 0);
 
-    func print_(tree : Region, data : Region, offset : Nat64) {
-      Debug.print(
-        Nat64.toText(offset) # " node " # Text.join(
-          " ",
-          Iter.map<Nat, Text>(
-            Iter.range(0, children_number - 1),
-            func(x : Nat) : Text = switch (getChild(tree, offset, Nat8.fromIntWrap(x))) {
-              case (0) "null";
-              case (ch) if (Nat64.bittest(ch, 0)) debug_show (getKey(data, ch)) else Nat64.toText(ch);
-            },
-          ),
-        )
-      );
-      for (x in Iter.range(0, children_number - 1)) {
-        switch (getChild(tree, offset, Nat8.fromIntWrap(x))) {
-          case (0) {};
-          case (ch) if (not Nat64.bittest(ch, 0)) print_(tree, data, ch);
+    // func print_(nodes : Region, leaves : Region, offset : Nat64) {
+    //   Debug.print(
+    //     Nat64.toText(offset) # " node " # Text.join(
+    //       " ",
+    //       Iter.map<Nat, Text>(
+    //         Iter.range(0, children_number - 1),
+    //         func(x : Nat) : Text = switch (getChild(nodes, offset, Nat8.fromIntWrap(x))) {
+    //           case (0) "null";
+    //           case (ch) if (Nat64.bittest(ch, 0)) debug_show (getKey(leaves, ch)) else Nat64.toText(ch);
+    //         },
+    //       ),
+    //     )
+    //   );
+    //   for (x in Iter.range(0, children_number - 1)) {
+    //     switch (getChild(nodes, offset, Nat8.fromIntWrap(x))) {
+    //       case (0) {};
+    //       case (ch) if (not Nat64.bittest(ch, 0)) print_(nodes, leaves, ch);
+    //     };
+    //   };
+    // };
+
+    func indexInRoot(key : Blob) : Nat64 {
+      let iter = key.vals();
+      var skipBits = Nat64.bitcountTrailingZero(root_size_);
+      var length : Nat64 = 0;
+      var result : Nat64 = 0;
+      while (skipBits >= 8) {
+        switch (iter.next()) {
+          case (?b) {
+            result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
+            length += 8;
+          };
+          case (null) Debug.trap("shoud not happen");
         };
       };
+      let ?first = iter.next() else Debug.trap("shoud not happen");
+      result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first))) & ((1 << skipBits) - 1)) << length;
+      result;
     };
 
     func keyToIndices(key : Blob, depth : Nat16) : () -> Nat8 {
@@ -184,8 +218,11 @@ module {
     };
 
     public func add(key : Blob, value : Blob) : Bool {
-      let (tree, data) = regions();
-      var node : Nat64 = 0; // root node
+      assert node_count >= max_nodes;
+      let { leaves; root; nodes } = regions();
+      let index = indexInRoot(key);
+      var node = Region.loadNat64(root, index * pointer_size_) & loadMask;
+
       var old_leaf : Nat64 = 0;
 
       var depth : Nat16 = 0;
@@ -193,9 +230,9 @@ module {
       let next_idx = keyToIndices(key, 0);
       var last = label l : Nat8 loop {
         let idx = next_idx();
-        switch (getChild(tree, node, idx)) {
+        switch (getChild(nodes, node, idx)) {
           case (0) {
-            setChild(tree, node, idx, newLeaf(data, key, value));
+            setChild(nodes, node, idx, newLeaf(leaves, key, value));
             return true;
           };
           case (n) {
@@ -209,23 +246,23 @@ module {
         };
       };
 
-      let old_key = getKey(data, old_leaf);
+      let old_key = getKey(leaves, old_leaf);
       if (key == old_key) {
         return false;
       };
 
       let next_old_idx = keyToIndices(old_key, depth +% 1);
       label l loop {
-        let add = newInternalNode(tree);
-        setChild(tree, node, last, add);
+        let add = newInternalNode(nodes);
+        setChild(nodes, node, last, add);
         node := add;
 
         let (a, b) = (next_idx(), next_old_idx());
         if (a == b) {
           last := a;
         } else {
-          setChild(tree, node, a, newLeaf(data, key, value));
-          setChild(tree, node, b, old_leaf);
+          setChild(nodes, node, a, newLeaf(leaves, key, value));
+          setChild(nodes, node, b, old_leaf);
           break l;
         };
       };
@@ -233,19 +270,19 @@ module {
     };
 
     public func get(key : Blob) : ?Blob {
-      let (tree, data) = regions();
+      let (nodes, leaves) = regions();
       let next_idx = keyToIndices(key, 0);
 
       var node : Nat64 = 0;
       loop {
         let idx = next_idx();
-        node := switch (getChild(tree, node, idx)) {
+        node := switch (getChild(nodes, node, idx)) {
           case (0) {
             return null;
           };
           case (n) {
             if (Nat64.bittest(n, 0)) {
-              if (getKey(data, n) == key) return ?value(data, n) else return null;
+              if (getKey(leaves, n) == key) return ?value(leaves, n) else return null;
             };
             n;
           };
@@ -264,10 +301,10 @@ module {
 
     public func share() : StableTrieState = regions();
 
-    public func unshare(data : StableTrieState) {
+    public func unshare(leaves : StableTrieState) {
       switch (regions_) {
         case (null) {
-          regions_ := ?data;
+          regions_ := ?leaves;
         };
         case (_) Debug.trap("Region is already initialized");
       };
