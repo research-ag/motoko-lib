@@ -57,14 +57,14 @@ do {
   let (inc, _) = create_inc();
 
   // init state
-  assert handler.fee() == 0;
+  assert handler.ledgerFee() == 0;
   assert handler.journalLength() == 0;
 
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.ledgerFee() == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // notify with 0 balance
   await ledger.mock.set_balance(0);
@@ -91,7 +91,7 @@ do {
   await ledger.mock.set_fee(6);
   ignore await* handler.fetchFee();
   assert state(handler) == (0, 0, 0); // recalculation after fee update
-  assert handler.journalLength() == inc(4); // #feeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
   // increase deposit again
@@ -109,7 +109,7 @@ do {
   await ledger.mock.set_fee(10); // fee 6 -> 10
   assert state(handler) == (7, 0, 1); // state from before
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(4); // #feeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert state(handler) == (0, 0, 0); // state changed
   await ledger.mock.release_balance(); // let notify return
   assert (await f1) == ?(0, 0); // deposit <= new fee
@@ -131,7 +131,7 @@ do {
   await ledger.mock.set_fee(15); // fee 10 -> 15
   assert state(handler) == (15, 0, 1); // state from before
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(4); // #feeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert state(handler) == (0, 0, 0); // state changed
   await ledger.mock.release_balance(); // let notify return
   assert (await f2) == ?(20, 5); // credit = latest - new_fee
@@ -146,7 +146,7 @@ do {
   await ledger.mock.set_fee(10); // fee 15 -> 10
   assert state(handler) == (20, 0, 1); // state from before
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(4); // #feeUpdated, #credited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #credited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert state(handler) == (20, 0, 1); // state unchanged
   await ledger.mock.release_balance(); // let notify return
   assert (await f3) == ?(0, 10); // credit increased
@@ -179,8 +179,8 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.ledgerFee() == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated,  #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // increase fee while deposit is being consolidated (implicitly)
   // scenario 1: old_fee < deposit <= new_fee
@@ -196,7 +196,7 @@ do {
   await ledger.mock.release_transfer(); // let transfer return
   await f1;
   assert state(handler) == (0, 0, 0); // consolidation failed with deposit reset
-  assert handler.journalLength() == inc(5); // #consolidationError, #debited, #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(7); // #consolidationError, #debited, #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert handler.getCredit(user1) == 0; // credit has been corrected after consolidation
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -214,7 +214,7 @@ do {
   await ledger.mock.release_transfer(); // let transfer return
   await f2;
   assert state(handler) == (20, 0, 1); // consolidation failed with updated deposit scheduled
-  assert handler.journalLength() == inc(6); // #consolidationError, #debited, #feeUpdated, #credited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(8); // #consolidationError, #debited, #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #credited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert handler.getCredit(user1) == 5; // credit has been corrected after consolidation
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -228,7 +228,7 @@ do {
   let f3 = async { await* handler.trigger() };
   await ledger.mock.set_fee(100);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   await ledger.mock.set_response([#Err(#BadFee { expected_fee = 100 })]);
   await ledger.mock.release_transfer(); // let transfer return
   await f3;
@@ -242,7 +242,7 @@ do {
   // consolidation should fail and deposit should be adjusted with new fee
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert (await* handler.notify(user1)) == ?(20, 15); // deposit = 20, credit = 15
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
   assert state(handler) == (20, 0, 1);
@@ -250,7 +250,7 @@ do {
   let f4 = async { await* handler.trigger() };
   await ledger.mock.set_fee(6);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   await ledger.mock.set_response([#Err(#BadFee { expected_fee = 6 })]);
   await ledger.mock.release_transfer(); // let transfer return
   await f4;
@@ -286,8 +286,8 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.ledgerFee() == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // increase deposit again
   await ledger.mock.set_balance(20);
@@ -308,7 +308,7 @@ do {
   // should be successful
   await ledger.mock.set_fee(1);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   await ledger.mock.set_response([#Ok 42]);
   assert (await* handler.withdraw(account, 5)) == #ok(42, 4);
   assert handler.journalLength() == inc(1); // #withdraw
@@ -341,7 +341,7 @@ do {
   await ledger.mock.release_transfer(); // let transfer return
   assert (await f1) == #ok(42, 3);
   assert (await ledger.mock.transfer_count()) == transfer_count + 2;
-  assert handler.journalLength() == inc(4); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated, #withdraw
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated, #withdraw
   assert state(handler) == (0, 5, 0); // state has changed
   handler.debit(user1, 5);
   assert handler.journalLength() == inc(1); // #debited
@@ -359,7 +359,7 @@ do {
   assert (await f2) == #err(#TooLowQuantity);
   assert (await ledger.mock.transfer_count()) == transfer_count + 1; // the second transfer call is avoided
   assert state(handler) == (0, 5, 0); // state unchanged
-  assert handler.journalLength() == inc(4); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated, #withdrawalError
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated, #withdrawalError
 
   handler.assertIntegrity();
   assert not handler.isFrozen();
@@ -373,8 +373,8 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.ledgerFee() == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // another user deposit + consolidation
   await ledger.mock.set_balance(300);
@@ -406,7 +406,7 @@ do {
   // should be successful
   await ledger.mock.set_fee(1);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   await ledger.mock.set_response([#Ok 42]);
   assert (await* handler.withdrawFromCredit(user1, account, 5)) == #ok(42, 4);
   assert handler.journalLength() == inc(2); // #withdraw, #debited
@@ -442,8 +442,8 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.ledgerFee() == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // Change fee while notify is underway with locked 0-deposit.
   // 0-deposits can be temporarily being stored in deposit registry because of being locked with #notify.
@@ -455,7 +455,7 @@ do {
   let f1 = async { await* handler.notify(user1) };
   await ledger.mock.set_fee(6);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   await ledger.mock.release_balance(); // let notify return
   assert (await f1) == ?(0, 0);
   assert state(handler) == (0, 0, 0); // state unchanged because deposit has not changed
@@ -469,7 +469,7 @@ do {
   let f2 = async { await* handler.notify(user1) };
   await ledger.mock.set_fee(2);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   await ledger.mock.release_balance(); // let notify return
   assert (await f2) == ?(5, 3);
   assert state(handler) == (5, 0, 1); // state unchanged because deposit has not changed
@@ -482,7 +482,7 @@ do {
   // scenario 1: new_fee < prev_fee < deposit
   await ledger.mock.set_fee(1);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(4); // #feeUpdated, #credited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #credited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert handler.getCredit(user1) == 4; // credit corrected
 
   print("tree lookups = " # debug_show handler.lookups());
@@ -490,14 +490,14 @@ do {
   // scenario 2: prev_fee < new_fee < deposit
   await ledger.mock.set_fee(3);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(4); // #feeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert handler.getCredit(user1) == 2; // credit corrected
   print("tree lookups = " # debug_show handler.lookups());
 
   // scenario 3: prev_fee < deposit <= new_fee
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.journalLength() == inc(4); // #feeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(6); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #debited, #depositMinimumUpdated, #withdrawalMinimumUpdated
   assert handler.getCredit(user1) == 0; // credit corrected
   print("tree lookups = " # debug_show handler.lookups());
 
@@ -513,8 +513,8 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.ledgerFee() == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
   // fetching fee should not overlap
@@ -525,7 +525,7 @@ do {
   assert (await f2) == null;
   await ledger.mock.release_fee();
   assert (await f1) == ?6;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
   handler.assertIntegrity();
@@ -540,10 +540,10 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
+  assert handler.ledgerFee() == 5;
   assert handler.minimum(#deposit) == 6;
   assert handler.minimum(#withdrawal) == 6;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
   print("tree lookups = " # debug_show handler.lookups());
 
   // set deposit minimum
@@ -613,10 +613,10 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
+  assert handler.ledgerFee() == 5;
   assert handler.minimum(#deposit) == 6;
   assert handler.minimum(#withdrawal) == 6;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // increase deposit again
   await ledger.mock.set_balance(20);
@@ -691,6 +691,104 @@ do {
 do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
+  let (inc, ctr_) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.fetchFee();
+  assert handler.ledgerFee() == 5;
+  assert handler.minimum(#deposit) == 6;
+  assert handler.minimum(#withdrawal) == 6;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+
+  // set deposit fee
+  // case: fee > ledger_fee
+  handler.setFee(#deposit, 6);
+  assert handler.fee(#deposit) == 6;
+  assert handler.journalLength() == inc(2); // #depositFeeUpdated, #depositMinimumUpdated
+
+  // set deposit fee
+  // case: fee == prev_fee
+  handler.setFee(#deposit, 6);
+  assert handler.fee(#deposit) == 6;
+  assert handler.journalLength() == inc(0);
+
+  // set deposit fee
+  // case: fee < ledger_fee
+  handler.setFee(#deposit, 4);
+  assert handler.fee(#deposit) == 5;
+  assert handler.journalLength() == inc(2); // #depositFeeUpdated, #depositMinimumUpdated
+
+  // set deposit fee
+  // case: fee == ledger_fee
+  handler.setFee(#deposit, 4);
+  assert handler.fee(#deposit) == 5;
+  assert handler.journalLength() == inc(0);
+
+  // notify (balance > min)
+  await ledger.mock.set_balance(13);
+  assert (await* handler.notify(user1)) == ?(13, 8);
+  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+
+  // set deposit fee (new_min) > balance
+  assert handler.getCredit(user1) == 8;
+  handler.setFee(#deposit, 6);
+  assert handler.fee(#deposit) == 6;
+  assert handler.journalLength() == inc(3); // #depositFeeUpdated, #depositMinimumUpdated, #debited
+  assert handler.getCredit(user1) == 7; // credit corrected
+
+  // trigger consolidation
+  await ledger.mock.set_response([#Ok 42]);
+  await* handler.trigger();
+  await ledger.mock.set_balance(0);
+  assert state(handler) == (0, 7, 0); // consolidation successful
+  assert handler.journalLength() == inc(1); // #consolidated
+
+  // set withdrawal fee
+  // case: fee > ledger_fee
+  handler.setFee(#withdrawal, 6);
+  assert handler.fee(#withdrawal) == 6;
+  assert handler.journalLength() == inc(2); // #withdrawalFeeUpdated, #withdrawalMinimumUpdated
+
+  // set withdrawal fee
+  // case: fee == prev_fee
+  handler.setFee(#withdrawal, 6);
+  assert handler.fee(#withdrawal) == 6;
+  assert handler.journalLength() == inc(0);
+
+  // set withdrawal fee
+  // case: fee < ledger_fee
+  handler.setFee(#withdrawal, 4);
+  assert handler.fee(#withdrawal) == 5;
+  assert handler.journalLength() == inc(2); // #withdrawalFeeUpdated, #withdrawalMinimumUpdated
+
+  // set withdrawal fee
+  // case: fee == ledger_fee
+  handler.setFee(#withdrawal, 4);
+  assert handler.fee(#withdrawal) == 5;
+  assert handler.journalLength() == inc(0);
+
+  // decrease ledger fee (ledger_fee < withdrawal_fee)
+  await ledger.mock.set_fee(2);
+  ignore await* handler.fetchFee();
+  assert handler.ledgerFee() == 2;
+  assert handler.minimum(#withdrawal) == 5; // withdrawal_fee + 1
+  assert handler.journalLength() == inc(3); // #feeUpdated, #withdrawalFeeUpdated, #withdrawalMinimumUpdated
+
+  // withdrawal with defined withdrawal fee
+  await ledger.mock.set_response([#Ok 42]);
+  assert (await* handler.withdrawFromCredit(user1, account, 5)) == #ok(42, 1);
+  assert handler.journalLength() == inc(2); // #withdraw, #debited
+  assert state(handler) == (0, 2, 0);
+  assert handler.getCredit(user1) == 2;
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
+};
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
   // credit issuer
@@ -743,10 +841,10 @@ do {
   // update fee first time
   await ledger.mock.set_fee(5);
   ignore await* handler.fetchFee();
-  assert handler.fee() == 5;
+  assert handler.ledgerFee() == 5;
   assert handler.minimum(#deposit) == 6;
   assert handler.minimum(#withdrawal) == 6;
-  assert handler.journalLength() == inc(3); // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
   // deposit with allowance < amount
   await ledger.mock.set_transfer_from_res([#Err(#InsufficientAllowance({ allowance = 8 }))]);

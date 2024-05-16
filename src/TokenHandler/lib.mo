@@ -73,8 +73,14 @@ module {
       creditRegistry.debit,
     );
 
-    /// Returns the fee.
-    public func fee() : Nat = accountManager.fee();
+    /// Returns the ledger fee.
+    public func ledgerFee() : Nat = accountManager.ledgerFee();
+
+    public func definedFee(t : AccountManager.FeeType) : Nat = accountManager.definedFee(t);
+
+    public func fee(t : AccountManager.FeeType) : Nat = accountManager.fee(t);
+
+    public func setFee(t : AccountManager.FeeType, value : Nat) = accountManager.setFee(t, value);
 
     /// Retrieves the admin-defined minimum of the specific type.
     public func definedMinimum(minimumType : AccountManager.MinimumType) : Nat = accountManager.definedMinimum(minimumType);

@@ -19,6 +19,8 @@ module {
 
   public type LogEvent = {
     #feeUpdated : { old : Nat; new : Nat };
+    #depositFeeUpdated : { old : Nat; new : Nat };
+    #withdrawalFeeUpdated : { old : Nat; new : Nat };
     #depositMinimumUpdated : { old : Nat; new : Nat };
     #withdrawalMinimumUpdated : { old : Nat; new : Nat };
     #newDeposit : Nat;
@@ -32,6 +34,11 @@ module {
   };
 
   public type MinimumType = {
+    #deposit;
+    #withdrawal;
+  };
+
+  public type FeeType = {
     #deposit;
     #withdrawal;
   };
@@ -67,11 +74,15 @@ module {
     debit_ : (Principal, Nat) -> (),
   ) {
 
-    /// Current fee amount.
-    var fee_ : Nat = initialFee;
+    /// Current ledger fee amount.
+    var ledgerFee_ : Nat = initialFee;
+
+    var definedDepositFee_ : Nat = 0;
+
+    var definedWithdrawalFee_ : Nat = 0;
 
     /// Manages deposit balances for each user.
-    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare, fee_ + 1);
+    let depositRegistry = NatMap.NatMapWithLock<Principal>(Principal.compare, ledgerFee_ + 1);
 
     /// Admin-defined deposit minimum.
     /// Can be less then the current fee.
@@ -105,7 +116,36 @@ module {
     public func lookups() : Nat = depositRegistry.lookups();
 
     /// Retrieves the current fee amount.
-    public func fee() : Nat = fee_;
+    public func ledgerFee() : Nat = ledgerFee_;
+
+    public func definedFee(t : FeeType) : Nat = switch (t) {
+      case (#deposit) definedDepositFee_;
+      case (#withdrawal) definedWithdrawalFee_;
+    };
+
+    public func fee(t : FeeType) : Nat = Nat.max(definedFee(t), ledgerFee_);
+
+    func logFee(t : FeeType, old : Nat) {
+      let new = fee(t);
+      if (old == new) return;
+      switch (t) {
+        case (#deposit) log(ownPrincipal, #depositFeeUpdated({ old = old; new = new }));
+        case (#withdrawal) log(ownPrincipal, #withdrawalFeeUpdated({ old = old; new = new }));
+      };
+    };
+
+    public func setFee(t : FeeType, value : Nat) {
+      if (value == definedFee(t)) return;
+      recalculateBacklog(Nat.max(value, ledgerFee_));
+      let old = fee(t);
+      let oldMinimum = minimum(t);
+      switch (t) {
+        case (#deposit) definedDepositFee_ := value;
+        case (#withdrawal) definedWithdrawalFee_ := value;
+      };
+      logFee(t, old);
+      logMinimum(t, oldMinimum);
+    };
 
     /// Retrieves the admin-defined minimum of the specific type.
     public func definedMinimum(t : MinimumType) : Nat = switch (t) {
@@ -114,7 +154,7 @@ module {
     };
 
     /// Calculates the final minimum of the specific type.
-    public func minimum(t : MinimumType) : Nat = Nat.max(definedMinimum(t), fee_ + 1);
+    public func minimum(t : MinimumType) : Nat = Nat.max(definedMinimum(t), fee(t) + 1);
 
     // check if the minimum has changed compared to old value and log if yes
     func logMinimum(t : MinimumType, old : Nat) {
@@ -150,28 +190,41 @@ module {
       ?newFee;
     };
 
-    func updateFee(newFee : Nat) {
-      if (fee_ == newFee) return;
-      let prev = (minimum(#deposit), minimum(#withdrawal));
+    func recalculateBacklog(newDepositFee : Nat) {
       // update the deposit minimum depending on the new fee
       // the callback debits the principal for deposits that are removed in this step
-      depositRegistry.setMinimum(newFee + 1, func(p, v) = debit(p, v - fee_));
+      let depositFee = fee(#deposit);
+      depositRegistry.setMinimum(newDepositFee + 1, func(p, v) = debit(p, v - depositFee));
       // adjust credit for all queued deposits
       depositRegistry.iterate(
         func(p, v) {
-          if (v <= newFee) freezeCallback("deposit <= newFee should have been erased in previous step");
-          if (newFee > fee_) {
-            debit(p, newFee - fee_);
+          if (v <= newDepositFee) freezeCallback("deposit <= newFee should have been erased in previous step");
+          if (newDepositFee > depositFee) {
+            debit(p, newDepositFee - depositFee);
           } else {
-            credit(p, fee_ - newFee);
+            credit(p, depositFee - newDepositFee);
           };
         }
       );
-      log(ownPrincipal, #feeUpdated({ old = fee_; new = newFee }));
-      fee_ := newFee;
+    };
+
+    func updateFee(newFee : Nat) {
+      if (ledgerFee_ == newFee) return;
+      let minimumPrev = (minimum(#deposit), minimum(#withdrawal));
+      let feePrev = (fee(#deposit), fee(#withdrawal));
+
+      recalculateBacklog(Nat.max(definedFee(#deposit), newFee));
+
+      log(ownPrincipal, #feeUpdated({ old = ledgerFee_; new = newFee }));
+      ledgerFee_ := newFee;
+
       // log possible changes in deposit/withdrawal minima
-      logMinimum(#deposit, prev.0);
-      logMinimum(#withdrawal, prev.1);
+      logMinimum(#deposit, minimumPrev.0);
+      logMinimum(#withdrawal, minimumPrev.1);
+
+      // log possible changes in deposit/withdrawal fee
+      logFee(#deposit, feePrev.0);
+      logFee(#withdrawal, feePrev.1);
     };
 
     /// Retrieves the sum of all current deposits.
@@ -199,7 +252,7 @@ module {
     public func getDeposit(p : Principal) : ?Nat = depositRegistry.getOpt(p);
 
     func process_deposit(p : Principal, deposit : Nat, release : ?Nat -> Int) : Nat {
-      if (deposit <= fee_) {
+      if (deposit <= fee(#deposit)) {
         ignore release(null);
         return 0;
       };
@@ -209,7 +262,7 @@ module {
       let inc = Int.abs(delta);
 
       if (deposit == inc) {
-        credit(p, deposit - fee_);
+        credit(p, deposit - fee(#deposit));
       } else {
         credit(p, inc);
       };
@@ -262,7 +315,7 @@ module {
           from = account;
           to = { owner = ownPrincipal; subaccount = null };
           amount = amount;
-          fee = ?fee_;
+          fee = ?ledgerFee_;
           memo = null;
           created_at_time = null;
         });
@@ -280,7 +333,7 @@ module {
 
       let p = account.owner;
 
-      let originalCredit : Nat = amount - fee_;
+      let originalCredit : Nat = amount - fee(#deposit);
 
       switch (transferResult) {
         case (#Ok _) {
@@ -292,7 +345,7 @@ module {
         };
         case (#Err(#BadFee { expected_fee })) {
           updateFee(expected_fee);
-          let originalCredit : Nat = amount - fee_;
+          let originalCredit : Nat = amount - fee(#deposit);
           let transferResult = await* processDepositTransfer(account, amount);
           switch (transferResult) {
             case (#Ok _) {
@@ -340,14 +393,14 @@ module {
       #Ok : Nat;
       #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
     } {
-      let transferAmount : Nat = deposit - fee_;
+      let transferAmount : Nat = deposit - ledgerFee_;
 
       let transferResult = try {
         await icrc1Ledger.transfer({
           from_subaccount = ?Mapping.toSubaccount(p);
           to = { owner = ownPrincipal; subaccount = null };
           amount = transferAmount;
-          fee = ?fee_;
+          fee = ?ledgerFee_;
           memo = null;
           created_at_time = null;
         });
@@ -361,7 +414,7 @@ module {
     /// Attempts to consolidate the funds for a particular principal.
     func consolidate(p : Principal, release : ?Nat -> Int) : async* () {
       let deposit = depositRegistry.erase(p);
-      let originalCredit : Nat = deposit - fee_;
+      let originalCredit : Nat = deposit - fee(#deposit);
 
       let transferResult = await* processConsolidationTransfer(p, deposit);
 
@@ -405,8 +458,8 @@ module {
         await icrc1Ledger.transfer({
           from_subaccount = null;
           to = to;
-          amount = Int.abs(amount - fee_);
-          fee = ?fee_;
+          amount = Int.abs(amount - ledgerFee_);
+          fee = ?ledgerFee_;
           memo = null;
           created_at_time = null;
         });
@@ -426,7 +479,7 @@ module {
       switch (callResult) {
         case (#Ok txIdx) {
           log(ownPrincipal, #withdraw({ to = to; amount = amount }));
-          #ok(txIdx, amount - fee_);
+          #ok(txIdx, amount - fee(#withdrawal));
         };
         case (#Err(#BadFee { expected_fee })) {
           updateFee(expected_fee);
@@ -434,7 +487,7 @@ module {
           switch (retryResult) {
             case (#Ok txIdx) {
               log(ownPrincipal, #withdraw({ to = to; amount = amount }));
-              #ok(txIdx, amount - fee_);
+              #ok(txIdx, amount - fee(#withdrawal));
             };
             case (#Err err) {
               totalWithdrawn_ -= amount;
@@ -466,7 +519,7 @@ module {
     };
 
     public func assertIntegrity() {
-      let deposited : Int = depositRegistry.sum() - fee_ * depositRegistry.size(); // deposited funds with fees subtracted
+      let deposited : Int = depositRegistry.sum() - fee(#deposit) * depositRegistry.size(); // deposited funds with fees subtracted
       if (totalCredited != totalConsolidated_ + deposited + totalDebited) {
         let values : [Text] = [
           "Balances integrity failed",
@@ -492,7 +545,7 @@ module {
     /// Serializes the token handler data.
     public func share() : StableData = (
       depositRegistry.share(),
-      fee_,
+      ledgerFee_,
       totalConsolidated_,
       totalWithdrawn_,
     );
@@ -500,7 +553,7 @@ module {
     /// Deserializes the token handler data.
     public func unshare(values : StableData) {
       depositRegistry.unshare(values.0);
-      fee_ := values.1;
+      ledgerFee_ := values.1;
       totalConsolidated_ := values.2;
       totalWithdrawn_ := values.3;
     };
