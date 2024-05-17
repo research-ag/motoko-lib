@@ -64,6 +64,9 @@ module {
     var transfer_res_i_ : Nat = 0;
 
     var transfer_from_res : [TransferFromResult] = [#Ok 42];
+    var transfer_from_lock : Bool = false;
+    var transfer_from_lock_key : Text = "";
+    var transfer_from_count_ : Nat = 0;
     var transfer_from_res_i_ : Nat = 0;
 
     public func reset_state() : async () {
@@ -77,6 +80,8 @@ module {
       transfer_count_ := 0;
       transfer_res_i_ := 0;
     };
+
+    // icrc1_fee
 
     public func icrc1_fee() : async Nat {
       var inc : Nat = 0;
@@ -99,6 +104,8 @@ module {
       fee_lock := false;
       fee_lock_key := "";
     };
+
+    // icrc1_balance_of
 
     public func icrc1_balance_of(_ : Account) : async Nat {
       var inc : Nat = 0;
@@ -126,6 +133,8 @@ module {
       balance_lock_key := "";
     };
 
+    // icrc1_transfer
+
     public func icrc1_transfer(_ : TransferArgs) : async TransferResponse {
       var inc : Nat = 0;
       while (transfer_lock and inc < 100) {
@@ -133,7 +142,7 @@ module {
         inc += 1;
       };
       if (inc == 100) {
-        Debug.print("lock key: " # balance_lock_key);
+        Debug.print("lock key: " # transfer_lock_key);
         assert false;
       };
       transfer_count_ += 1;
@@ -155,15 +164,36 @@ module {
     };
     public func transfer_count() : async Nat { transfer_count_ };
 
+    // icrc2_transfer_from
+
     public func icrc2_transfer_from(_ : TransferFromArgs) : async (TransferFromResult) {
-      let res = transfer_from_res[transfer_res_i_];
+      var inc : Nat = 0;
+      while (transfer_from_lock and inc < 100) {
+        await async {};
+        inc += 1;
+      };
+      if (inc == 100) {
+        Debug.print("lock key: " # transfer_from_lock_key);
+        assert false;
+      };
+      transfer_from_count_ += 1;
+      let res = transfer_from_res[transfer_from_res_i_];
       transfer_from_res_i_ := (transfer_from_res_i_ + 1) % transfer_from_res.size();
       res;
     };
+    public func lock_transfer_from(key : Text) : async () {
+      transfer_from_lock := true;
+      transfer_from_lock_key := key;
+    };
+    public func release_transfer_from() : async () {
+      transfer_from_lock := false;
+      transfer_from_lock_key := "";
+    };
     public func set_transfer_from_res(r : [TransferFromResult]) : async () {
       transfer_from_res := r;
-      transfer_res_i_ := 0;
+      transfer_from_res_i_ := 0;
     };
+    public func transfer_from_count() : async Nat { transfer_from_count_ };
   };
 
 };

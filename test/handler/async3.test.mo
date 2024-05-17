@@ -691,7 +691,7 @@ do {
 do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
   await ledger.mock.reset_state();
-  let (inc, ctr_) = create_inc();
+  let (inc, _) = create_inc();
 
   // update fee first time
   await ledger.mock.set_fee(5);
@@ -846,17 +846,84 @@ do {
   assert handler.minimum(#withdrawal) == 6;
   assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
 
-  // deposit with allowance < amount
+  // deposit from allowance < amount
   await ledger.mock.set_transfer_from_res([#Err(#InsufficientAllowance({ allowance = 8 }))]);
   assert (await* handler.depositFromAllowance(user1_account, 9)) == #err(#InsufficientAllowance({ allowance = 8 }));
   assert state(handler) == (0, 0, 0);
   assert handler.journalLength() == inc(1); // #consolidationError
   print("tree lookups = " # debug_show handler.lookups());
 
-  // deposit with allowance >= amount
+  // deposit from allowance >= amount
   await ledger.mock.set_transfer_from_res([#Ok 42]);
   assert (await* handler.depositFromAllowance(user1_account, 8)) == #ok(3);
+  assert handler.getCredit(user1) == 3;
   assert state(handler) == (0, 3, 0);
   assert handler.journalLength() == inc(3); // #consolidated, #newDeposit, #credited
   print("tree lookups = " # debug_show handler.lookups());
+
+  // deposit from allowance < minimum
+  await ledger.mock.set_transfer_from_res([#Ok 42]); // should be not called
+  var transfer_from_count = await ledger.mock.transfer_from_count();
+  assert (await* handler.depositFromAllowance(user1_account, 5)) == #err(#TooLowQuantity);
+  assert handler.getCredit(user1) == 3; // not changed
+  assert state(handler) == (0, 3, 0); // not changed
+  assert transfer_from_count == (await ledger.mock.transfer_from_count());
+  assert handler.journalLength() == inc(0);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // ledger fee is increased while deposit from allowance is underway
+  // old_fee < new_fee < amount
+  await ledger.mock.lock_transfer_from("LEDGER_FEE_IS_INCREASED_WHILE_DEPOSIT_FROM_ALLOWANCE_IS_UNDERWAY_1");
+  transfer_from_count := await ledger.mock.transfer_from_count();
+  let f1 = async { await* handler.depositFromAllowance(user1_account, 8) };
+  await ledger.mock.set_fee(6);
+  await ledger.mock.set_transfer_from_res([#Err(#BadFee { expected_fee = 6 }), #Ok 42]);
+  await ledger.mock.release_transfer_from();
+  assert (await f1) == #ok(2);
+  assert handler.getCredit(user1) == 5;
+  assert state(handler) == (0, 5, 0);
+  assert transfer_from_count + 2 == (await ledger.mock.transfer_from_count());
+  // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  // #depositFeeUpdated, #withdrawalFeeUpdated, #consolidated
+  // #newDeposit, #credited
+  assert handler.journalLength() == inc(8);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // ledger fee is increased while deposit from allowance is underway
+  // old_fee < amount < new_fee
+  await ledger.mock.lock_transfer_from("LEDGER_FEE_IS_INCREASED_WHILE_DEPOSIT_FROM_ALLOWANCE_IS_UNDERWAY_2");
+  transfer_from_count := await ledger.mock.transfer_from_count();
+  let f2 = async { await* handler.depositFromAllowance(user1_account, 8) };
+  await ledger.mock.set_fee(9);
+  await ledger.mock.set_transfer_from_res([#Err(#BadFee { expected_fee = 9 })]);
+  await ledger.mock.release_transfer_from();
+  assert (await f2) == #err(#TooLowQuantity);
+  assert handler.getCredit(user1) == 5; // unchanged
+  assert state(handler) == (0, 5, 0); // unchanged
+  assert transfer_from_count + 1 == (await ledger.mock.transfer_from_count());
+  // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  // #depositFeeUpdated, #withdrawalFeeUpdated, #consolidationError
+  assert handler.journalLength() == inc(6);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // ledger fee is decreased while deposit from allowance is underway
+  // new_fee < old_fee < amount
+  await ledger.mock.lock_transfer_from("LEDGER_FEE_IS_DECREASED_WHILE_DEPOSIT_FROM_ALLOWANCE_IS_UNDERWAY");
+  transfer_from_count := await ledger.mock.transfer_from_count();
+  let f3 = async { await* handler.depositFromAllowance(user1_account, 10) };
+  await ledger.mock.set_fee(8);
+  await ledger.mock.set_transfer_from_res([#Err(#BadFee { expected_fee = 8 }), #Ok 42]);
+  await ledger.mock.release_transfer_from();
+  assert (await f3) == #ok(1); // amount - old_fee
+  assert handler.getCredit(user1) == 6;
+  assert state(handler) == (0, 6, 0);
+  assert transfer_from_count + 2 == (await ledger.mock.transfer_from_count());
+  // #feeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+  // #depositFeeUpdated, #withdrawalFeeUpdated, #consolidated
+  // #newDeposit, #credited
+  assert handler.journalLength() == inc(8);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
 };

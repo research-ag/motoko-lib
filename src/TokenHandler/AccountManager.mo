@@ -351,41 +351,21 @@ module {
         };
         case (#Err(#BadFee { expected_fee })) {
           updateFee(expected_fee);
-          let originalCredit : Nat = amount - fee(#deposit);
+          let originalCredit_2 : Nat = Int.abs(Int.min(originalCredit, amount - fee(#deposit)));
           let transferResult = await* processDepositTransfer(account, amount);
           switch (transferResult) {
             case (#Ok _) {
-              log(p, #consolidated({ deducted = amount; credited = originalCredit }));
-              log(p, #newDeposit(originalCredit));
-              totalConsolidated_ += originalCredit;
-              credit(p, originalCredit);
-              return #ok(originalCredit);
+              log(p, #consolidated({ deducted = amount; credited = originalCredit_2 }));
+              log(p, #newDeposit(originalCredit_2));
+              totalConsolidated_ += originalCredit_2;
+              credit(p, originalCredit_2);
+              return #ok(originalCredit_2);
             };
             case (#Err err) {
               log(p, #consolidationError(err));
               return #err(err);
             };
           };
-        };
-        case (#Err err) {
-          log(p, #consolidationError(err));
-          return #err(err);
-        };
-      };
-
-      // catch #BadFee
-      switch (transferResult) {
-        case (#Err(#BadFee { expected_fee })) updateFee(expected_fee);
-        case (_) {};
-      };
-
-      switch (transferResult) {
-        case (#Ok _) {
-          log(p, #consolidated({ deducted = amount; credited = originalCredit }));
-          log(p, #newDeposit(originalCredit));
-          totalConsolidated_ += originalCredit;
-          credit(p, originalCredit);
-          return #ok(originalCredit);
         };
         case (#Err err) {
           log(p, #consolidationError(err));
