@@ -10,7 +10,7 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import StableTrie "../src/StableTrie";
 
-let n = 2**11;
+let n = 2 ** 11;
 let key_size = 5;
 
 let rng = Prng.Seiran128();
@@ -39,6 +39,8 @@ for (bit in bits.vals()) {
     for (key in keys.vals()) {
       assert trie.add(key, "");
     };
+
+    // trie.print();
 
     for (key in keys.vals()) {
       assert (trie.get(key) == ?"");

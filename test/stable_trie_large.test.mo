@@ -36,7 +36,7 @@ do {
 
 let trie = StableTrie.StableTrie(pointer_size, k, key_size, 0);
 
-let max = 4096;
+let max = 512;
 var n1 = max;
 var pos1 : Nat64 = 0;
 // only works for key size 8
@@ -60,7 +60,7 @@ Debug.print("children number: " # debug_show k);
 Debug.print("keys: " # debug_show (max * max));
 Debug.print("size: " # debug_show trie.size());
 Debug.print("bytes per key: " # debug_show (trie.size() / (max * max)));
-let (leafs, nodes) = (trie.leafs(), trie.nodes());
+let (leafs, nodes) = (trie.leafCount(), trie.nodeCount());
 Debug.print("leafs (=keys): " # debug_show leafs);
 Debug.print("nodes: " # debug_show nodes);
 Debug.print("nodes per leaf: " # debug_show (Float.fromInt(nodes) / Float.fromInt(leafs)));
