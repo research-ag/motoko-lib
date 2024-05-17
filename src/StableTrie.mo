@@ -52,6 +52,7 @@ module {
 
     let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_ + 1;
     assert Nat64.bitcountNonZero(root_size_) == 1 and Nat64.bitcountTrailingZero(root_size_) % bitlength_ == 0;
+    let root_depth = Nat32.toNat16(Nat64.toNat32(Nat64.bitcountTrailingZero(root_size_) / bitlength_));
 
     let node_size : Nat64 = children_number_ * pointer_size_;
     let leaf_size : Nat64 = key_size_ + value_size_;
@@ -72,6 +73,7 @@ module {
             var freeSpace = 65536 - (8 - pointer_size_);
           };
           assert Region.grow(nodes.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+          // 0 pointer stands for null
           assert newInternalNode(nodes) == 0;
 
           let leaves : Region = {
@@ -81,7 +83,7 @@ module {
           };
 
           let root = Region.new();
-          assert Region.grow(root, (root_size_ * pointer_size_ + + (8 - pointer_size_) + 65536 - 1) / 65536) != 0xFFFF_FFFF_FFFF_FFFF;
+          assert Region.grow(root, (root_size_ * pointer_size_ + (8 - pointer_size_) + 65536 - 1) / 65536) != 0xFFFF_FFFF_FFFF_FFFF;
 
           let ret = { nodes = nodes; leaves = leaves; root = root };
           regions_ := ?ret;
@@ -105,8 +107,9 @@ module {
 
     func newInternalNode(region : Region) : Nat64 {
       ignore allocate(region, node_size);
+      let nc = node_count;
       node_count +%= 1;
-      node_count << 1;
+      nc << 1;
     };
 
     func newLeaf(region : Region, key : Blob, value : Blob) : Nat64 {
@@ -119,17 +122,24 @@ module {
       (leaf_count << 1) | 1;
     };
 
-    func getOffset(node : Nat64, index : Nat8) : Nat64 {
-      (node >> 1) * node_size +% Nat64.fromIntWrap(Nat8.toNat(index)) * pointer_size_;
+    func getOffset(node : Nat64, index : Nat64) : Nat64 {
+      (node >> 1) *% node_size +% index *% pointer_size_;
     };
 
-    public func getChild(region : Region, node : Nat64, index : Nat8) : Nat64 {
-      Region.loadNat64(region.region, getOffset(node, index)) & loadMask;
+    public func getChild(region : Region, root : Region.Region, node : Nat64, index : Nat64) : Nat64 {
+      if (node != 0) {
+        Region.loadNat64(region.region, getOffset(node, index)) & loadMask;
+      } else {
+        Region.loadNat64(root, index * pointer_size_) & loadMask;
+      };
     };
 
-    public func setChild(region_ : Region, node : Nat64, index : Nat8, child : Nat64) {
-      let offset = getOffset(node, index);
-      let region = region_.region;
+    public func setChild(region_ : Region, root : Region.Region, node : Nat64, index : Nat64, child : Nat64) {
+      let (offset, region) = if (node != 0) {
+        (getOffset(node, index), region_.region);
+      } else {
+        (index * pointer_size_, root);
+      };
       switch (pointer_size_) {
         case (8) Region.storeNat64(region, offset, child);
         case (6) {
@@ -184,6 +194,7 @@ module {
           case (?b) {
             result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
             length += 8;
+            skipBits -= 8;
           };
           case (null) Debug.trap("shoud not happen");
         };
@@ -193,16 +204,40 @@ module {
       result;
     };
 
-    func keyToIndices(key : Blob, depth : Nat16) : () -> Nat8 {
-      var skipBits = depth * bitlength;
+    func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
       let iter = key.vals();
-      while (skipBits >= 8) {
-        ignore iter.next();
-        skipBits -%= 8;
-      };
-      let ?first = iter.next() else Debug.trap("shoud not happen");
-      var byte : Nat16 = (Nat8.toNat16(first) | 256) >> skipBits;
-      func _next() : Nat8 {
+      var byte : Nat16 = 0;
+
+      func _next() : Nat64 {
+        if (byte == 0) {
+          if (depth == 0) {
+            var skipBits = root_depth * bitlength;
+            var length : Nat64 = 0;
+            var result : Nat64 = 0;
+            while (skipBits >= 8) {
+              switch (iter.next()) {
+                case (?b) {
+                  result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
+                  length +%= 8;
+                  skipBits -%= 8;
+                };
+                case (null) Debug.trap("shoud not happen");
+              };
+            };
+            let ?first = iter.next() else Debug.trap("shoud not happen");
+            result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first) & ((1 << skipBits) - 1)))) << length;
+            byte := (Nat8.toNat16(first) | 256) >> skipBits;
+            return result;
+          } else {
+            var skipBits : Nat16 = depth * bitlength;
+            while (skipBits >= 8) {
+              ignore iter.next();
+              skipBits -%= 8;
+            };
+            let ?first = iter.next() else Debug.trap("shoud not happen");
+            byte := (Nat8.toNat16(first) | 256) >> skipBits;
+          };
+        };
         if (byte == 1) {
           switch (iter.next()) {
             case (?b) {
@@ -211,37 +246,35 @@ module {
             case (null) Debug.trap("should not happen");
           };
         };
-        let ret = Nat8.fromNat16(byte & bitmask);
+        let ret = byte & bitmask;
         byte >>= bitlength;
-        return ret;
+        return Nat32.toNat64(Nat16.toNat32(ret));
       };
     };
 
     public func add(key : Blob, value : Blob) : Bool {
-      assert node_count >= max_nodes;
+      assert node_count <= max_nodes;
       let { leaves; root; nodes } = regions();
-      let index = indexInRoot(key);
-      var node = Region.loadNat64(root, index * pointer_size_) & loadMask;
 
+      var node : Nat64 = 0;
       var old_leaf : Nat64 = 0;
-
       var depth : Nat16 = 0;
-
       let next_idx = keyToIndices(key, 0);
-      var last = label l : Nat8 loop {
+
+      var last = label l : Nat64 loop {
         let idx = next_idx();
-        switch (getChild(nodes, node, idx)) {
+        switch (getChild(nodes, root, node, idx)) {
           case (0) {
-            setChild(nodes, node, idx, newLeaf(leaves, key, value));
+            setChild(nodes, root, node, idx, newLeaf(leaves, key, value));
             return true;
           };
           case (n) {
-            if (Nat64.bittest(n, 0)) {
+            if (n & 1 == 1) {
               old_leaf := n;
               break l idx;
             };
             node := n;
-            depth +%= 1;
+            depth +%= if (node == 0) root_depth else 1;
           };
         };
       };
@@ -251,18 +284,18 @@ module {
         return false;
       };
 
-      let next_old_idx = keyToIndices(old_key, depth +% 1);
+      let next_old_idx = keyToIndices(old_key, depth +% (if (node == 0) root_depth else 1));
       label l loop {
         let add = newInternalNode(nodes);
-        setChild(nodes, node, last, add);
+        setChild(nodes, root, node, last, add);
         node := add;
 
         let (a, b) = (next_idx(), next_old_idx());
         if (a == b) {
           last := a;
         } else {
-          setChild(nodes, node, a, newLeaf(leaves, key, value));
-          setChild(nodes, node, b, old_leaf);
+          setChild(nodes, root, node, a, newLeaf(leaves, key, value));
+          setChild(nodes, root, node, b, old_leaf);
           break l;
         };
       };
@@ -270,18 +303,18 @@ module {
     };
 
     public func get(key : Blob) : ?Blob {
-      let (nodes, leaves) = regions();
+      let { leaves; root; nodes } = regions();
       let next_idx = keyToIndices(key, 0);
 
       var node : Nat64 = 0;
       loop {
         let idx = next_idx();
-        node := switch (getChild(nodes, node, idx)) {
+        node := switch (getChild(nodes, root, node, idx)) {
           case (0) {
             return null;
           };
           case (n) {
-            if (Nat64.bittest(n, 0)) {
+            if (n & 1 == 1) {
               if (getKey(leaves, n) == key) return ?value(leaves, n) else return null;
             };
             n;
@@ -293,7 +326,7 @@ module {
       null;
     };
 
-    public func size() : Nat = Nat64.toNat(regions().0.size + regions().1.size);
+    // public func size() : Nat = Nat64.toNat(regions().0.size + regions().1.size);
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
