@@ -114,12 +114,13 @@ module {
 
     func newLeaf(region : Region, key : Blob, value : Blob) : Nat64 {
       let pos = allocate(region, leaf_size);
+      let lc = leaf_count;
       leaf_count +%= 1;
       Region.storeBlob(region.region, pos, key);
       if (not empty_values) {
         Region.storeBlob(region.region, pos +% key_size_, value);
       };
-      (leaf_count << 1) | 1;
+      (lc << 1) | 1;
     };
 
     func getOffset(node : Nat64, index : Nat64) : Nat64 {
