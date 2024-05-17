@@ -2,7 +2,7 @@ import Principal "mo:base/Principal";
 import IntMap "IntMap";
 
 module {
-  public type StableData = [(Principal, Int)];
+  public type StableData = ([(Principal, Int)], Int);
 
   public type LogEvent = {
     #credited : Nat;
@@ -76,9 +76,12 @@ module {
     };
 
     /// Serializes the credit registry data.
-    public func share() : StableData = map.share();
+    public func share() : StableData = (map.share(), issuer_);
 
     /// Deserializes the credit registry data.
-    public func unshare(values : StableData) = map.unshare(values);
+    public func unshare(values : StableData) {
+      map.unshare(values.0);
+      issuer_ := values.1;
+    };
   };
 };

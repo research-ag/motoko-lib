@@ -12,9 +12,15 @@ import Mapping "Mapping";
 module {
   public type StableData = (
     NatMap.StableData<Principal>, // depositRegistry
-    Nat, // fee_
+    Nat, // ledgerFee_
+    Nat, // definedDepositFee_
+    Nat, // definedWithdrawalFee_
+    Nat, // definedDepositMinimum_
+    Nat, // definedWithdrawalMinimum_
     Nat, // totalConsolidated_
     Nat, // totalWithdrawn_
+    Nat, // totalCredited
+    Nat, // totalDebited
   );
 
   public type LogEvent = {
@@ -546,16 +552,28 @@ module {
     public func share() : StableData = (
       depositRegistry.share(),
       ledgerFee_,
+      definedDepositFee_,
+      definedWithdrawalFee_,
+      definedDepositMinimum_,
+      definedWithdrawalMinimum_,
       totalConsolidated_,
       totalWithdrawn_,
+      totalCredited,
+      totalDebited,
     );
 
     /// Deserializes the token handler data.
     public func unshare(values : StableData) {
       depositRegistry.unshare(values.0);
       ledgerFee_ := values.1;
-      totalConsolidated_ := values.2;
-      totalWithdrawn_ := values.3;
+      definedDepositFee_ := values.2;
+      definedWithdrawalFee_ := values.3;
+      definedDepositMinimum_ := values.4;
+      definedWithdrawalMinimum_ := values.5;
+      totalConsolidated_ := values.6;
+      totalWithdrawn_ := values.7;
+      totalCredited := values.8;
+      totalDebited := values.9;
     };
   };
 };
