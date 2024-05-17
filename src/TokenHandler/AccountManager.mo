@@ -80,13 +80,18 @@ module {
     debit_ : (Principal, Nat) -> (),
   ) {
 
+    /// If `true` new notifications are paused.
     var notificationsOnPause : Bool = false;
 
     /// Current ledger fee amount.
     var ledgerFee_ : Nat = initialFee;
 
+    /// Admin-defined deposit fee.
+    /// Final fee: max(admin_defined_fee, fee).
     var definedDepositFee_ : Nat = 0;
 
+    /// Admin-defined withdrawal fee.
+    /// Final fee: max(admin_defined_fee, fee).
     var definedWithdrawalFee_ : Nat = 0;
 
     /// Manages deposit balances for each user.
@@ -119,8 +124,10 @@ module {
     /// Accumulated value.
     var totalDebited : Nat = 0;
 
+    /// Pause new notifications.
     public func pauseNotifications() = notificationsOnPause := true;
 
+    /// Unpause new notifications.
     public func unpauseNotifications() = notificationsOnPause := false;
 
     // Pass through the lookup counter from depositRegistry
@@ -130,13 +137,16 @@ module {
     /// Retrieves the current fee amount.
     public func ledgerFee() : Nat = ledgerFee_;
 
+    /// Retrieves the admin-defined fee of the specific type.
     public func definedFee(t : FeeType) : Nat = switch (t) {
       case (#deposit) definedDepositFee_;
       case (#withdrawal) definedWithdrawalFee_;
     };
 
+    /// Calculates the final fee of the specific type.
     public func fee(t : FeeType) : Nat = Nat.max(definedFee(t), ledgerFee_);
 
+    // Checks if the fee has changed compared to old value and log if yes.
     func logFee(t : FeeType, old : Nat) {
       let new = fee(t);
       if (old == new) return;
@@ -146,6 +156,7 @@ module {
       };
     };
 
+    /// Defines the admin-defined fee of the specific type.
     public func setFee(t : FeeType, value : Nat) {
       if (value == definedFee(t)) return;
       recalculateBacklog(Nat.max(value, ledgerFee_));

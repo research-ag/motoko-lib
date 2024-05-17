@@ -38,8 +38,10 @@ module {
     initialFee : Nat,
   ) {
 
+    /// Pause new notifications.
     public func pauseNotifications() = accountManager.pauseNotifications();
 
+    /// Unpause new notifications.
     public func unpauseNotifications() = accountManager.unpauseNotifications();
 
     // Pass through the lookup counter from depositRegistry
@@ -80,10 +82,13 @@ module {
     /// Returns the ledger fee.
     public func ledgerFee() : Nat = accountManager.ledgerFee();
 
+    /// Retrieves the admin-defined fee of the specific type.
     public func definedFee(t : AccountManager.FeeType) : Nat = accountManager.definedFee(t);
 
+    /// Calculates the final fee of the specific type.
     public func fee(t : AccountManager.FeeType) : Nat = accountManager.fee(t);
 
+    /// Defines the admin-defined fee of the specific type.
     public func setFee(t : AccountManager.FeeType, value : Nat) = accountManager.setFee(t, value);
 
     /// Retrieves the admin-defined minimum of the specific type.
