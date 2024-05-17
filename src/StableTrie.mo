@@ -27,7 +27,6 @@ module {
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
-//    let address_bits = pointer_size_ * 8 - 1;
     let node_size : Nat64 = children_number_ * pointer_size_;
     let leaf_size : Nat64 = key_size_ + value_size_;
     let empty_values : Bool = value_size == 0;
