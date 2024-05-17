@@ -53,7 +53,7 @@ module {
     let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_ + 1;
     assert Nat64.bitcountNonZero(root_size_) == 1 and Nat64.bitcountTrailingZero(root_size_) % bitlength_ == 0;
     let root_depth = Nat32.toNat16(Nat64.toNat32(Nat64.bitcountTrailingZero(root_size_) / bitlength_));
-
+    //assert root depth <= key depth
     let node_size : Nat64 = children_number_ * pointer_size_;
     let leaf_size : Nat64 = key_size_ + value_size_;
     let empty_values : Bool = value_size == 0;
@@ -207,6 +207,10 @@ module {
 
     func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
       let iter = key.vals();
+      func next() : Nat8 {
+        let ?res = iter.next() else Debug.trap("shoud not happen");
+        res;
+      };
       var byte : Nat16 = 0;
 
       func _next() : Nat64 {
@@ -216,16 +220,12 @@ module {
             var length : Nat64 = 0;
             var result : Nat64 = 0;
             while (skipBits >= 8) {
-              switch (iter.next()) {
-                case (?b) {
-                  result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
-                  length +%= 8;
-                  skipBits -%= 8;
-                };
-                case (null) Debug.trap("shoud not happen");
-              };
+              let b = next();
+              result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
+              length +%= 8;
+              skipBits -%= 8;
             };
-            let ?first = iter.next() else Debug.trap("shoud not happen");
+            let first = next();
             result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first) & ((1 << skipBits) - 1)))) << length;
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
             return result;
@@ -235,17 +235,12 @@ module {
               ignore iter.next();
               skipBits -%= 8;
             };
-            let ?first = iter.next() else Debug.trap("shoud not happen");
+            let first = next();
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
           };
         };
         if (byte == 1) {
-          switch (iter.next()) {
-            case (?b) {
-              byte := Nat8.toNat16(b) | 256;
-            };
-            case (null) Debug.trap("should not happen");
-          };
+          byte := Nat8.toNat16(next()) | 256;
         };
         let ret = byte & bitmask;
         byte >>= bitlength;
@@ -259,7 +254,7 @@ module {
 
       var node : Nat64 = 0;
       var old_leaf : Nat64 = 0;
-      var depth : Nat16 = 0;
+      var depth : Nat16 = root_depth;
       let next_idx = keyToIndices(key, 0);
 
       var last = label l : Nat64 loop {
@@ -275,7 +270,7 @@ module {
               break l idx;
             };
             node := n;
-            depth +%= if (node == 0) root_depth else 1;
+            depth +%= 1;
           };
         };
       };
@@ -285,7 +280,7 @@ module {
         return false;
       };
 
-      let next_old_idx = keyToIndices(old_key, depth +% (if (node == 0) root_depth else 1));
+      let next_old_idx = keyToIndices(old_key, depth);
       label l loop {
         let add = newInternalNode(nodes);
         setChild(nodes, root, node, last, add);
@@ -327,7 +322,7 @@ module {
       null;
     };
 
-    public func size() : Nat = Nat64.toNat(root_size_ * pointer_size_ + node_count * node_size + leaf_count * leaf_size);
+    // public func size() : Nat = Nat64.toNat(regions().0.size + regions().1.size);
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
