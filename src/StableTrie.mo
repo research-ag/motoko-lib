@@ -12,7 +12,6 @@ import Nat32 "mo:base/Nat32";
 module {
   type Region = {
     region : Region.Region;
-    var size : Nat64;
     var freeSpace : Nat64;
   };
 
@@ -83,7 +82,6 @@ module {
         assert Region.grow(region.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         region.freeSpace +%= 65536;
       };
-      region.size +%= n;
       region.freeSpace -%= n;
     };
 
@@ -258,7 +256,7 @@ module {
       null;
     };
 
-    public func size() : Nat = Nat64.toNat(regions().0.size + regions().1.size);
+    public func size() : Nat = Nat64.toNat(node_count * node_size + leaf_count * leaf_size);
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
