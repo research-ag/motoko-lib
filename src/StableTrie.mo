@@ -322,7 +322,7 @@ module {
       null;
     };
 
-    // public func size() : Nat = Nat64.toNat(regions().0.size + regions().1.size);
+    public func size() : Nat = Nat64.toNat(root_size_ * pointer_size_ + node_count * node_size + leaf_count * leaf_size);
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
