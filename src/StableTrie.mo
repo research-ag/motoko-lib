@@ -28,7 +28,7 @@ module {
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
-    let address_bits = pointer_size_ * 8 - 1;
+//    let address_bits = pointer_size_ * 8 - 1;
     let node_size : Nat64 = children_number_ * pointer_size_;
     let leaf_size : Nat64 = key_size_ + value_size_;
     let empty_values : Bool = value_size == 0;
@@ -77,31 +77,33 @@ module {
       };
     };
 
-    func allocate(region : Region, n : Nat64) : Nat64 {
+    func allocate(region : Region, n : Nat64) {
       // TODO: assert treeSize >> address_bits == 0;
       if (region.freeSpace < n) {
         assert Region.grow(region.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         region.freeSpace +%= 65536;
       };
-      let pos = region.size;
       region.size +%= n;
       region.freeSpace -%= n;
-      pos;
     };
 
     func newInternalNode(region : Region) : Nat64 {
+      allocate(region, node_size);
+      let res = node_count << 1;
       node_count +%= 1;
-      (allocate(region, node_size) / node_size) << 1;
+      res
     };
 
     func newLeaf(region : Region, key : Blob, value : Blob) : Nat64 {
-      let pos = allocate(region, leaf_size);
+      allocate(region, leaf_size);
+      let pos = leaf_count * leaf_size; 
       Region.storeBlob(region.region, pos, key);
       if (not empty_values) {
         Region.storeBlob(region.region, pos +% key_size_, value);
       };
+      let res = leaf_count << 1 | 1;
       leaf_count +%= 1;
-      ((pos / leaf_size) << 1) | 1;
+      res;
     };
 
     func getOffset(node : Nat64, index : Nat8) : Nat64 {
