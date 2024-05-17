@@ -80,6 +80,8 @@ module {
     debit_ : (Principal, Nat) -> (),
   ) {
 
+    var notificationsOnPause : Bool = false;
+
     /// Current ledger fee amount.
     var ledgerFee_ : Nat = initialFee;
 
@@ -116,6 +118,10 @@ module {
     /// Total funds debited within deposit tracking and consolidation.
     /// Accumulated value.
     var totalDebited : Nat = 0;
+
+    public func pauseNotifications() = notificationsOnPause := true;
+
+    public func unpauseNotifications() = notificationsOnPause := false;
 
     // Pass through the lookup counter from depositRegistry
     // TODO: Remove later
@@ -278,6 +284,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
+      if (notificationsOnPause) return null;
       let ?release = depositRegistry.obtainLock(p) else return null;
 
       let latestDeposit = try {

@@ -38,6 +38,10 @@ module {
     initialFee : Nat,
   ) {
 
+    public func pauseNotifications() = accountManager.pauseNotifications();
+
+    public func unpauseNotifications() = accountManager.unpauseNotifications();
+
     // Pass through the lookup counter from depositRegistry
     // TODO: Remove later
     public func lookups() : Nat = accountManager.lookups();

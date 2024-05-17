@@ -927,3 +927,37 @@ do {
   handler.assertIntegrity();
   assert not handler.isFrozen();
 };
+
+do {
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  await ledger.mock.reset_state();
+  let (inc, _) = create_inc();
+
+  // update fee first time
+  await ledger.mock.set_fee(5);
+  ignore await* handler.fetchFee();
+  assert handler.ledgerFee() == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+
+  // notify with 0 balance
+  await ledger.mock.set_balance(0);
+  assert (await* handler.notify(user1)) == ?(0, 0);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // pause notifications
+  handler.pauseNotifications();
+
+  // notify with 0 balance
+  assert (await* handler.notify(user1)) == null;
+  print("tree lookups = " # debug_show handler.lookups());
+
+  // unpause notifications
+  handler.unpauseNotifications();
+
+  // notify with 0 balance
+  assert (await* handler.notify(user1)) == ?(0, 0);
+  print("tree lookups = " # debug_show handler.lookups());
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
+};
