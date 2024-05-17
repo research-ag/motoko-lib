@@ -82,7 +82,7 @@ do {
   // release response
   release();
   assert (await fut1) == ?5;
-  assert handler.journalLength() == inc(3); // #minimumUpdated, #minimumWithdrawalUpdated, #feeUpdated
+  assert handler.journalLength() == inc(5); // #minimumUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #minimumWithdrawalUpdated, #feeUpdated
 
   // stage a response and release it immediately
   ledger.balance_.stage(?20).0 ();
@@ -115,7 +115,7 @@ do {
   assert handler.journalLength() == inc(1); // #consolidated
   // stage a response
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
-  assert handler.fee() == 0;
+  assert handler.fee(#deposit) == 0;
   // start withdrawal and move it to background task
   var has_started = false;
   let fut = async {
@@ -143,12 +143,12 @@ do {
   await async {};
   // now the continuation in the withdraw call has executed
   // let's verify
-  assert handler.fee() == 10; // #BadFee has been processed
+  assert handler.fee(#deposit) == 10; // #BadFee has been processed
   // because of the #TooLowQuantity error there is no further commit point
   // the continuation runs to the end of the withdraw function
   // let's verify
   assert handler.state().flow.withdrawn == 0;
-  assert handler.journalLength() == inc(4); // feeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated, withdrawalError
+  assert handler.journalLength() == inc(6); // feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated, withdrawalError
   // we do not have to await fut anymore, but we can:
   assert (await fut) == #err(#TooLowQuantity);
 };
@@ -166,7 +166,7 @@ do {
   // stage two responses
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   let (release2, state2) = ledger.transfer_.stage(?(#Ok 0));
-  assert handler.fee() == 0;
+  assert handler.fee(#deposit) == 0;
   // start withdrawal and move it to background task
   let fut = async {
     await* handler.withdraw({ owner = user1; subaccount = null }, 11);
@@ -177,8 +177,8 @@ do {
   await async {};
   // now the continuation in the withdraw call has executed to the second commit point
   // let's verify
-  assert handler.fee() == 10; // #BadFee has been processed
-  assert handler.journalLength() == inc(3); // feeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated
+  assert handler.fee(#deposit) == 10; // #BadFee has been processed
+  assert handler.journalLength() == inc(5); // feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated
   // now everything is halted until we release the second response
   // we wait for the second response to be processed
   release2();
