@@ -34,7 +34,7 @@ let bits = [2, 4, 16];
 let pointers = [2, 4, 6, 8];
 for (bit in bits.vals()) {
   for (pointer in pointers.vals()) {
-    let trie = StableTrie.StableTrie(pointer, bit, bit, key_size, 0);
+    let trie = StableTrie.StableTrie(pointer, bit, bit * bit * bit, key_size, 0);
 
     for (key in keys.vals()) {
       assert trie.add(key, "");
