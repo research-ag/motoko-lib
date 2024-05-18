@@ -192,20 +192,16 @@ module {
             length += 8;
             skipBits -= 8;
           };
-          case (null) Debug.trap("shoud not happen");
+          case (null) Debug.trap("should not happen");
         };
       };
-      let ?first = iter.next() else Debug.trap("shoud not happen");
+      let ?first = iter.next() else Debug.trap("should not happen");
       result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first))) & ((1 << skipBits) - 1)) << length;
       result;
     };
 
     func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
-      let iter = key.vals();
-      func next() : Nat8 {
-        let ?res = iter.next() else Debug.trap("shoud not happen");
-        res;
-      };
+      let next_byte = key.vals().next;
       var byte : Nat16 = 0;
 
       func _next() : Nat64 {
@@ -215,27 +211,28 @@ module {
             var length : Nat64 = 0;
             var result : Nat64 = 0;
             while (skipBits >= 8) {
-              let b = next();
+              let ?b = next_byte() else Debug.trap("should not happen");
               result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
               length +%= 8;
               skipBits -%= 8;
             };
-            let first = next();
+            let ?first = next_byte() else Debug.trap("should not happen");
             result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first) & ((1 << skipBits) - 1)))) << length;
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
             return result;
           } else {
             var skipBits : Nat16 = depth * bitlength;
             while (skipBits >= 8) {
-              ignore iter.next();
+              ignore next_byte();
               skipBits -%= 8;
             };
-            let first = next();
+            let ?first = next_byte() else Debug.trap("should not happen");
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
           };
         };
         if (byte == 1) {
-          byte := Nat8.toNat16(next()) | 256;
+          let ?b = next_byte() else Debug.trap("should not happen");
+          byte := Nat8.toNat16(b) | 256;
         };
         let ret = byte & bitmask;
         byte >>= bitlength;
