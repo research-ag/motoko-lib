@@ -36,7 +36,7 @@ do {
 
 let trie = StableTrie.StableTrie(pointer_size, k, k, key_size, 0);
 
-let max = 4096;
+let max = 512;
 var n1 = max;
 var pos1 : Nat64 = 0;
 // only works for key size 8

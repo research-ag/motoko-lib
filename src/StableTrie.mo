@@ -12,7 +12,6 @@ import Nat32 "mo:base/Nat32";
 module {
   type Region = {
     region : Region.Region;
-    var size : Nat64;
     var freeSpace : Nat64;
   };
 
@@ -93,28 +92,26 @@ module {
     };
 
     // allocate can only be used for n <= 65536
-    func allocate(region : Region, n : Nat64) : Nat64 {
+    func allocate(region : Region, n : Nat64) {
       // TODO: assert treeSize >> address_bits == 0;
       if (region.freeSpace < n) {
         assert Region.grow(region.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
         region.freeSpace +%= 65536;
       };
-      let pos = region.size;
-      region.size +%= n;
       region.freeSpace -%= n;
-      pos;
     };
 
     func newInternalNode(region : Region) : Nat64 {
-      ignore allocate(region, node_size);
+      allocate(region, node_size);
       let nc = node_count;
       node_count +%= 1;
       nc << 1;
     };
 
     func newLeaf(region : Region, key : Blob, value : Blob) : Nat64 {
-      let pos = allocate(region, leaf_size);
+      allocate(region, leaf_size);
       let lc = leaf_count;
+      let pos = leaf_count *% leaf_size;
       leaf_count +%= 1;
       Region.storeBlob(region.region, pos, key);
       if (not empty_values) {
