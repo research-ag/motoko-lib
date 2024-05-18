@@ -68,7 +68,6 @@ module {
         case (null) {
           let nodes : Region = {
             region = Region.new();
-            var size = 0;
             var freeSpace = 65536 - (8 - pointer_size_);
           };
           assert Region.grow(nodes.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
@@ -77,7 +76,6 @@ module {
 
           let leaves : Region = {
             region = Region.new();
-            var size = 0;
             var freeSpace = 0;
           };
 
