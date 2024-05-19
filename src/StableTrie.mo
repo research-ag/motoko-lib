@@ -118,7 +118,7 @@ module {
 
     func getOffset(node : Nat64, index : Nat64) : Nat64 {
       if (node != 0) {
-        (root_size_ +% index) *% pointer_size_ +% (node >> 1) *% node_size;
+        (root_size_ +% index) *% pointer_size_ +% ((node >> 1) -% 1) *% node_size;
       } else {
         index *% pointer_size_;
       }
