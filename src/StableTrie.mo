@@ -20,16 +20,23 @@ module {
 
   type StableData = (StableTrieState, Nat64, Nat64);
 
-  public class StableTrie(pointer_size : Nat, children_number : Nat, root_size : Nat, key_size : Nat, value_size : Nat) {
+  public class StableTrie(pointer_size : Nat, aridity : Nat, root_aridity : Nat, key_size : Nat, value_size : Nat) {
 
-    assert pointer_size % 2 == 0 and 2 <= pointer_size and pointer_size <= 8;
-    assert children_number == 2 or children_number == 4 or children_number == 16 or children_number == 256;
+    assert switch (pointer_size) {
+      case (2 or 4 or 6 or 8) true;
+      case (_) false;
+    };
+    assert switch (aridity) {
+      case (2 or 4 or 16 or 256) true;
+      case (_) false;
+    };
     assert key_size >= 1;
-    let children_number_ = Nat64.fromNat(children_number);
+
+    let aridity_ = Nat64.fromNat(aridity);
     let key_size_ = Nat64.fromNat(key_size);
     let value_size_ = Nat64.fromNat(value_size);
     let pointer_size_ = Nat64.fromNat(pointer_size);
-    let root_size_ = Nat64.fromNat(root_size);
+    let root_aridity_ = Nat64.fromNat(root_aridity);
 
     let loadMask : Nat64 = switch (pointer_size_) {
       case (8) 0xffff_ffff_ffff_ffff;
@@ -39,7 +46,7 @@ module {
       case (_) 0;
     };
 
-    let (bitlength, bitmask) : (Nat16, Nat16) = switch (children_number) {
+    let (bitlength, bitmask) : (Nat16, Nat16) = switch (aridity) {
       case (2) (1, 0x1);
       case (4) (2, 0x3);
       case (16) (4, 0xf);
@@ -50,19 +57,25 @@ module {
 
     let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_ + 1;
 
-    assert root_size_ > 1 and Nat64.bitcountNonZero(root_size_) == 1 and Nat64.bitcountTrailingZero(root_size_) % bitlength_ == 0;
-    let root_depth = Nat32.toNat16(Nat64.toNat32(Nat64.bitcountTrailingZero(root_size_) / bitlength_));
-    assert Nat16.toNat(root_depth) <= Nat64.toNat(key_size_ * 8 / bitlength_);
+    assert Nat64.bitcountNonZero(root_aridity_) == 1; // 2-power
+    let root_bitlength_ = Nat64.bitcountTrailingZero(root_aridity_);
+    assert root_bitlength_ > 0 and root_bitlength_ % bitlength_ == 0; // => root_bitlength_ >= bitlength_
+    assert root_bitlength_ <= key_size_ * 8;
+
+    let root_depth = Nat32.toNat16(Nat64.toNat32(root_bitlength_ / bitlength_));
+    let root_bitlength = Nat32.toNat16(Nat64.toNat32(root_bitlength_));
     
-    let node_size : Nat64 = children_number_ * pointer_size_;
+    let node_size : Nat64 = aridity_ * pointer_size_;
     let leaf_size : Nat64 = key_size_ + value_size_;
+    let root_size : Nat64 = root_aridity_ * pointer_size_;
+    let offset_base : Nat64 = root_size - node_size;
+    let padding : Nat64 = 8 - pointer_size_;
     let empty_values : Bool = value_size == 0;
 
     var regions_ : ?StableTrieState = null;
 
     var leaf_count : Nat64 = 0;
-    // node 0 stands for root
-    var node_count : Nat64 = 1;
+    var node_count : Nat64 = 0;
 
     func regions() : StableTrieState {
       switch (regions_) {
@@ -72,9 +85,10 @@ module {
             region = Region.new();
             var freeSpace = 0;
           };
-          let pages = (root_size_ * pointer_size_ + (8 - pointer_size_) + 65536 - 1) / 65536 + 1;
+          let pages = (root_size + padding + 65536 - 1) / 65536 + 1;
           assert Region.grow(nodes.region, pages) != 0xFFFF_FFFF_FFFF_FFFF;
-          nodes.freeSpace := pages * 65536 - ((8 - pointer_size_) + root_size_ * pointer_size_);
+          nodes.freeSpace := pages * 65536 - root_size - padding;
+          node_count += 1;
 
           let leaves : Region = {
             region = Region.new();
@@ -117,11 +131,9 @@ module {
     };
 
     func getOffset(node : Nat64, index : Nat64) : Nat64 {
-      if (node != 0) {
-        (root_size_ +% index) *% pointer_size_ +% ((node >> 1) -% 1) *% node_size;
-      } else {
-        index *% pointer_size_;
-      }
+      let delta = index *% pointer_size_;
+      if (node == 0) return delta; // root node
+      (offset_base +% (node >> 1) *% node_size) +% delta;
     };
 
     public func getChild(region : Region, node : Nat64, index : Nat64) : Nat64 {
@@ -164,7 +176,7 @@ module {
       func _next() : Nat64 {
         if (byte == 0) {
           if (depth == 0) {
-            var skipBits = root_depth * bitlength;
+            var skipBits = root_bitlength;
             var length : Nat64 = 0;
             var result : Nat64 = 0;
             while (skipBits >= 8) {
@@ -271,7 +283,7 @@ module {
       null;
     };
 
-    public func size() : Nat = Nat64.toNat(root_size_ * pointer_size_ + (node_count - 1) * node_size + leaf_count * leaf_size);
+    public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
