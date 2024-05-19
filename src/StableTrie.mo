@@ -55,7 +55,7 @@ module {
     };
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
-    let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_ + 1;
+    let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_;
 
     assert Nat64.bitcountNonZero(root_aridity_) == 1; // 2-power
     let root_bitlength_ = Nat64.bitcountTrailingZero(root_aridity_);
@@ -88,7 +88,6 @@ module {
           let pages = (root_size + padding + 65536 - 1) / 65536 + 1;
           assert Region.grow(nodes.region, pages) != 0xFFFF_FFFF_FFFF_FFFF;
           nodes.freeSpace := pages * 65536 - root_size - padding;
-          node_count += 1;
 
           let leaves : Region = {
             region = Region.new();
@@ -113,9 +112,8 @@ module {
 
     func newInternalNode(region : Region) : Nat64 {
       allocate(region, node_size);
-      let nc = node_count;
       node_count +%= 1;
-      nc << 1;
+      node_count << 1;
     };
 
     func newLeaf(region : Region, key : Blob, value : Blob) : Nat64 {
@@ -283,7 +281,7 @@ module {
       null;
     };
 
-    public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);
+    public func size() : Nat = Nat64.toNat(root_size + node_count * node_size + leaf_count * leaf_size);
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
