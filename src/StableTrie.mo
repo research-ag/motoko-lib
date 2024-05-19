@@ -200,14 +200,15 @@ module {
       result;
     };
 
+    func unwrap(x : ?Nat8) : Nat8 {
+      let ?val = x else Debug.trap("shoud not happen");
+      val;
+    };
+
     func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
       let next_byte = key.vals().next;
       var byte : Nat16 = 0;
 
-      func expect(f : () -> ?Nat8) : Nat8 {
-        let ?res = f() else Debug.trap("shoud not happen");
-        res;
-      };
 
       func _next() : Nat64 {
         if (byte == 0) {
@@ -216,12 +217,12 @@ module {
             var length : Nat64 = 0;
             var result : Nat64 = 0;
             while (skipBits >= 8) {
-              let b = expect(next_byte);
+              let b = unwrap(next_byte());
               result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
               length +%= 8;
               skipBits -%= 8;
             };
-            let first = expect(next_byte);
+            let first = unwrap(next_byte());
             result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first) & ((1 << skipBits) - 1)))) << length;
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
             return result;
@@ -231,12 +232,12 @@ module {
               ignore next_byte();
               skipBits -%= 8;
             };
-            let first = expect(next_byte);
+            let first = unwrap(next_byte());
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
           };
         };
         if (byte == 1) {
-          let b = expect(next_byte);
+          let b = unwrap(next_byte());
           byte := Nat8.toNat16(b) | 256;
         };
         let ret = byte & bitmask;
