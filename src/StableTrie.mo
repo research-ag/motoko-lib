@@ -50,6 +50,7 @@ module {
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
     let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_ + 1;
+    assert root_size >= 2;
     assert Nat64.bitcountNonZero(root_size_) == 1 and Nat64.bitcountTrailingZero(root_size_) % bitlength_ == 0;
     let root_depth = Nat32.toNat16(Nat64.toNat32(Nat64.bitcountTrailingZero(root_size_) / bitlength_));
     //assert root depth <= key depth
