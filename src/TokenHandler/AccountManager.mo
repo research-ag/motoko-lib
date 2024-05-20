@@ -323,7 +323,7 @@ module {
         if (triggerOnNotifications) {
           // schedule a canister self-call to initiate the consolidation
           // we need try-catch so that we don't trap if scheduling fails synchronously
-          try { ignore async { await* trigger() } } catch (_) {};
+          try { ignore async { await* trigger(1) } } catch (_) {};
         };
       };
 
@@ -422,7 +422,10 @@ module {
     };
 
     /// Attempts to consolidate the funds for a particular principal.
-    func consolidate(p : Principal, release : ?Nat -> Int) : async* () {
+    func consolidate(p : Principal, release : ?Nat -> Int) : async* {
+      #Ok : Nat;
+      #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
+    } {
       let deposit = depositRegistry.erase(p);
       let originalCredit : Nat = deposit - fee(#deposit);
 
@@ -446,15 +449,24 @@ module {
           ignore process_deposit(p, deposit, release);
         };
       };
+
+      transferResult;
     };
 
-    /// Triggers the proccessing first encountered deposit.
-    public func trigger() : async* () {
-      let ?(p, deposit, release) = depositRegistry.nextLock() else return;
-      underwayFunds_ += deposit;
-      await* consolidate(p, release);
-      underwayFunds_ -= deposit;
-      assertIntegrity();
+    /// Triggers the proccessing deposits.
+    /// n - desired number of potential consolidations.
+    public func trigger(n : Nat) : async* () {
+      for (i in Iter.range(1, n)) {
+        let ?(p, deposit, release) = depositRegistry.nextLock() else return;
+        underwayFunds_ += deposit;
+        let result = await* consolidate(p, release);
+        underwayFunds_ -= deposit;
+        assertIntegrity();
+        switch (result) {
+          case (#Err(#CallIcrc1LedgerError)) return;
+          case (_) {};
+        };
+      };
     };
 
     /// Processes the transfer of funds for withdrawal.

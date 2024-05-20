@@ -208,10 +208,11 @@ module {
       await* accountManager.depositFromAllowance(account, amount);
     };
 
-    /// Triggers the proccessing first encountered deposit.
-    public func trigger() : async* () {
+    /// Triggers the proccessing deposits.
+    /// n - desired number of potential consolidations.
+    public func trigger(n : Nat) : async* () {
       if isFrozen_ return;
-      await* accountManager.trigger();
+      await* accountManager.trigger(n);
     };
 
     /// Initiates a withdrawal by transferring tokens to another account.
