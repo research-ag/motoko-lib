@@ -36,6 +36,7 @@ module {
     ownPrincipal : Principal,
     journalCapacity : Nat,
     initialFee : Nat,
+    triggerOnNotifications : Bool,
   ) {
 
     /// Pause new notifications.
@@ -74,6 +75,7 @@ module {
       ownPrincipal,
       journal.push,
       initialFee,
+      triggerOnNotifications,
       freezeTokenHandler,
       creditRegistry.credit,
       creditRegistry.debit,
