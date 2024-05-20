@@ -4,7 +4,7 @@ import Prim "mo:prim";
 
 module {
   type V = { var value : Nat; var lock : Bool };
-  public type StableData<K> = (RBTree.Tree<K, V>, Nat, Nat);
+  public type StableData<K> = (RBTree.Tree<K, V>, Nat, Nat, Nat);
 
   public class NatMapWithLock<K>(compare : (K, K) -> Order.Order, initialMinimum : Nat) {
     let tree = RBTree.RBTree<K, V>(compare);
@@ -147,11 +147,12 @@ module {
       };
     };
 
-    public func share() : StableData<K> = (tree.share(), sum_, size_);
-    public func unshare((t, sum, size) : StableData<K>) {
+    public func share() : StableData<K> = (tree.share(), sum_, size_, minimum_);
+    public func unshare((t, sum, size, minimum) : StableData<K>) {
       tree.unshare(t);
       sum_ := sum;
       size_ := size;
+      minimum_ := minimum;
     };
   };
 };

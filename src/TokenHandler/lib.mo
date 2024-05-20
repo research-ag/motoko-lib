@@ -1,4 +1,3 @@
-import Result "mo:base/Result";
 import Principal "mo:base/Principal";
 import Int "mo:base/Int";
 import Text "mo:base/Text";
@@ -22,7 +21,7 @@ module {
     credit : Int;
   };
 
-  public func defaultStableData() : StableData = (((#leaf, 0, 0), 0, 0, 0), ([]), ([var], 0, 0));
+  public func defaultStableData() : StableData = (((#leaf, 0, 0, 1), 0, 0, 0, 0, 0, 0, 0, 0, 0), ([], 0), ([var], 0, 0));
 
   /// Converts `Principal` to `ICRC1.Subaccount`.
   public func toSubaccount(p : Principal) : ICRC1.Subaccount = Mapping.toSubaccount(p);
@@ -38,6 +37,12 @@ module {
     journalCapacity : Nat,
     initialFee : Nat,
   ) {
+
+    /// Pause new notifications.
+    public func pauseNotifications() = accountManager.pauseNotifications();
+
+    /// Unpause new notifications.
+    public func unpauseNotifications() = accountManager.unpauseNotifications();
 
     // Pass through the lookup counter from depositRegistry
     // TODO: Remove later
@@ -60,7 +65,7 @@ module {
     var journal = Journal.Journal(journalCapacity);
 
     /// Tracks credited funds (usable balance) associated with each principal.
-    let creditRegistry = CreditRegistry.CreditRegistry(journal.push);
+    let creditRegistry = CreditRegistry.CreditRegistry(ownPrincipal, journal.push);
 
     /// Manages accounts and funds for users.
     /// Handles deposit, withdrawal, and consolidation operations.
@@ -74,8 +79,17 @@ module {
       creditRegistry.debit,
     );
 
-    /// Returns the fee.
-    public func fee() : Nat = accountManager.fee();
+    /// Returns the ledger fee.
+    public func ledgerFee() : Nat = accountManager.ledgerFee();
+
+    /// Retrieves the admin-defined fee of the specific type.
+    public func definedFee(t : AccountManager.FeeType) : Nat = accountManager.definedFee(t);
+
+    /// Calculates the final fee of the specific type.
+    public func fee(t : AccountManager.FeeType) : Nat = accountManager.fee(t);
+
+    /// Defines the admin-defined fee of the specific type.
+    public func setFee(t : AccountManager.FeeType, value : Nat) = accountManager.setFee(t, value);
 
     /// Retrieves the admin-defined minimum of the specific type.
     public func definedMinimum(minimumType : AccountManager.MinimumType) : Nat = accountManager.definedMinimum(minimumType);
@@ -152,9 +166,22 @@ module {
     /// Gets the current credit amount associated with a specific principal.
     public func balance(p : Principal) : Int = creditRegistry.get(p);
 
+    /// Gets the current credit amount of the issuer account.
+    public func issuer() : Int = creditRegistry.issuer();
+
+    /// Deducts amount from the issuer account credit.
+    public func debitIssuer(amount : Nat) = creditRegistry.debitIssuer(amount);
+
+    /// Increases the current issuer account credit.
+    public func creditIssuer(amount : Nat) = creditRegistry.creditIssuer(amount);
+
     /// Deducts amount from P’s usable balance.
     /// With checking the availability of sufficient funds.
     public func debitStrict(p : Principal, amount : Nat) : Bool = creditRegistry.debitStrict(p, amount);
+
+    /// Adds amount to P’s credit.
+    /// With checking the availability of sufficient funds in the issuer account.
+    public func creditStrict(p : Principal, amount : Nat) : Bool = creditRegistry.creditStrict(p, amount);
 
     /// Deducts amount from P’s usable balance.
     /// Without checking the availability of sufficient funds.
@@ -172,6 +199,10 @@ module {
       ?(depositDelta, creditRegistry.get(p));
     };
 
+    public func depositFromAllowance(account : ICRC1.Account, amount : Nat) : async* AccountManager.DepositFromAllowanceResponse {
+      await* accountManager.depositFromAllowance(account, amount);
+    };
+
     /// Triggers the proccessing first encountered deposit.
     public func trigger() : async* () {
       if isFrozen_ return;
@@ -180,8 +211,26 @@ module {
 
     /// Initiates a withdrawal by transferring tokens to another account.
     /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
-    public func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<(transactionIndex : Nat, withdrawnAmount : Nat), ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
+    public func withdraw(to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
       await* accountManager.withdraw(to, amount);
+    };
+
+    /// Initiates a withdrawal by transferring tokens to another account.
+    /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
+    /// At the same time, it reduces the user's credit. Accordingly, amount < credit should be satisfied.
+    public func withdrawFromCredit(p : Principal, to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
+      if (amount > creditRegistry.get(p)) {
+        let err = #InsufficientCredit;
+        journal.push(ownPrincipal, #withdrawalError(err));
+        return #err(err);
+      };
+      let result = await* accountManager.withdraw(to, amount);
+      switch (result) {
+        // sync credit after successful withdrawal
+        case (#ok(_, _)) { creditRegistry.debit(p, amount) };
+        case (_) {};
+      };
+      result;
     };
 
     /// For testing purposes
