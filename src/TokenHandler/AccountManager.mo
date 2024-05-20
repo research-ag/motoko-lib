@@ -82,7 +82,7 @@ module {
   ) {
 
     /// If `true` new notifications are paused.
-    var notificationsOnPause : Bool = false;
+    var notificationsOnPause_ : Bool = false;
 
     /// Current ledger fee amount.
     var ledgerFee_ : Nat = initialFee;
@@ -125,11 +125,14 @@ module {
     /// Accumulated value.
     var totalDebited : Nat = 0;
 
+    /// Returns `true` when new notifications are paused.
+    public func notificationsOnPause() : Bool = notificationsOnPause_;
+
     /// Pause new notifications.
-    public func pauseNotifications() = notificationsOnPause := true;
+    public func pauseNotifications() = notificationsOnPause_ := true;
 
     /// Unpause new notifications.
-    public func unpauseNotifications() = notificationsOnPause := false;
+    public func unpauseNotifications() = notificationsOnPause_ := false;
 
     // Pass through the lookup counter from depositRegistry
     // TODO: Remove later
@@ -296,7 +299,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      if (notificationsOnPause) return null;
+      if (notificationsOnPause_) return null;
       let ?release = depositRegistry.obtainLock(p) else return null;
 
       let latestDeposit = try {

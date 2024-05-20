@@ -39,6 +39,9 @@ module {
     triggerOnNotifications : Bool,
   ) {
 
+    /// Returns `true` when new notifications are paused.
+    public func notificationsOnPause() : Bool = accountManager.notificationsOnPause();
+
     /// Pause new notifications.
     public func pauseNotifications() = accountManager.pauseNotifications();
 

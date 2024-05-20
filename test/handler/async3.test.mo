@@ -944,8 +944,11 @@ do {
   assert (await* handler.notify(user1)) == ?(0, 0);
   print("tree lookups = " # debug_show handler.lookups());
 
+  assert handler.notificationsOnPause() == false;
+
   // pause notifications
   handler.pauseNotifications();
+  assert handler.notificationsOnPause() == true;
 
   // notify with 0 balance
   assert (await* handler.notify(user1)) == null;
@@ -953,6 +956,7 @@ do {
 
   // unpause notifications
   handler.unpauseNotifications();
+  assert handler.notificationsOnPause() == false;
 
   // notify with 0 balance
   assert (await* handler.notify(user1)) == ?(0, 0);
