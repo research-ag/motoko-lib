@@ -36,7 +36,11 @@ module {
     ownPrincipal : Principal,
     journalCapacity : Nat,
     initialFee : Nat,
+    triggerOnNotifications : Bool,
   ) {
+
+    /// Returns `true` when new notifications are paused.
+    public func notificationsOnPause() : Bool = accountManager.notificationsOnPause();
 
     /// Pause new notifications.
     public func pauseNotifications() = accountManager.pauseNotifications();
@@ -74,6 +78,7 @@ module {
       ownPrincipal,
       journal.push,
       initialFee,
+      triggerOnNotifications,
       freezeTokenHandler,
       creditRegistry.credit,
       creditRegistry.debit,
@@ -203,10 +208,11 @@ module {
       await* accountManager.depositFromAllowance(account, amount);
     };
 
-    /// Triggers the proccessing first encountered deposit.
-    public func trigger() : async* () {
+    /// Triggers the proccessing deposits.
+    /// n - desired number of potential consolidations.
+    public func trigger(n : Nat) : async* () {
       if isFrozen_ return;
-      await* accountManager.trigger();
+      await* accountManager.trigger(n);
     };
 
     /// Initiates a withdrawal by transferring tokens to another account.

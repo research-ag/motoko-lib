@@ -75,13 +75,14 @@ module {
     ownPrincipal : Principal,
     log : (Principal, LogEvent) -> (),
     initialFee : Nat,
+    triggerOnNotifications : Bool,
     freezeCallback : (text : Text) -> (),
     credit_ : (Principal, Nat) -> (),
     debit_ : (Principal, Nat) -> (),
   ) {
 
     /// If `true` new notifications are paused.
-    var notificationsOnPause : Bool = false;
+    var notificationsOnPause_ : Bool = false;
 
     /// Current ledger fee amount.
     var ledgerFee_ : Nat = initialFee;
@@ -124,11 +125,14 @@ module {
     /// Accumulated value.
     var totalDebited : Nat = 0;
 
+    /// Returns `true` when new notifications are paused.
+    public func notificationsOnPause() : Bool = notificationsOnPause_;
+
     /// Pause new notifications.
-    public func pauseNotifications() = notificationsOnPause := true;
+    public func pauseNotifications() = notificationsOnPause_ := true;
 
     /// Unpause new notifications.
-    public func unpauseNotifications() = notificationsOnPause := false;
+    public func unpauseNotifications() = notificationsOnPause_ := false;
 
     // Pass through the lookup counter from depositRegistry
     // TODO: Remove later
@@ -295,7 +299,7 @@ module {
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit if successful.
     public func notify(p : Principal) : async* ?Nat {
-      if (notificationsOnPause) return null;
+      if (notificationsOnPause_) return null;
       let ?release = depositRegistry.obtainLock(p) else return null;
 
       let latestDeposit = try {
@@ -316,9 +320,11 @@ module {
       if (inc > 0) {
         log(p, #newDeposit(inc));
 
-        // schedule a canister self-call to initiate the consolidation
-        // we need try-catch so that we don't trap if scheduling fails synchronously
-        try ignore trigger() catch (_) {};
+        if (triggerOnNotifications) {
+          // schedule a canister self-call to initiate the consolidation
+          // we need try-catch so that we don't trap if scheduling fails synchronously
+          try { ignore async { await* trigger(1) } } catch (_) {};
+        };
       };
 
       return ?inc;
@@ -416,7 +422,10 @@ module {
     };
 
     /// Attempts to consolidate the funds for a particular principal.
-    func consolidate(p : Principal, release : ?Nat -> Int) : async* () {
+    func consolidate(p : Principal, release : ?Nat -> Int) : async* {
+      #Ok : Nat;
+      #Err : ICRC1.TransferError or { #CallIcrc1LedgerError };
+    } {
       let deposit = depositRegistry.erase(p);
       let originalCredit : Nat = deposit - fee(#deposit);
 
@@ -440,15 +449,24 @@ module {
           ignore process_deposit(p, deposit, release);
         };
       };
+
+      transferResult;
     };
 
-    /// Triggers the proccessing first encountered deposit.
-    public func trigger() : async* () {
-      let ?(p, deposit, release) = depositRegistry.nextLock() else return;
-      underwayFunds_ += deposit;
-      await* consolidate(p, release);
-      underwayFunds_ -= deposit;
-      assertIntegrity();
+    /// Triggers the proccessing deposits.
+    /// n - desired number of potential consolidations.
+    public func trigger(n : Nat) : async* () {
+      for (i in Iter.range(1, n)) {
+        let ?(p, deposit, release) = depositRegistry.nextLock() else return;
+        underwayFunds_ += deposit;
+        let result = await* consolidate(p, release);
+        underwayFunds_ -= deposit;
+        assertIntegrity();
+        switch (result) {
+          case (#Err(#CallIcrc1LedgerError)) return;
+          case (_) {};
+        };
+      };
     };
 
     /// Processes the transfer of funds for withdrawal.
