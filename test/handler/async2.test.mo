@@ -185,7 +185,6 @@ do {
   // let's verify
   assert handler.fee(#deposit) == 10; // #BadFee has been processed
   //assert handler.journalLength() == inc(5); // feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated
-  Debug.journal(handler, 0);
   assert handler.journalLength() == inc(6); // burned, feeUpdated, depositMinimumUpdated, withdrawalMinimumUpdated, depositFeeUpdated, withdrawalFeeUpdated
   // now everything is halted until we release the second response
   // we wait for the second response to be processed

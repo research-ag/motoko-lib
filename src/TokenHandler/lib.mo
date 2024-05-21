@@ -3,7 +3,6 @@ import Int "mo:base/Int";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Result "mo:base/Result";
-import Debug "mo:base/Debug";
 
 import Mapping "Mapping";
 import ICRC1 "ICRC1";
@@ -203,12 +202,8 @@ module {
     /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
     public func withdrawFromPool(to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
       // try to burn from pool
-      Debug.print("pool balance: " # debug_show creditRegistry.poolBalance());
-      Debug.print("burn from pool: " # debug_show amount);
       let success = creditRegistry.burn(#pool, amount);
-      Debug.print("success: " # debug_show success);
       if (not success) return #err(#InsufficientCredit);
-      Debug.print("burned");
       let result = await* accountManager.withdraw(to, amount);
       if (Result.isErr(result)) {
         // re-issue credit if unsuccessful
@@ -221,7 +216,7 @@ module {
     /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
     /// At the same time, it reduces the user's credit. Accordingly, amount <= credit should be satisfied.
     public func withdrawFromCredit(p : Principal, to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
-      // try to burn from pool
+      // try to burn from user
       creditRegistry.burn(#user p, amount)
       |> (if (not _) {
         let err = #InsufficientCredit;

@@ -34,7 +34,6 @@ module {
     #consolidationError : ICRC1.TransferError or ICRC1.TransferFromError or {
       #CallIcrc1LedgerError;
       #TooLowQuantity;
-      #InsufficientCredit;
     };
     #withdraw : { to : ICRC1.Account; amount : Nat };
     #withdrawalError : WithdrawError;

@@ -69,7 +69,7 @@ module {
     };
 
     // Issue credit to any user (or burn from user)
-    // This is called on deposits or withdrawals
+    // This is called on deposits or recalculation
     // No check is performed, balances can go negative as a result
     public func issue(account : Account, amount : Int) {
       switch (account) {
@@ -84,9 +84,9 @@ module {
       };
     };
 
-    // Burn credit from the pool
+    // Burn credit from a user or the pool
     // This is called on withdrawals
-    // A check is performed, pool balance can not go negative
+    // A check is performed, balances can not go negative
     public func burn(account : Account, amount : Nat) : Bool {
       let success = transfer(account, #burn, amount);
       if (success) switch (account) {
