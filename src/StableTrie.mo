@@ -58,13 +58,13 @@ module {
     let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_;
 
     assert Nat64.bitcountNonZero(root_aridity_) == 1; // 2-power
-    let root_bitlength_ = Nat64.bitcountTrailingZero(root_aridity_);
+    let root_bitlength_ : Nat64 = Nat64.bitcountTrailingZero(root_aridity_);
     assert root_bitlength_ > 0 and root_bitlength_ % bitlength_ == 0; // => root_bitlength_ >= bitlength_
     assert root_bitlength_ <= key_size_ * 8;
 
-    let root_depth = Nat32.toNat16(Nat64.toNat32(root_bitlength_ / bitlength_));
-    let root_bitlength = Nat32.toNat16(Nat64.toNat32(root_bitlength_));
-    
+    let root_depth : Nat16 = Nat32.toNat16(Nat64.toNat32(root_bitlength_ / bitlength_));
+    let root_bitlength : Nat16 = Nat32.toNat16(Nat64.toNat32(root_bitlength_));
+
     let node_size : Nat64 = aridity_ * pointer_size_;
     let leaf_size : Nat64 = key_size_ + value_size_;
     let root_size : Nat64 = root_aridity_ * pointer_size_;
@@ -94,7 +94,7 @@ module {
             var freeSpace = 0;
           };
 
-          let ret = { nodes = nodes; leaves = leaves; };
+          let ret = { nodes = nodes; leaves = leaves };
           regions_ := ?ret;
           ret;
         };
@@ -138,7 +138,7 @@ module {
       Region.loadNat64(region.region, getOffset(node, index)) & loadMask;
     };
 
-    public func setChild(region_: Region, node : Nat64, index : Nat64, child : Nat64) {
+    public func setChild(region_ : Region, node : Nat64, index : Nat64, child : Nat64) {
       let offset = getOffset(node, index);
       let region = region_.region;
       switch (pointer_size_) {
@@ -171,39 +171,43 @@ module {
       let next_byte = key.vals().next;
       var byte : Nat16 = 0;
 
-      func _next() : Nat64 {
-        if (byte == 0) {
-          if (depth == 0) {
-            var skipBits = root_bitlength;
-            var length : Nat64 = 0;
-            var result : Nat64 = 0;
-            while (skipBits >= 8) {
-              let b = unwrap(next_byte());
-              result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
-              length +%= 8;
-              skipBits -%= 8;
-            };
-            let first = unwrap(next_byte());
-            result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first) & ((1 << skipBits) - 1)))) << length;
-            byte := (Nat8.toNat16(first) | 256) >> skipBits;
-            return result;
-          } else {
-            var skipBits : Nat16 = depth * bitlength;
-            while (skipBits >= 8) {
-              ignore next_byte();
-              skipBits -%= 8;
-            };
-            let first = unwrap(next_byte());
-            byte := (Nat8.toNat16(first) | 256) >> skipBits;
-          };
+      if (depth != 0) {
+        // skip over some bits and discard them
+        var skipBits : Nat16 = depth * bitlength;
+        while (skipBits >= 8) {
+          ignore next_byte();
+          skipBits -%= 8;
         };
+        let first = Nat8.toNat16(unwrap(next_byte()));
+        byte := (first | 256) >> skipBits;
+      };
+
+      func _next() : Nat64 {
+        // if applicable, calculate the root index
+        if (depth == 0 and byte == 0) {
+          var skipBits : Nat16 = root_bitlength;
+          var length : Nat64 = 0;
+          var root_index : Nat64 = 0;
+          while (skipBits >= 8) {
+            let b = unwrap(next_byte());
+            root_index |= Nat64.fromIntWrap(Nat8.toNat(b)) << length;
+            length +%= 8;
+            skipBits -%= 8;
+          };
+          let first = Nat8.toNat16(unwrap(next_byte()));
+          root_index |= Nat64.fromIntWrap(Nat16.toNat(first & 0xff00 <<> skipBits)) << length;
+          byte := (first | 256) >> skipBits;
+          return root_index;
+        };
+        // if byte has been used up then read the next byte
         if (byte == 1) {
           let b = unwrap(next_byte());
           byte := Nat8.toNat16(b) | 256;
         };
+        // extract the next index from the current byte
         let ret = byte & bitmask;
         byte >>= bitlength;
-        return Nat32.toNat64(Nat16.toNat32(ret));
+        return Nat64.fromIntWrap(Nat16.toNat(ret));
       };
     };
 
