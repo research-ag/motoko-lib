@@ -8,6 +8,7 @@ import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
+import Result "mo:base/Result";
 import StableTrie "../src/StableTrie";
 
 let n = 2 ** 11;
@@ -36,14 +37,17 @@ for (bit in bits.vals()) {
   for (pointer in pointers.vals()) {
     let trie = StableTrie.StableTrie(pointer, bit, bit * bit * bit, key_size, 0);
 
+    var i = 0;
     for (key in keys.vals()) {
-      assert trie.add(key, "");
+      assert trie.add(key, "") == #ok(i);
+      i += 1;
     };
 
     // trie.print();
-
+    i := 0;
     for (key in keys.vals()) {
-      assert (trie.get(key) == ?"");
+      assert (trie.get(key) == ?("", i));
+      i += 1;
     };
 
     for (key in keysAbsent.vals()) {
@@ -77,7 +81,7 @@ func profile() {
             ignore trie.add(keys[0], "");
           } else {
             for (j in Iter.range(2 ** (i - 1), 2 ** i - 1)) {
-              assert trie.add(keys[j], "");
+              assert Result.isOk(trie.add(keys[j], ""));
             };
           };
           "";

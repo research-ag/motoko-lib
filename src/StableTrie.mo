@@ -6,6 +6,7 @@ import Nat16 "mo:base/Nat16";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
+import Result "mo:base/Result";
 
 module {
   type Region = {
@@ -56,6 +57,7 @@ module {
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
     let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_;
+    let max_address = 2 ** (pointer_size_ * 8 - 1);
 
     assert Nat64.bitcountNonZero(root_aridity_) == 1; // 2-power
     let root_bitlength_ = Nat64.bitcountTrailingZero(root_aridity_);
@@ -64,7 +66,7 @@ module {
 
     let root_depth = Nat32.toNat16(Nat64.toNat32(root_bitlength_ / bitlength_));
     let root_bitlength = Nat32.toNat16(Nat64.toNat32(root_bitlength_));
-    
+
     let node_size : Nat64 = aridity_ * pointer_size_;
     let leaf_size : Nat64 = key_size_ + value_size_;
     let root_size : Nat64 = root_aridity_ * pointer_size_;
@@ -94,7 +96,7 @@ module {
             var freeSpace = 0;
           };
 
-          let ret = { nodes = nodes; leaves = leaves; };
+          let ret = { nodes = nodes; leaves = leaves };
           regions_ := ?ret;
           ret;
         };
@@ -110,13 +112,17 @@ module {
       region.freeSpace -%= n;
     };
 
-    func newInternalNode(region : Region) : Nat64 {
+    func newInternalNode(region : Region) : ?Nat64 {
+      if (node_count == max_address) return null;
+
       allocate(region, node_size);
       node_count +%= 1;
-      node_count << 1;
+      ?(node_count << 1);
     };
 
-    func newLeaf(region : Region, key : Blob, value : Blob) : Nat64 {
+    func newLeaf(region : Region, key : Blob, value : Blob) : ?Nat64 {
+      if (leaf_count == max_address) return null;
+
       allocate(region, leaf_size);
       let lc = leaf_count;
       let pos = leaf_count *% leaf_size;
@@ -125,7 +131,7 @@ module {
       if (not empty_values) {
         Region.storeBlob(region.region, pos +% key_size_, value);
       };
-      (lc << 1) | 1;
+      ?((lc << 1) | 1);
     };
 
     func getOffset(node : Nat64, index : Nat64) : Nat64 {
@@ -138,7 +144,7 @@ module {
       Region.loadNat64(region.region, getOffset(node, index)) & loadMask;
     };
 
-    public func setChild(region_: Region, node : Nat64, index : Nat64, child : Nat64) {
+    public func setChild(region_ : Region, node : Nat64, index : Nat64, child : Nat64) {
       let offset = getOffset(node, index);
       let region = region_.region;
       switch (pointer_size_) {
@@ -204,8 +210,8 @@ module {
       };
     };
 
-    public func add(key : Blob, value : Blob) : Bool {
-      assert node_count <= max_nodes;
+    public func add(key : Blob, value : Blob) : Result.Result<Nat, { #LimitExceeded }> {
+      assert key.size() == key_size and value.size() == value_size;
       let { leaves; nodes } = regions();
 
       var node : Nat64 = 0;
@@ -217,8 +223,10 @@ module {
         let idx = next_idx();
         switch (getChild(nodes, node, idx)) {
           case (0) {
-            setChild(nodes, node, idx, newLeaf(leaves, key, value));
-            return true;
+            let ?leaf = newLeaf(leaves, key, value) else return #err(#LimitExceeded);
+            
+            setChild(nodes, node, idx, leaf);
+            return #ok(Nat64.toNat(leaf >> 1));
           };
           case (n) {
             if (n & 1 == 1) {
@@ -233,12 +241,15 @@ module {
 
       let old_key = getKey(leaves, old_leaf);
       if (key == old_key) {
-        return false;
+        return #ok(Nat64.toNat(old_leaf >> 1));
       };
 
       let next_old_idx = keyToIndices(old_key, depth);
       label l loop {
-        let add = newInternalNode(nodes);
+        let ?add = newInternalNode(nodes) else {
+          setChild(nodes, node, last, old_leaf);
+          return #err(#LimitExceeded);
+        };
         setChild(nodes, node, last, add);
         node := add;
 
@@ -246,15 +257,17 @@ module {
         if (a == b) {
           last := a;
         } else {
-          setChild(nodes, node, a, newLeaf(leaves, key, value));
           setChild(nodes, node, b, old_leaf);
-          break l;
+          let ?leaf = newLeaf(leaves, key, value) else return #err(#LimitExceeded);
+          setChild(nodes, node, a, leaf);
+          return #ok(Nat64.toNat(leaf >> 1));
         };
       };
-      true;
+      Debug.trap("Unreacheable");
     };
 
-    public func get(key : Blob) : ?Blob {
+    public func get(key : Blob) : ?(Blob, Nat) {
+      assert key.size() == key_size;
       let { leaves; nodes } = regions();
       let next_idx = keyToIndices(key, 0);
 
@@ -267,7 +280,7 @@ module {
           };
           case (n) {
             if (n & 1 == 1) {
-              if (getKey(leaves, n) == key) return ?value(leaves, n) else return null;
+              return if (getKey(leaves, n) == key) ?(value(leaves, n), Nat64.toNat(n >> 1)) else null;
             };
             n;
           };
