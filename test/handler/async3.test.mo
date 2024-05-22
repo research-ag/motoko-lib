@@ -368,7 +368,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0, false);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -385,7 +385,7 @@ do {
   assert (await* handler.notify(user2)) == ?(300, 295); // deposit = 300, credit = 295
   assert handler.journalLength() == inc(2); // #newDeposit, #credited
   await ledger.mock.set_response([#Ok 42]);
-  await* handler.trigger();
+  await* handler.trigger(1);
   await ledger.mock.set_balance(0);
   assert state(handler) == (0, 295, 0); // consolidation successful
   assert handler.journalLength() == inc(1); // #consolidated
@@ -400,7 +400,7 @@ do {
 
   // trigger consolidation
   await ledger.mock.set_response([#Ok 42]);
-  await* handler.trigger();
+  await* handler.trigger(1);
   await ledger.mock.set_balance(0);
   assert state(handler) == (0, 310, 0); // consolidation successful
   assert handler.journalLength() == inc(1); // #consolidated
@@ -761,7 +761,7 @@ do {
 };
 
 do {
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0, false);
   await ledger.mock.reset_state();
   let (inc, _) = create_inc();
 
@@ -1105,7 +1105,7 @@ do {
   assert (await* handler.notify(user1)) == ?(6, 1); // deposit = 6, credit = 1
   assert state(handler) == (6, 0, 1);
   assert handler.journalLength() == inc(2); // #newDeposit, #credited
-  print("tree lookups = " # debug_show handler.lookups());
+  print("tree lookups = " # debug_show handler.lookups_());
 
   // wait for consolidation
   await async {};
