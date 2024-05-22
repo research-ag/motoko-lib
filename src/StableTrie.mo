@@ -186,14 +186,11 @@ module {
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
             return result;
           } else {
-            var skipBits : Nat16 = depth * bitlength;
-            while (skipBits >= 8) {
-              i += 1;
-              skipBits -%= 8;
-            };
+            let bitdepth = depth * bitlength;
+            i += Nat16.toNat(bitdepth >> 3);
             let first = bytes[i];
             i += 1;
-            byte := (Nat8.toNat16(first) | 256) >> skipBits;
+            byte := (Nat8.toNat16(first) | 256) >> (bitdepth & 0x7);
           };
         };
         if (byte == 1) {
