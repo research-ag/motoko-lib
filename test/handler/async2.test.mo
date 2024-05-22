@@ -35,6 +35,8 @@ let ledger = object {
 };
 let anon_p = Principal.fromBlob("");
 let user1 = Principal.fromBlob("1");
+let user2 = Principal.fromBlob("2");
+let user3 = Principal.fromBlob("3");
 
 func create_inc() : (Nat -> Nat, () -> Nat) {
   var ctr = 0;
@@ -69,7 +71,7 @@ module Debug {
 do {
   print("new test: change fee plus notify");
   // fresh handler
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0, false);
   let (inc, _) = create_inc();
   // stage a response
   let (release, status) = ledger.fee_.stage(?5);
@@ -90,11 +92,11 @@ do {
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
   assert state(handler) == (20, 0, 1);
   ledger.transfer_.stage(null).0 (); // error response
-  await* handler.trigger();
+  await* handler.trigger(1);
   assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
   assert state(handler) == (20, 0, 1);
   ledger.transfer_.stage(?(#Ok 0)).0 ();
-  await* handler.trigger();
+  await* handler.trigger(1);
   assert handler.journalLength() == inc(1); // #credited
   assert state(handler) == (0, 15, 0);
 };
@@ -104,14 +106,14 @@ do {
   // make sure no staged responses are left from previous tests
   assert ledger.isEmpty();
   // fresh handler
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0, false);
   let (inc, _) = create_inc();
   // giver user1 credit and put funds into the consolidated balance
   ledger.balance_.stage(?20).0 ();
   ledger.transfer_.stage(?(#Ok 0)).0 ();
   assert (await* handler.notify(user1)) == ?(20, 20); // (deposit, credit)
   assert handler.journalLength() == inc(2); // #credited, #newDeposit
-  await* handler.trigger();
+  await* handler.trigger(1);
   assert handler.journalLength() == inc(1); // #consolidated
   // stage a response
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
@@ -161,7 +163,7 @@ do {
   // make sure no staged responses are left from previous tests
   assert ledger.isEmpty();
   // fresh handler
-  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0);
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0, false);
   let (inc, _) = create_inc();
   // give user1 20 credits
   handler.issue_(#user user1, 20);
@@ -196,4 +198,92 @@ do {
   assert handler.journalLength() == inc(1); // #withdraw
   // we do not have to await fut anymore, but we can:
   assert (await fut) == #ok(0, 1);
+};
+
+do {
+  print("new test: multiple consolidations trigger");
+
+  let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0, false);
+  let (inc, _) = create_inc();
+
+  // update fee first time
+  ledger.fee_.stage(?5).0 ();
+  ignore await* handler.fetchFee();
+  assert handler.fee(#deposit) == 5;
+  assert handler.journalLength() == inc(5); // #feeUpdated, #depositFeeUpdated, #withdrawalFeeUpdated, #depositMinimumUpdated, #withdrawalMinimumUpdated
+
+  // user1 notify with balance > fee
+  ledger.balance_.stage(?6).0 ();
+  assert (await* handler.notify(user1)) == ?(6, 1);
+  assert state(handler) == (6, 0, 1);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+
+  // user2 notify with balance > fee
+  ledger.balance_.stage(?10).0 ();
+  assert (await* handler.notify(user2)) == ?(10, 5);
+  assert state(handler) == (16, 0, 2);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+
+  // trigger only 1 consolidation
+  do {
+    let (release, status) = ledger.transfer_.stage(?(#Ok 0));
+    release();
+    await* handler.trigger(1);
+    assert status() == #ready;
+    assert state(handler) == (10, 1, 1); // user1 funds consolidated
+    assert handler.journalLength() == inc(1); // #consolidated
+  };
+
+  // user1 notify again
+  ledger.balance_.stage(?6).0 ();
+  assert (await* handler.notify(user1)) == ?(6, 2);
+  assert state(handler) == (16, 1, 2);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+
+  // trigger consolidation of all the deposits
+  // n >= deposit_number
+  do {
+    let (release1, status1) = ledger.transfer_.stage(?(#Ok 0));
+    let (release2, status2) = ledger.transfer_.stage(?(#Ok 0));
+    ignore (release1(), release2());
+    await* handler.trigger(10);
+    assert (status1(), status2()) == (#ready, #ready);
+    assert state(handler) == (0, 7, 0); // all deposits consolidated
+    assert handler.journalLength() == inc(2); // #consolidated, #consolidated
+  };
+
+  // user1 notify again
+  ledger.balance_.stage(?6).0 ();
+  assert (await* handler.notify(user1)) == ?(6, 3);
+  assert state(handler) == (6, 7, 1);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+
+  // user2 notify again
+  ledger.balance_.stage(?10).0 ();
+  assert (await* handler.notify(user2)) == ?(10, 10);
+  assert state(handler) == (16, 7, 2);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+
+  // user3 notify with balance > fee
+  ledger.balance_.stage(?8).0 ();
+  assert (await* handler.notify(user3)) == ?(8, 3);
+  assert state(handler) == (24, 7, 3);
+  assert handler.journalLength() == inc(2); // #newDeposit, #credited
+
+  // trigger consolidation of all the deposits (n >= deposit_number)
+  // with error calling the ledger on the 2nd deposit
+  // so the consolidation loop must be stopped after attempting to consolidate the 2nd deposit
+  do {
+    let (release1, status1) = ledger.transfer_.stage(?(#Ok 0));
+    let (release2, status2) = ledger.transfer_.stage(null);
+    let (release3, status3) = ledger.transfer_.stage(?(#Ok 0));
+    ignore (release1(), release2(), release3());
+    await* handler.trigger(10);
+    assert (status1(), status2(), status3()) == (#ready, #ready, #staged);
+    assert state(handler) == (18, 8, 2); // only user1 deposit consolidated
+    assert handler.journalLength() == inc(4); // #consolidated, #consolidationError, #debited, #credited
+  };
+
+  handler.assertIntegrity();
+  assert not handler.isFrozen();
 };
