@@ -162,51 +162,31 @@ module {
       Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
 
-    func unwrap(x : ?Nat8) : Nat8 {
-      let ?val = x else Debug.trap("shoud not happen");
-      val;
-    };
-
     func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
-      let next_byte = key.vals().next;
-      var byte : Nat16 = 0;
-
-      if (depth != 0) {
-        // skip over some bits and discard them
-        var skipBits : Nat16 = depth * bitlength;
-        while (skipBits >= 8) {
-          ignore next_byte();
-          skipBits -%= 8;
-        };
-        let first = Nat8.toNat16(unwrap(next_byte()));
-        byte := (first | 256) >> skipBits;
-      };
+      let bytes = Blob.toArray(key);
+      var pos : Nat16 = depth * bitlength;
 
       func _next() : Nat64 {
         // if applicable, calculate the root index
-        if (depth == 0 and byte == 0) {
-          var skipBits : Nat16 = root_bitlength;
-          var length : Nat64 = 0;
-          var root_index : Nat64 = 0;
-          while (skipBits >= 8) {
-            let b = unwrap(next_byte());
-            root_index |= Nat64.fromIntWrap(Nat8.toNat(b)) << length;
-            length +%= 8;
-            skipBits -%= 8;
+        if (depth == 0 and pos == 0) {
+          pos := root_bitlength;
+          // read last byte first
+          var byte_pos : Nat16 = pos >> 3;
+          let last_byte = Nat8.toNat16(bytes[Nat16.toNat(byte_pos)]);
+          let masked = last_byte & (0xff00 <<> (pos & 0x7));
+          var root_index = Nat64.fromIntWrap(Nat16.toNat(masked));
+          // read full bytes in reverse order
+          while (byte_pos > 0) {
+            byte_pos -%= 1;
+            root_index <<= 8;
+            root_index |= Nat64.fromIntWrap(Nat8.toNat(bytes[Nat16.toNat(byte_pos)]));
           };
-          let first = Nat8.toNat16(unwrap(next_byte()));
-          root_index |= Nat64.fromIntWrap(Nat16.toNat(first & 0xff00 <<> skipBits)) << length;
-          byte := (first | 256) >> skipBits;
+          // return result
           return root_index;
         };
-        // if byte has been used up then read the next byte
-        if (byte == 1) {
-          let b = unwrap(next_byte());
-          byte := Nat8.toNat16(b) | 256;
-        };
-        // extract the next index from the current byte
-        let ret = byte & bitmask;
-        byte >>= bitlength;
+        // calculate next non-root index
+        let ret = (Nat8.toNat16(bytes[Nat16.toNat(pos >> 3)]) >> (pos & 0x7)) & bitmask;
+        pos +%= bitlength;
         return Nat64.fromIntWrap(Nat16.toNat(ret));
       };
     };
