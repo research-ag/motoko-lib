@@ -56,7 +56,6 @@ module {
     };
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
-    let max_nodes = 2 ** (pointer_size_ * 8 - 1) - key_size_ * 8 / bitlength_;
     let max_address = 2 ** (pointer_size_ * 8 - 1);
 
     assert Nat64.bitcountNonZero(root_aridity_) == 1; // 2-power
@@ -168,7 +167,7 @@ module {
       Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
 
-    func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
+    public func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
       let bytes = Blob.toArray(key);
       var i = 0;
       var byte : Nat16 = 0;
