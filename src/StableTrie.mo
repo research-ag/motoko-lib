@@ -162,13 +162,9 @@ module {
       Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
 
-    func unwrap(x : ?Nat8) : Nat8 {
-      let ?val = x else Debug.trap("shoud not happen");
-      val;
-    };
-
     func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
-      let next_byte = key.vals().next;
+      let bytes = Blob.toArray(key);
+      var i = 0;
       var byte : Nat16 = 0;
 
       func _next() : Nat64 {
@@ -178,27 +174,31 @@ module {
             var length : Nat64 = 0;
             var result : Nat64 = 0;
             while (skipBits >= 8) {
-              let b = unwrap(next_byte());
+              let b = bytes[i];
+              i += 1;
               result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
               length +%= 8;
               skipBits -%= 8;
             };
-            let first = unwrap(next_byte());
+            let first = bytes[i];
+            i += 1;
             result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(first) & ((1 << skipBits) - 1)))) << length;
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
             return result;
           } else {
             var skipBits : Nat16 = depth * bitlength;
             while (skipBits >= 8) {
-              ignore next_byte();
+              i += 1;
               skipBits -%= 8;
             };
-            let first = unwrap(next_byte());
+            let first = bytes[i];
+            i += 1;
             byte := (Nat8.toNat16(first) | 256) >> skipBits;
           };
         };
         if (byte == 1) {
-          let b = unwrap(next_byte());
+          let b = bytes[i];
+          i += 1;
           byte := Nat8.toNat16(b) | 256;
         };
         let ret = byte & bitmask;
