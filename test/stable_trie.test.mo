@@ -95,15 +95,21 @@ for (bit in bits.vals()) {
       i += 1;
     };
 
+    i := 0;
+    for (key in keys.vals()) {
+      assert trie.get(i) == ?(key, "");
+      i += 1;
+    };
+
     // trie.print();
     i := 0;
     for (key in keys.vals()) {
-      assert (trie.get(key) == ?("", i));
+      assert (trie.lookup(key) == ?("", i));
       i += 1;
     };
 
     for (key in keysAbsent.vals()) {
-      assert trie.get(key) == null;
+      assert trie.lookup(key) == null;
     };
   };
 };

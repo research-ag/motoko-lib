@@ -162,7 +162,7 @@ module {
       Region.loadBlob(region.region, (offset >> 1) * leaf_size, key_size);
     };
 
-    public func value(region : Region, offset : Nat64) : Blob {
+    public func getValue(region : Region, offset : Nat64) : Blob {
       if (empty_values) return "";
       Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
@@ -265,7 +265,7 @@ module {
       Debug.trap("Unreacheable");
     };
 
-    public func get(key : Blob) : ?(Blob, Nat) {
+    public func lookup(key : Blob) : ?(Blob, Nat) {
       assert key.size() == key_size;
       let { leaves; nodes } = regions();
       let next_idx = keyToIndices(key, 0);
@@ -279,7 +279,7 @@ module {
           };
           case (n) {
             if (n & 1 == 1) {
-              return if (getKey(leaves, n) == key) ?(value(leaves, n), Nat64.toNat(n >> 1)) else null;
+              return if (getKey(leaves, n) == key) ?(getValue(leaves, n), Nat64.toNat(n >> 1)) else null;
             };
             n;
           };
@@ -288,6 +288,14 @@ module {
 
       assert false;
       null;
+    };
+
+    public func get(index : Nat) : ?(Blob, Blob) {
+      let { leaves } = regions();
+      let index_ = Nat64.fromNat(index);
+      if (index_ >= leaf_count) return null;
+      let offset = index_ << 1;
+      ?(getKey(leaves, offset), getValue(leaves, offset));
     };
 
     public func size() : Nat = Nat64.toNat(root_size + node_count * node_size + leaf_count * leaf_size);
