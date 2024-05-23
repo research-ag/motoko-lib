@@ -89,15 +89,15 @@ do {
   // stage a response and release it immediately
   ledger.balance_.stage(?20).0 ();
   assert (await* handler.notify(user1)) == ?(20, 15); // (deposit, credit)
-  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert handler.journalLength() == inc(2); // #issued, #newDeposit
   assert state(handler) == (20, 0, 1);
   ledger.transfer_.stage(null).0 (); // error response
   await* handler.trigger(1);
-  assert handler.journalLength() == inc(3); // #consolidationError, #debited, #credited
+  assert handler.journalLength() == inc(3); // #consolidationError, #issued, #issued
   assert state(handler) == (20, 0, 1);
   ledger.transfer_.stage(?(#Ok 0)).0 ();
   await* handler.trigger(1);
-  assert handler.journalLength() == inc(1); // #credited
+  assert handler.journalLength() == inc(1); // #issued
   assert state(handler) == (0, 15, 0);
 };
 
@@ -112,7 +112,7 @@ do {
   ledger.balance_.stage(?20).0 ();
   ledger.transfer_.stage(?(#Ok 0)).0 ();
   assert (await* handler.notify(user1)) == ?(20, 20); // (deposit, credit)
-  assert handler.journalLength() == inc(2); // #credited, #newDeposit
+  assert handler.journalLength() == inc(2); // #issued, #newDeposit
   await* handler.trigger(1);
   assert handler.journalLength() == inc(1); // #consolidated
   // stage a response
@@ -167,7 +167,7 @@ do {
   let (inc, _) = create_inc();
   // give user1 20 credits
   handler.issue_(#user user1, 20);
-  assert handler.journalLength() == inc(1); // #credited
+  assert handler.journalLength() == inc(1); // #issued
   // stage two responses
   let (release, state) = ledger.transfer_.stage(?(#Err(#BadFee { expected_fee = 10 })));
   let (release2, state2) = ledger.transfer_.stage(?(#Ok 0));
