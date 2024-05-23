@@ -55,7 +55,7 @@ module Debug {
 do {
   let handler = TokenHandler.TokenHandler(ledger, anon_p, 1000, 0, false);
   await ledger.mock.reset_state();
-  let (inc, ctr_) = create_inc();
+  let (inc, _) = create_inc();
 
   // init state
   assert handler.ledgerFee() == 0;
@@ -92,9 +92,7 @@ do {
   await ledger.mock.set_fee(6);
   ignore await* handler.fetchFee();
   assert state(handler) == (0, 0, 0); // recalculation after fee update
-  let ctr = ctr_();
   assert handler.journalLength() == inc(6); // #feeUpdated, #issued, #depositMinimumUpdated, #withdrawalMinimumUpdated, #depositFeeUpdated, #withdrawalFeeUpdated
-  Debug.journal(handler, ctr);
   print("tree lookups = " # debug_show handler.lookups_());
 
   // increase deposit again
