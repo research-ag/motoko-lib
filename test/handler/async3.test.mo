@@ -20,7 +20,6 @@ let user1 = Principal.fromBlob("1");
 let user2 = Principal.fromBlob("2");
 let account = { owner = Principal.fromBlob("o"); subaccount = null };
 let user1_account = { owner = user1; subaccount = null };
-//let account = { owner = Principal.fromBlob("1"); subaccount = null };
 
 func create_inc() : (Nat -> Nat, () -> Nat) {
   var ctr = 0;
