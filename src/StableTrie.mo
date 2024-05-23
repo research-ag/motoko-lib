@@ -89,6 +89,7 @@ module {
           let pages = (root_size + padding + 65536 - 1) / 65536 + 1;
           assert Region.grow(nodes.region, pages) != 0xFFFF_FFFF_FFFF_FFFF;
           nodes.freeSpace := pages * 65536 - root_size - padding;
+          node_count := 1;
 
           let leaves : Region = {
             region = Region.new();
@@ -115,8 +116,9 @@ module {
       if (node_count == max_address) return null;
 
       allocate(region, node_size);
+      let nc = node_count;
       node_count +%= 1;
-      ?(node_count << 1);
+      ?(nc << 1);
     };
 
     func newLeaf(region : Region, key : Blob, value : Blob) : ?Nat64 {
@@ -298,7 +300,7 @@ module {
       ?(getKey(leaves, offset), getValue(leaves, offset));
     };
 
-    public func size() : Nat = Nat64.toNat(root_size + node_count * node_size + leaf_count * leaf_size);
+    public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
