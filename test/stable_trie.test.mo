@@ -101,8 +101,6 @@ for (bit in bits.vals()) {
       i += 1;
     };
 
-    // trie.print();
-    i := 0;
     for (key in keys.vals()) {
       assert (trie.lookup(key) == ?("", i));
       i += 1;

@@ -110,6 +110,7 @@ module {
         region.freeSpace +%= 65536;
       };
       region.freeSpace -%= n;
+      region.freeSpace -%= n;
     };
 
     func newInternalNode(region : Region) : ?Nat64 {
@@ -130,6 +131,7 @@ module {
       leaf_count +%= 1;
       Region.storeBlob(region.region, pos, key);
       if (not empty_values) {
+        Region.storeBlob(region.region, pos +% key_size_, value);
         Region.storeBlob(region.region, pos +% key_size_, value);
       };
       ?((lc << 1) | 1);
@@ -162,10 +164,13 @@ module {
 
     public func getKey(region : Region, offset : Nat64) : Blob {
       Region.loadBlob(region.region, (offset >> 1) * leaf_size, key_size);
+    public func getKey(region : Region, offset : Nat64) : Blob {
+      Region.loadBlob(region.region, (offset >> 1) * leaf_size, key_size);
     };
 
     public func getValue(region : Region, offset : Nat64) : Blob {
       if (empty_values) return "";
+      Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
       Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
 
@@ -304,6 +309,7 @@ module {
 
     public func leafCount() : Nat = Nat64.toNat(leaf_count);
 
+    public func nodeCount() : Nat = Nat64.toNat(node_count);
     public func nodeCount() : Nat = Nat64.toNat(node_count);
 
     public func share() : StableData = (regions(), node_count, leaf_count);

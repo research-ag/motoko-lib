@@ -1,8 +1,8 @@
-import Result "mo:base/Result";
 import Principal "mo:base/Principal";
 import Int "mo:base/Int";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
+import Result "mo:base/Result";
 
 import Mapping "Mapping";
 import ICRC1 "ICRC1";
@@ -22,7 +22,7 @@ module {
     credit : Int;
   };
 
-  public func defaultStableData() : StableData = (((#leaf, 0, 0), 0, 0, 0), ([]), ([var], 0, 0));
+  public func defaultStableData() : StableData = (((#leaf, 0, 0, 1), 0, 0, 0, 0, 0, 0, 0, 0, 0), ([], 0), ([var], 0, 0));
 
   /// Converts `Principal` to `ICRC1.Subaccount`.
   public func toSubaccount(p : Principal) : ICRC1.Subaccount = Mapping.toSubaccount(p);
@@ -37,11 +37,21 @@ module {
     ownPrincipal : Principal,
     journalCapacity : Nat,
     initialFee : Nat,
+    triggerOnNotifications : Bool,
   ) {
+
+    /// Returns `true` when new notifications are paused.
+    public func notificationsOnPause() : Bool = accountManager.notificationsOnPause();
+
+    /// Pause new notifications.
+    public func pauseNotifications() = accountManager.pauseNotifications();
+
+    /// Unpause new notifications.
+    public func unpauseNotifications() = accountManager.unpauseNotifications();
 
     // Pass through the lookup counter from depositRegistry
     // TODO: Remove later
-    public func lookups() : Nat = accountManager.lookups();
+    public func lookups_() : Nat = accountManager.lookups();
 
     /// If some unexpected error happened, this flag turns true and handler stops doing anything until recreated.
     var isFrozen_ : Bool = false;
@@ -69,13 +79,22 @@ module {
       ownPrincipal,
       journal.push,
       initialFee,
+      triggerOnNotifications,
       freezeTokenHandler,
-      creditRegistry.credit,
-      creditRegistry.debit,
+      func (p : Principal, x : Int) { creditRegistry.issue(#user p, x) },
     );
 
-    /// Returns the fee.
-    public func fee() : Nat = accountManager.fee();
+    /// Returns the ledger fee.
+    public func ledgerFee() : Nat = accountManager.ledgerFee();
+
+    /// Retrieves the admin-defined fee of the specific type.
+    public func definedFee(t : AccountManager.FeeType) : Nat = accountManager.definedFee(t);
+
+    /// Calculates the final fee of the specific type.
+    public func fee(t : AccountManager.FeeType) : Nat = accountManager.fee(t);
+
+    /// Defines the admin-defined fee of the specific type.
+    public func setFee(t : AccountManager.FeeType, value : Nat) = accountManager.setFee(t, value);
 
     /// Retrieves the admin-defined minimum of the specific type.
     public func definedMinimum(minimumType : AccountManager.MinimumType) : Nat = accountManager.definedMinimum(minimumType);
@@ -90,11 +109,6 @@ module {
     /// Returns the new fee, or `null` if fetching is already in progress.
     public func fetchFee() : async* ?Nat {
       await* accountManager.fetchFee();
-    };
-
-    /// Returns a user's current credit
-    public func getCredit(p : Principal) : Int {
-      creditRegistry.get(p);
     };
 
     /// Returns a user's last know (= tracked) deposit
@@ -122,6 +136,7 @@ module {
       };
       credit : {
         total : Int;
+        pool : Int;
       };
       users : {
         queued : Nat;
@@ -139,7 +154,8 @@ module {
         withdrawn = accountManager.totalWithdrawn();
       };
       credit = {
-        total = creditRegistry.creditTotal();
+        total = creditRegistry.totalBalance();
+        pool = creditRegistry.poolBalance();
       };
       users = {
         queued = accountManager.depositsNumber();
@@ -150,38 +166,75 @@ module {
     public func journalLength() : Nat = journal.length();
 
     /// Gets the current credit amount associated with a specific principal.
-    public func balance(p : Principal) : Int = creditRegistry.get(p);
+    public func userCredit(p : Principal) : Int = creditRegistry.userBalance(p);
 
-    /// Deducts amount from P’s usable balance.
+    /// Gets the current credit amount in the pool.
+    public func poolCredit() : Int = creditRegistry.poolBalance();
+
+    /// Adds amount to P’s credit.
     /// With checking the availability of sufficient funds.
-    public func debitStrict(p : Principal, amount : Nat) : Bool = creditRegistry.debitStrict(p, amount);
+    public func creditUser(p : Principal, amount : Nat) : Bool = creditRegistry.creditUser(p, amount);
 
-    /// Deducts amount from P’s usable balance.
-    /// Without checking the availability of sufficient funds.
-    public func debit(p : Principal, amount : Nat) = creditRegistry.debit(p, amount);
+    /// Deducts amount from P’s credit.
+    /// With checking the availability of sufficient funds in the pool.
+    public func debitUser(p : Principal, amount : Nat) : Bool = creditRegistry.debitUser(p, amount);
 
-    /// Increases the credit amount associated with a specific principal
-    /// (the credit is created out of thin air).
-    public func credit(p : Principal, amount : Nat) = creditRegistry.credit(p, amount);
+    // For debug and testing purposes only.
+    // Issue credit directly to a principal or burn from a principal.
+    // A negative amount means burn.
+    // Without checking the availability of sufficient funds.
+    public func issue_(account : CreditRegistry.Account, amount : Int) = creditRegistry.issue(account, amount);
 
     /// Notifies of a deposit and schedules consolidation process.
     /// Returns the newly detected deposit and credit funds if successful, otherwise null.
     public func notify(p : Principal) : async* ?(Nat, Int) {
       if isFrozen_ return null;
       let ?depositDelta = await* accountManager.notify(p) else return null;
-      ?(depositDelta, creditRegistry.get(p));
+      ?(depositDelta, creditRegistry.userBalance(p));
     };
 
-    /// Triggers the proccessing first encountered deposit.
-    public func trigger() : async* () {
+    public func depositFromAllowance(account : ICRC1.Account, amount : Nat) : async* AccountManager.DepositFromAllowanceResponse {
+      await* accountManager.depositFromAllowance(account, amount);
+    };
+
+    /// Triggers the proccessing deposits.
+    /// n - desired number of potential consolidations.
+    public func trigger(n : Nat) : async* () {
       if isFrozen_ return;
-      await* accountManager.trigger();
+      await* accountManager.trigger(n);
     };
 
     /// Initiates a withdrawal by transferring tokens to another account.
     /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
-    public func withdraw(to : ICRC1.Account, amount : Nat) : async* Result.Result<(transactionIndex : Nat, withdrawnAmount : Nat), ICRC1.TransferError or { #CallIcrc1LedgerError; #TooLowQuantity }> {
-      await* accountManager.withdraw(to, amount);
+    public func withdrawFromPool(to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
+      // try to burn from pool
+      let success = creditRegistry.burn(#pool, amount);
+      if (not success) return #err(#InsufficientCredit);
+      let result = await* accountManager.withdraw(to, amount);
+      if (Result.isErr(result)) {
+        // re-issue credit if unsuccessful
+        creditRegistry.issue(#pool, amount);
+      };
+      result;
+    };
+
+    /// Initiates a withdrawal by transferring tokens to another account.
+    /// Returns ICRC1 transaction index and amount of transferred tokens (fee excluded).
+    /// At the same time, it reduces the user's credit. Accordingly, amount <= credit should be satisfied.
+    public func withdrawFromCredit(p : Principal, to : ICRC1.Account, amount : Nat) : async* AccountManager.WithdrawResponse {
+      // try to burn from user
+      creditRegistry.burn(#user p, amount)
+      |> (if (not _) {
+        let err = #InsufficientCredit;
+        journal.push(ownPrincipal, #withdrawalError(err));
+        return #err(err);
+      });
+      let result = await* accountManager.withdraw(to, amount);
+      if (Result.isErr(result)) {
+        // re-issue credit if unsuccessful
+        creditRegistry.issue(#user p, amount);
+      };
+      result;
     };
 
     /// For testing purposes
