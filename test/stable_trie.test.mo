@@ -12,6 +12,9 @@ import Result "mo:base/Result";
 import Nat16 "mo:base/Nat16";
 import StableTrie "../src/StableTrie";
 
+let rng = Prng.Seiran128();
+rng.init(0);
+
 func keyToIndices(aridity : Nat, root_aridity : Nat, key : Blob, depth : Nat16) : () -> Nat64 {
   let bytes = Blob.toArray(key);
   var first = true;
@@ -37,27 +40,34 @@ func keyToIndices(aridity : Nat, root_aridity : Nat, key : Blob, depth : Nat16) 
 func testKeyToIndices() {
   let bits = [2, 4, 16, 256];
   let key_size = 8;
+  let pointer_size = 2;
   let rnd_key = Blob.fromArray(Array.tabulate<Nat8>(key_size, func(j) = Nat8.fromNat(Nat64.toNat(rng.next()) % 256)));
 
   for (bit in bits.vals()) {
     let length = key_size * 8 / Nat64.toNat(Nat64.bitcountTrailingZero(Nat64.fromNat(bit)));
-    for (key in Iter.range(0, length - 1)) {
-      let trie = StableTrie.StableTrie(2, bit, bit ** key, key_size, 0);
+    label l for (key in Iter.range(1, length - 1)) {
+      let root_aridity = bit ** key;
+      if (pointer_size * root_aridity >= 2 ** 64) break l;
+      let trie = StableTrie.StableTrie(pointer_size, bit, root_aridity, key_size, 0);
       let next = trie.keyToIndices(rnd_key, 0);
       let test_next = keyToIndices(bit, bit ** key, rnd_key, 0);
       let cnt = length - key : Nat + 1;
       for (i in Iter.range(0, cnt - 1)) {
-        assert next() == test_next();
+        let a = next();
+        let b = test_next();
+        if (a != b) {
+          Debug.print(debug_show (bit, key, i, a, b));
+          assert false;
+        };
       };
     };
   };
 };
 
+testKeyToIndices();
+
 let n = 2 ** 11;
 let key_size = 5;
-
-let rng = Prng.Seiran128();
-rng.init(0);
 
 func gen() : [Blob] {
   Array.tabulate<Blob>(
