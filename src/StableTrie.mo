@@ -6,7 +6,6 @@ import Nat16 "mo:base/Nat16";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
-import Result "mo:base/Result";
 
 module {
   type Region = {
@@ -24,7 +23,7 @@ module {
   public class StableTrie(pointer_size : Nat, aridity : Nat, root_aridity : Nat, key_size : Nat, value_size : Nat) {
 
     assert switch (pointer_size) {
-      case (2 or 4 or 6 or 8) true;
+      case (2 or 4 or 5 or 6 or 8) true;
       case (_) false;
     };
     assert switch (aridity) {
@@ -42,6 +41,7 @@ module {
     let loadMask : Nat64 = switch (pointer_size_) {
       case (8) 0xffff_ffff_ffff_ffff;
       case (6) 0xffff_ffff_ffff;
+      case (5) 0xffff_ffff_ff;
       case (4) 0xffff_ffff;
       case (2) 0xffff;
       case (_) 0;
@@ -155,6 +155,10 @@ module {
           Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
           Region.storeNat16(region, offset +% 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
         };
+        case (5) {
+          Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
+          Region.storeNat8(region, offset +% 4, Nat8.fromNat16(Nat16.fromNat32(Nat32.fromNat64(child >> 32))));
+        };
         case (4) Region.storeNat32(region, offset, Nat32.fromNat64(child));
         case (2) Region.storeNat16(region, offset, Nat16.fromNat32(Nat32.fromNat64(child)));
         case (_) Debug.trap("Can never happen");
@@ -212,7 +216,7 @@ module {
       };
     };
 
-    public func add(key : Blob, value : Blob) : Result.Result<Nat, { #LimitExceeded }> {
+    public func add(key : Blob, value : Blob) : ?Nat {
       assert key.size() == key_size and value.size() == value_size;
       let { leaves; nodes } = regions();
 
@@ -225,10 +229,10 @@ module {
         let idx = next_idx();
         switch (getChild(nodes, node, idx)) {
           case (0) {
-            let ?leaf = newLeaf(leaves, key, value) else return #err(#LimitExceeded);
+            let ?leaf = newLeaf(leaves, key, value) else return null;
             
             setChild(nodes, node, idx, leaf);
-            return #ok(Nat64.toNat(leaf >> 1));
+            return ?Nat64.toNat(leaf >> 1);
           };
           case (n) {
             if (n & 1 == 1) {
@@ -244,14 +248,14 @@ module {
       let index = old_leaf >> 1;
       let old_key = getKey(leaves, index);
       if (key == old_key) {
-        return #ok(Nat64.toNat(index));
+        return ?Nat64.toNat(index);
       };
 
       let next_old_idx = keyToIndices(old_key, depth);
       label l loop {
         let ?add = newInternalNode(nodes) else {
           setChild(nodes, node, last, old_leaf);
-          return #err(#LimitExceeded);
+          return null;
         };
         setChild(nodes, node, last, add);
         node := add;
@@ -261,9 +265,9 @@ module {
           last := a;
         } else {
           setChild(nodes, node, b, old_leaf);
-          let ?leaf = newLeaf(leaves, key, value) else return #err(#LimitExceeded);
+          let ?leaf = newLeaf(leaves, key, value) else return null;
           setChild(nodes, node, a, leaf);
-          return #ok(Nat64.toNat(leaf >> 1));
+          return ?Nat64.toNat(leaf >> 1);
         };
       };
       Debug.trap("Unreacheable");

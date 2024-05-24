@@ -5,7 +5,7 @@ import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Debug "mo:base/Debug";
 import Float "mo:base/Float";
-import Result "mo:base/Result";
+import Option "mo:base/Option";
 import StableTrie "../src/StableTrie";
 
 let key_size = 8;
@@ -51,7 +51,7 @@ while (n1 > 0) {
     let key = Region.loadBlob(buf, 0, 8);
     n2 -= 1;
     pos2 += 8;
-    assert Result.isOk(trie.add(key, ""));
+    assert Option.isSome(trie.add(key, ""));
   };
   n1 -= 1;
   pos1 += 8;

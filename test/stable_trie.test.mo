@@ -8,8 +8,8 @@ import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
-import Result "mo:base/Result";
 import Nat16 "mo:base/Nat16";
+import Option "mo:base/Option";
 import StableTrie "../src/StableTrie";
 
 let rng = Prng.Seiran128();
@@ -84,14 +84,14 @@ let keysAbsent = gen();
 
 // Note: bits = 256 and pointers = 2 requires smaller n
 let bits = [2, 4, 16];
-let pointers = [2, 4, 6, 8];
+let pointers = [2, 4, 5, 6, 8];
 for (bit in bits.vals()) {
   for (pointer in pointers.vals()) {
     let trie = StableTrie.StableTrie(pointer, bit, bit * bit * bit, key_size, 0);
 
     var i = 0;
     for (key in keys.vals()) {
-      assert trie.add(key, "") == #ok(i);
+      assert trie.add(key, "") == ?(i);
       i += 1;
     };
 
@@ -139,7 +139,7 @@ func profile() {
             ignore trie.add(keys[0], "");
           } else {
             for (j in Iter.range(2 ** (i - 1), 2 ** i - 1)) {
-              assert Result.isOk(trie.add(keys[j], ""));
+              assert Option.isSome(trie.add(keys[j], ""));
             };
           };
           "";
