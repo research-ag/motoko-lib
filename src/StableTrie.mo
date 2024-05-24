@@ -86,7 +86,7 @@ module {
             region = Region.new();
             var freeSpace = 0;
           };
-          let pages = (root_size + padding + 65536 - 1) / 65536 + 1;
+          let pages = (root_size + padding + 65536 - 1) / 65536;
           assert Region.grow(nodes.region, pages) != 0xFFFF_FFFF_FFFF_FFFF;
           nodes.freeSpace := pages * 65536 - root_size - padding;
           node_count := 1;
