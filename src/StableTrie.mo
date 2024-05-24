@@ -86,7 +86,7 @@ module {
             region = Region.new();
             var freeSpace = 0;
           };
-          let pages = (root_size + padding + 65536 - 1) / 65536 + 1;
+          let pages = (root_size + padding + 65536 - 1) / 65536;
           assert Region.grow(nodes.region, pages) != 0xFFFF_FFFF_FFFF_FFFF;
           nodes.freeSpace := pages * 65536 - root_size - padding;
           node_count := 1;
@@ -161,13 +161,13 @@ module {
       };
     };
 
-    public func getKey(region : Region, offset : Nat64) : Blob {
-      Region.loadBlob(region.region, (offset >> 1) * leaf_size, key_size);
+    public func getKey(region : Region, index : Nat64) : Blob {
+      Region.loadBlob(region.region, index * leaf_size, key_size);
     };
 
-    public func getValue(region : Region, offset : Nat64) : Blob {
+    public func getValue(region : Region, index : Nat64) : Blob {
       if (empty_values) return "";
-      Region.loadBlob(region.region, (offset >> 1) * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
+      Region.loadBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
 
     public func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
@@ -241,9 +241,10 @@ module {
         };
       };
 
-      let old_key = getKey(leaves, old_leaf);
+      let index = old_leaf >> 1;
+      let old_key = getKey(leaves, index);
       if (key == old_key) {
-        return #ok(Nat64.toNat(old_leaf >> 1));
+        return #ok(Nat64.toNat(index));
       };
 
       let next_old_idx = keyToIndices(old_key, depth);
@@ -282,23 +283,22 @@ module {
           };
           case (n) {
             if (n & 1 == 1) {
-              return if (getKey(leaves, n) == key) ?(getValue(leaves, n), Nat64.toNat(n >> 1)) else null;
+              let index = n >> 1;
+              return if (getKey(leaves, index) == key) ?(getValue(leaves, index), Nat64.toNat(index)) else null;
             };
             n;
           };
         };
       };
 
-      assert false;
-      null;
+      Debug.trap("Can never happen");
     };
 
     public func get(index : Nat) : ?(Blob, Blob) {
       let { leaves } = regions();
       let index_ = Nat64.fromNat(index);
       if (index_ >= leaf_count) return null;
-      let offset = index_ << 1;
-      ?(getKey(leaves, offset), getValue(leaves, offset));
+      ?(getKey(leaves, index_), getValue(leaves, index_));
     };
 
     public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);
