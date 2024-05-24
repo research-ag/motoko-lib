@@ -13,14 +13,14 @@ module {
     var freeSpace : Nat64;
   };
 
-  type StableTrieState = {
+  type StableTrieMapState = {
     nodes : Region;
     leaves : Region;
   };
 
-  type StableData = (StableTrieState, Nat64, Nat64);
+  type StableData = (StableTrieMapState, Nat64, Nat64);
 
-  public class StableTrie(pointer_size : Nat, aridity : Nat, root_aridity : Nat, key_size : Nat, value_size : Nat) {
+  public class StableTrieMap(pointer_size : Nat, aridity : Nat, root_aridity : Nat, key_size : Nat, value_size : Nat) {
 
     assert switch (pointer_size) {
       case (2 or 4 or 5 or 6 or 8) true;
@@ -73,12 +73,12 @@ module {
     let padding : Nat64 = 8 - pointer_size_;
     let empty_values : Bool = value_size == 0;
 
-    var regions_ : ?StableTrieState = null;
+    var regions_ : ?StableTrieMapState = null;
 
     var leaf_count : Nat64 = 0;
     var node_count : Nat64 = 0;
 
-    func regions() : StableTrieState {
+    func regions() : StableTrieMapState {
       switch (regions_) {
         case (?r) r;
         case (null) {
@@ -174,6 +174,11 @@ module {
       Region.loadBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
     };
 
+    public func setValue(region : Region, index : Nat64, value : Blob) {
+      if (empty_values) return;
+      Region.storeBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value);
+    };
+
     public func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
       let bytes = Blob.toArray(key);
       var i = 0;
@@ -216,7 +221,7 @@ module {
       };
     };
 
-    public func add(key : Blob, value : Blob) : ?Nat {
+    public func put(key : Blob, value : Blob) : ?Nat {
       assert key.size() == key_size and value.size() == value_size;
       let { leaves; nodes } = regions();
 
@@ -248,6 +253,7 @@ module {
       let index = old_leaf >> 1;
       let old_key = getKey(leaves, index);
       if (key == old_key) {
+        setValue(leaves, index, value);
         return ?Nat64.toNat(index);
       };
 

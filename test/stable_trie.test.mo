@@ -10,7 +10,7 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Nat16 "mo:base/Nat16";
 import Option "mo:base/Option";
-import StableTrie "../src/StableTrie";
+import StableTrieMap "../src/StableTrieMap";
 
 let rng = Prng.Seiran128();
 rng.init(0);
@@ -48,7 +48,7 @@ func testKeyToIndices() {
     label l for (key in Iter.range(1, length - 1)) {
       let root_aridity = bit ** key;
       if (pointer_size * root_aridity >= 2 ** 64) break l;
-      let trie = StableTrie.StableTrie(pointer_size, bit, root_aridity, key_size, 0);
+      let trie = StableTrieMap.StableTrieMap(pointer_size, bit, root_aridity, key_size, 0);
       let next = trie.keyToIndices(rnd_key, 0);
       let test_next = keyToIndices(bit, bit ** key, rnd_key, 0);
       let cnt = length - key : Nat + 1;
@@ -69,47 +69,50 @@ testKeyToIndices();
 let n = 2 ** 11;
 let key_size = 5;
 
-func gen() : [Blob] {
+func gen(size : Nat) : [Blob] {
   Array.tabulate<Blob>(
     n,
     func(i) {
-      Blob.fromArray(Array.tabulate<Nat8>(key_size, func(j) = Nat8.fromNat(Nat64.toNat(rng.next()) % 256)));
+      Blob.fromArray(Array.tabulate<Nat8>(size, func(j) = Nat8.fromNat(Nat64.toNat(rng.next()) % 256)));
     },
   );
 };
 
-let keys = gen();
-
-let keysAbsent = gen();
+let keys = gen(key_size);
+let keysAbsent = gen(key_size);
 
 // Note: bits = 256 and pointers = 2 requires smaller n
+let value_sizes = [0, 2];
 let bits = [2, 4, 16];
 let pointers = [2, 4, 5, 6, 8];
-for (bit in bits.vals()) {
-  for (pointer in pointers.vals()) {
-    let trie = StableTrie.StableTrie(pointer, bit, bit * bit * bit, key_size, 0);
+for (value_size in value_sizes.vals()) {
+  let values = gen(value_size);
+  for (bit in bits.vals()) {
+    for (pointer in pointers.vals()) {
+      let trie = StableTrieMap.StableTrieMap(pointer, bit, bit * bit * bit, key_size, value_size);
 
-    var i = 0;
-    for (key in keys.vals()) {
-      assert trie.add(key, "") == ?(i);
-      i += 1;
-    };
+      var i = 0;
+      for (key in keys.vals()) {
+        assert trie.put(key, values[i]) == ?i;
+        i += 1;
+      };
 
-    i := 0;
-    for (key in keys.vals()) {
-      assert trie.get(i) == ?(key, "");
-      i += 1;
-    };
+      i := 0;
+      for (key in keys.vals()) {
+        assert trie.get(i) == ?(key, values[i]);
+        i += 1;
+      };
 
-    i := 0;
+      i := 0;
 
-    for (key in keys.vals()) {
-      assert (trie.lookup(key) == ?("", i));
-      i += 1;
-    };
+      for (key in keys.vals()) {
+        assert (trie.lookup(key) == ?(values[i], i));
+        i += 1;
+      };
 
-    for (key in keysAbsent.vals()) {
-      assert trie.lookup(key) == null;
+      for (key in keysAbsent.vals()) {
+        assert trie.lookup(key) == null;
+      };
     };
   };
 };
@@ -131,15 +134,15 @@ func profile() {
     children_number.vals(),
     func(k) {
       let first = Nat.toText(k);
-      let trie = StableTrie.StableTrie(8, k, k, key_size, 0);
+      let trie = StableTrieMap.StableTrieMap(8, k, k, key_size, 0);
       let second = Iter.map<Nat, Text>(
         Iter.range(0, n),
         func(i) {
           if (i == 0) {
-            ignore trie.add(keys[0], "");
+            ignore trie.put(keys[0], "");
           } else {
             for (j in Iter.range(2 ** (i - 1), 2 ** i - 1)) {
-              assert Option.isSome(trie.add(keys[j], ""));
+              assert Option.isSome(trie.put(keys[j], ""));
             };
           };
           "";

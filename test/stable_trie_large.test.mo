@@ -6,7 +6,7 @@ import Region "mo:base/Region";
 import Debug "mo:base/Debug";
 import Float "mo:base/Float";
 import Option "mo:base/Option";
-import StableTrie "../src/StableTrie";
+import StableTrieMap "../src/StableTrieMap";
 
 let key_size = 8;
 let pointer_size = 6;
@@ -35,7 +35,7 @@ do {
   };
 };
 
-let trie = StableTrie.StableTrie(pointer_size, k, k, key_size, 0);
+let trie = StableTrieMap.StableTrieMap(pointer_size, k, k, key_size, 0);
 
 let max = 512;
 var n1 = max;
@@ -51,7 +51,7 @@ while (n1 > 0) {
     let key = Region.loadBlob(buf, 0, 8);
     n2 -= 1;
     pos2 += 8;
-    assert Option.isSome(trie.add(key, ""));
+    assert Option.isSome(trie.put(key, ""));
   };
   n1 -= 1;
   pos1 += 8;
