@@ -291,8 +291,7 @@ module {
         };
       };
 
-      assert false;
-      null;
+      Debug.trap("Can never happen");
     };
 
     public func get(index : Nat) : ?(Blob, Blob) {
