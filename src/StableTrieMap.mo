@@ -78,12 +78,15 @@ module {
     var leaf_count : Nat64 = 0;
     var node_count : Nat64 = 0;
 
+    var storePointer : (offset : Nat64, child : Nat64) -> () = func(_, _) {};
+
     func regions() : StableTrieMapState {
       switch (regions_) {
         case (?r) r;
         case (null) {
+          let nodes_region = Region.new();
           let nodes : Region = {
-            region = Region.new();
+            region = nodes_region;
             var freeSpace = 0;
           };
           let pages = (root_size + padding + 65536 - 1) / 65536;
@@ -98,6 +101,21 @@ module {
 
           let ret = { nodes = nodes; leaves = leaves };
           regions_ := ?ret;
+          storePointer := switch (pointer_size_) {
+            case (8) func(offset, child) = Region.storeNat64(nodes_region, offset, child);
+            case (6) func(offset, child) {
+              Region.storeNat32(nodes_region, offset, Nat32.fromNat64(child & 0xffff_ffff));
+              Region.storeNat16(nodes_region, offset +% 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
+            };
+            case (5) func(offset, child) {
+              Region.storeNat32(nodes_region, offset, Nat32.fromNat64(child & 0xffff_ffff));
+              Region.storeNat8(nodes_region, offset +% 4, Nat8.fromNat16(Nat16.fromNat32(Nat32.fromNat64(child >> 32))));
+            };
+            case (4) func(offset, child) = Region.storeNat32(nodes_region, offset, Nat32.fromNat64(child));
+            case (2) func(offset, child) = Region.storeNat16(nodes_region, offset, Nat16.fromNat32(Nat32.fromNat64(child)));
+            case (_) Debug.trap("Can never happen");
+          };
+
           ret;
         };
       };
@@ -146,25 +164,9 @@ module {
       Region.loadNat64(region.region, getOffset(node, index)) & loadMask;
     };
 
-    let storePointer : (region : Region.Region, offset : Nat64, child : Nat64) -> () = switch (pointer_size_) {
-      case (8) func(region, offset, child) = Region.storeNat64(region, offset, child);
-      case (6) func(region, offset, child) {
-        Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
-        Region.storeNat16(region, offset +% 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
-      };
-      case (5) func(region, offset, child) {
-        Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
-        Region.storeNat8(region, offset +% 4, Nat8.fromNat16(Nat16.fromNat32(Nat32.fromNat64(child >> 32))));
-      };
-      case (4) func(region, offset, child) = Region.storeNat32(region, offset, Nat32.fromNat64(child));
-      case (2) func(region, offset, child) = Region.storeNat16(region, offset, Nat16.fromNat32(Nat32.fromNat64(child)));
-      case (_) Debug.trap("Can never happen");
-    };
-
-    public func setChild(region_ : Region, node : Nat64, index : Nat64, child : Nat64) {
+    public func setChild(node : Nat64, index : Nat64, child : Nat64) {
       let offset = getOffset(node, index);
-      let region = region_.region;
-      storePointer(region, offset, child);
+      storePointer(offset, child);
     };
 
     public func getKey(region : Region, index : Nat64) : Blob {
@@ -238,7 +240,7 @@ module {
           case (0) {
             let ?leaf = newLeaf(leaves, key, value) else return null;
 
-            setChild(nodes, node, idx, leaf);
+            setChild(node, idx, leaf);
             return ?Nat64.toNat(leaf >> 1);
           };
           case (n) {
@@ -262,19 +264,19 @@ module {
       let next_old_idx = keyToIndices(old_key, depth);
       label l loop {
         let ?add = newInternalNode(nodes) else {
-          setChild(nodes, node, last, old_leaf);
+          setChild(node, last, old_leaf);
           return null;
         };
-        setChild(nodes, node, last, add);
+        setChild(node, last, add);
         node := add;
 
         let (a, b) = (next_idx(), next_old_idx());
         if (a == b) {
           last := a;
         } else {
-          setChild(nodes, node, b, old_leaf);
+          setChild(node, b, old_leaf);
           let ?leaf = newLeaf(leaves, key, value) else return null;
-          setChild(nodes, node, a, leaf);
+          setChild(node, a, leaf);
           return ?Nat64.toNat(leaf >> 1);
         };
       };
