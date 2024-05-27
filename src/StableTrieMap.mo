@@ -6,6 +6,7 @@ import Nat16 "mo:base/Nat16";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
+import Array "mo:base/Array";
 
 module {
   type Region = {
@@ -326,6 +327,20 @@ module {
       let index_ = Nat64.fromNat(index);
       if (index_ >= leaf_count) return null;
       ?(getKey(leaves, index_), getValue(leaves, index_));
+    };
+
+    public func slice(left : Nat, right : Nat) : [(Blob, Blob)] {
+      let { leaves } = regions();
+      let l = Nat64.fromNat(left);
+      let r = Nat64.fromNat(right);
+      if (not (l < r and r <= leaf_count)) return [];
+      Array.tabulate<(Blob, Blob)>(
+        right - left,
+        func(i) {
+          let index = Nat64.fromNat(i);
+          (getKey(leaves, index), getValue(leaves, index));
+        },
+      );
     };
 
     public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);
