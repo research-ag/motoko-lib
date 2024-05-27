@@ -121,7 +121,7 @@ module {
       ?(nc << 1);
     };
 
-    func newLeaf(region : Region, key : Blob, value : Blob) : ?Nat64 {
+    func newLeaf(region : Region, key : Blob) : ?Nat64 {
       if (leaf_count == max_address) return null;
 
       allocate(region, leaf_size);
@@ -129,10 +129,6 @@ module {
       let pos = leaf_count *% leaf_size;
       leaf_count +%= 1;
       Region.storeBlob(region.region, pos, key);
-      if (not empty_values) {
-        Region.storeBlob(region.region, pos +% key_size_, value);
-        Region.storeBlob(region.region, pos +% key_size_, value);
-      };
       ?((lc << 1) | 1);
     };
 
@@ -223,9 +219,8 @@ module {
       };
     };
 
-    public func put(key : Blob, value : Blob) : ?Nat {
+    func put_(nodes : Region, leaves : Region, key : Blob, value : Blob) : ?Nat64 {
       assert key.size() == key_size and value.size() == value_size;
-      let { leaves; nodes } = regions();
 
       var node : Nat64 = 0;
       var old_leaf : Nat64 = 0;
@@ -236,10 +231,10 @@ module {
         let idx = next_idx();
         switch (getChild(nodes, node, idx)) {
           case (0) {
-            let ?leaf = newLeaf(leaves, key, value) else return null;
+            let ?leaf = newLeaf(leaves, key) else return null;
 
             setChild(nodes, node, idx, leaf);
-            return ?Nat64.toNat(leaf >> 1);
+            return ?(leaf >> 1);
           };
           case (n) {
             if (n & 1 == 1) {
@@ -255,8 +250,7 @@ module {
       let index = old_leaf >> 1;
       let old_key = getKey(leaves, index);
       if (key == old_key) {
-        setValue(leaves, index, value);
-        return ?Nat64.toNat(index);
+        return ?index;
       };
 
       let next_old_idx = keyToIndices(old_key, depth);
@@ -273,12 +267,33 @@ module {
           last := a;
         } else {
           setChild(nodes, node, b, old_leaf);
-          let ?leaf = newLeaf(leaves, key, value) else return null;
+          let ?leaf = newLeaf(leaves, key) else return null;
           setChild(nodes, node, a, leaf);
-          return ?Nat64.toNat(leaf >> 1);
+          return ?(leaf >> 1);
         };
       };
       Debug.trap("Unreacheable");
+    };
+
+    public func put(key : Blob, value : Blob) : ?Nat {
+      let { leaves; nodes } = regions();
+
+      let ?leaf = put_(nodes, leaves, key, value) else return null;
+      setValue(leaves, leaf, value);
+      ?Nat64.toNat(leaf);
+    };
+
+    public func lookupOrPut(key : Blob, value : Blob) : ?(Blob, Nat) {
+      let { leaves; nodes } = regions();
+
+      let ?leaf = put_(nodes, leaves, key, value) else return null;
+      let ret_value = if (leaf == leaf_count - 1) {
+        setValue(leaves, leaf, value);
+        value;
+      } else {
+        getValue(leaves, leaf);
+      };
+      ?(ret_value, Nat64.toNat(leaf));
     };
 
     public func lookup(key : Blob) : ?(Blob, Nat) {
