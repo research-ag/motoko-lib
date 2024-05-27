@@ -146,23 +146,25 @@ module {
       Region.loadNat64(region.region, getOffset(node, index)) & loadMask;
     };
 
+    let storePointer : (region : Region.Region, offset : Nat64, child : Nat64) -> () = switch (pointer_size_) {
+      case (8) func(region, offset, child) = Region.storeNat64(region, offset, child);
+      case (6) func(region, offset, child) {
+        Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
+        Region.storeNat16(region, offset +% 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
+      };
+      case (5) func(region, offset, child) {
+        Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
+        Region.storeNat8(region, offset +% 4, Nat8.fromNat16(Nat16.fromNat32(Nat32.fromNat64(child >> 32))));
+      };
+      case (4) func(region, offset, child) = Region.storeNat32(region, offset, Nat32.fromNat64(child));
+      case (2) func(region, offset, child) = Region.storeNat16(region, offset, Nat16.fromNat32(Nat32.fromNat64(child)));
+      case (_) Debug.trap("Can never happen");
+    };
+
     public func setChild(region_ : Region, node : Nat64, index : Nat64, child : Nat64) {
       let offset = getOffset(node, index);
       let region = region_.region;
-      switch (pointer_size_) {
-        case (8) Region.storeNat64(region, offset, child);
-        case (6) {
-          Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
-          Region.storeNat16(region, offset +% 4, Nat16.fromNat32(Nat32.fromNat64(child >> 32)));
-        };
-        case (5) {
-          Region.storeNat32(region, offset, Nat32.fromNat64(child & 0xffff_ffff));
-          Region.storeNat8(region, offset +% 4, Nat8.fromNat16(Nat16.fromNat32(Nat32.fromNat64(child >> 32))));
-        };
-        case (4) Region.storeNat32(region, offset, Nat32.fromNat64(child));
-        case (2) Region.storeNat16(region, offset, Nat16.fromNat32(Nat32.fromNat64(child)));
-        case (_) Debug.trap("Can never happen");
-      };
+      storePointer(region, offset, child);
     };
 
     public func getKey(region : Region, index : Nat64) : Blob {
@@ -235,7 +237,7 @@ module {
         switch (getChild(nodes, node, idx)) {
           case (0) {
             let ?leaf = newLeaf(leaves, key, value) else return null;
-            
+
             setChild(nodes, node, idx, leaf);
             return ?Nat64.toNat(leaf >> 1);
           };
