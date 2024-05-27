@@ -83,7 +83,7 @@ let keysAbsent = gen(key_size);
 
 // Note: bits = 256 and pointers = 2 requires smaller n
 let value_sizes = [0, 2];
-let bits = [2];
+let bits = [2, 4, 16];
 let pointers = [2, 4, 5, 6, 8];
 for (value_size in value_sizes.vals()) {
   let values = gen(value_size);

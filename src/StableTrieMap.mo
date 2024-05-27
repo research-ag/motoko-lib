@@ -374,7 +374,7 @@ module {
         public func next() : ?(Blob, Blob) {
           let leaf = label l : ?Nat64 loop {
             let (node, i) = stack[depth - 1];
-            let max = if (depth > 0) aridity_ else root_aridity_;
+            let max = if (depth > 1) aridity_ else root_aridity_;
             if (i < max) {
               let child = getChild(nodes, node, i);
               if (child == 0) {
