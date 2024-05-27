@@ -7,6 +7,7 @@ import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
 import Array "mo:base/Array";
+import Iter "mo:base/Iter";
 
 module {
   type Region = {
@@ -361,6 +362,42 @@ module {
           (getKey(leaves, index), getValue(leaves, index));
         },
       );
+    };
+
+    public func vals() : Iter.Iter<(Blob, Blob)> {
+      object {
+        let stack = Array.init<(Nat64, Nat64)>(key_size * 8 / Nat16.toNat(bitlength), (0, 0));
+        var depth = 1;
+        stack[0] := (0, 0);
+        let { nodes; leaves } = regions();
+
+        public func next() : ?(Blob, Blob) {
+          let leaf = label l : ?Nat64 loop {
+            let (node, i) = stack[depth - 1];
+            let max = if (depth > 0) aridity_ else root_aridity_;
+            if (i < max) {
+              let child = getChild(nodes, node, i);
+              if (child == 0) {
+                stack[depth - 1] := (node, i + 1);
+                continue l;
+              };
+              if (child & 1 == 1) {
+                stack[depth - 1] := (node, i + 1);
+                break l(?(child >> 1));
+              };
+              stack[depth] := (child, 0);
+              depth += 1;
+            } else {
+              if (depth == 1) break l null;
+              depth -= 1;
+              let (prev_node, prev_i) = stack[depth - 1];
+              stack[depth - 1] := (prev_node, prev_i + 1);
+            };
+          };
+          let ?leaf_ = leaf else return null;
+          ?(getKey(leaves, leaf_), getValue(leaves, leaf_));
+        };
+      };
     };
 
     public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);
