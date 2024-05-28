@@ -118,6 +118,13 @@ for (value_size in value_sizes.vals()) {
       for (key in keysAbsent.vals()) {
         assert trie.lookup(key) == null;
       };
+
+      let vals = trie.vals();
+      // assert vals.size() == n;
+      let b = Array.sort<Blob>(keys, Blob.compare);
+      Debug.print(debug_show (b, Array.tabulate<[Nat8]>(n, func(i) = Blob.toArray(b[i]))));
+      Debug.print(debug_show (value_size, bit, pointer));
+      Debug.print(debug_show (vals.next(), vals.next(), vals.next(), vals.next()));
     };
   };
 };
