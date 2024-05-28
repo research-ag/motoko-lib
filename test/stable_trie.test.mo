@@ -20,19 +20,24 @@ func keyToIndices(aridity : Nat, root_aridity : Nat, key : Blob, depth : Nat16) 
   var first = true;
   var x : Nat64 = 0;
   for (i in Iter.range(0, key.size() - 1 : Int)) {
-    x += Nat64.fromNat(Nat8.toNat(bytes[i])) << Nat64.fromNat(i * 8);
+    x <<= 8;
+    x |= Nat64.fromNat(Nat8.toNat(bytes[i]));
   };
 
   let aridity_ = Nat64.fromNat(aridity);
   let root_aridity_ = Nat64.fromNat(root_aridity);
 
+  let aridity_bits = Nat64.bitcountTrailingZero(aridity_);
+  let root_aridity_bits = Nat64.bitcountTrailingZero(root_aridity_);
+
   func() : Nat64 {
-    let a = if (first and depth == 0) root_aridity_ else aridity_;
-    if (first and depth != 0) x /= aridity_ ** Nat64.fromNat(Nat16.toNat(depth));
+    let b = if (first and depth == 0) root_aridity_bits else aridity_bits;
+
+    if (first and depth != 0) x <<= aridity_bits * Nat64.fromNat(Nat16.toNat(depth));
     first := false;
 
-    let ret = x & (a - 1);
-    x /= a;
+    let ret = x >> (64 - b);
+    x <<= b;
     ret;
   };
 };
@@ -66,7 +71,7 @@ func testKeyToIndices() {
 
 testKeyToIndices();
 
-let n = 2 ** 2;
+let n = 2 ** 11;
 let key_size = 5;
 
 func gen(size : Nat) : [Blob] {
@@ -113,13 +118,6 @@ for (value_size in value_sizes.vals()) {
       for (key in keysAbsent.vals()) {
         assert trie.lookup(key) == null;
       };
-
-      let vals = trie.vals();
-      // assert vals.size() == n;
-      let b = Array.sort<Blob>(keys, Blob.compare);
-      Debug.print(debug_show b);
-      Debug.print(debug_show (value_size, bit, pointer));
-      Debug.print(debug_show (vals.next(), vals.next(), vals.next(), vals.next()));
     };
   };
 };

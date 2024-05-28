@@ -49,12 +49,12 @@ module {
       case (_) 0;
     };
 
-    let (bitlength, bitmask) : (Nat16, Nat16) = switch (aridity) {
-      case (2) (1, 0x1);
-      case (4) (2, 0x3);
-      case (16) (4, 0xf);
-      case (256) (8, 0xff);
-      case (_) (0, 0);
+    let (bitlength, bitmask, bitshift) : (Nat16, Nat16, Nat8) = switch (aridity) {
+      case (2) (1, 0x1, 7);
+      case (4) (2, 0x3, 6);
+      case (16) (4, 0xf, 4);
+      case (256) (8, 0xff, 0);
+      case (_) (0, 0, 0);
     };
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
@@ -218,24 +218,25 @@ module {
         if (pos == 0) {
           if (depth == 0) {
             var skipBits = root_bitlength;
-            var length : Nat64 = 0;
             var result : Nat64 = 0;
             var i = 0;
             while (skipBits >= 8) {
               let b = bytes[i];
               i += 1;
-              result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b))) << length;
-              length +%= 8;
+              result <<= 8;
+              result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b)));
               skipBits -%= 8;
             };
-            result |= (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]) & ((1 << skipBits) - 1)))) << length;
+            result <<= Nat32.toNat64(Nat16.toNat32(skipBits));
+            result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]) >> (8 - skipBits)));
             pos := root_bitlength;
             return result;
           } else {
             pos := depth * bitlength;
           };
         };
-        let ret = (Nat8.toNat16(bytes[Nat16.toNat(pos >> 3)]) >> (pos & 0x7)) & bitmask;
+        let bit_pos = Nat8.fromNat16(pos & 0x7);
+        let ret = Nat8.toNat16((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
         pos +%= bitlength;
         return Nat64.fromIntWrap(Nat16.toNat(ret));
       };
