@@ -43,6 +43,7 @@ module {
     let loadMask = if (pointer_size == 8) 0xffff_ffff_ffff_ffff : Nat64 else (1 << (pointer_size_ << 3)) - 1;
 
     let bitlength = Nat16.bitcountTrailingZero(Nat16.fromNat(aridity));
+    let bitlength8 = Nat16.toNat8(bitlength);
     let bitmask = Nat16.fromNat(aridity) - 1;
     let bitshift = Nat16.toNat8(8 - bitlength);
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
@@ -170,35 +171,6 @@ module {
       Region.storeBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value);
     };
 
-    func keyToIndices_(key : Blob, depth : Nat16) : () -> Nat64 {
-      let bytes = Blob.toArray(key);
-      var pos : Nat16 = depth * bitlength;
-
-      func _next() : Nat64 {
-        // if applicable, calculate the root index
-        if (depth == 0 and pos == 0) {
-          pos := root_bitlength;
-          // read last byte first
-          var byte_pos : Nat16 = pos >> 3;
-          let last_byte = Nat8.toNat16(bytes[Nat16.toNat(byte_pos)]);
-          let masked = last_byte & (0xff00 <<> (pos & 0x7));
-          var root_index = Nat64.fromIntWrap(Nat16.toNat(masked));
-          // read full bytes in reverse order
-          while (byte_pos > 0) {
-            byte_pos -%= 1;
-            root_index <<= 8;
-            root_index |= Nat64.fromIntWrap(Nat8.toNat(bytes[Nat16.toNat(byte_pos)]));
-          };
-          // return result
-          return root_index;
-        };
-        // calculate next non-root index
-        let ret = (Nat8.toNat16(bytes[Nat16.toNat(pos >> 3)]) >> (pos & 0x7)) & bitmask;
-        pos +%= bitlength;
-        return Nat64.fromIntWrap(Nat16.toNat(ret));
-      };
-    };
-
     public func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
       let bytes = Blob.toArray(key);
       var pos : Nat16 = 0;
@@ -206,18 +178,17 @@ module {
       func _next() : Nat64 {
         if (pos == 0) {
           if (depth == 0) {
-            var skipBits = root_bitlength;
             var result : Nat64 = 0;
             var i = 0;
-            while (skipBits >= 8) {
-              let b = bytes[i];
+            let iters = Nat64.toNat(root_bitlength_ >> 3);
+            while (i < iters) {
+              result := (result << 8) | Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i])));
               i += 1;
-              result <<= 8;
-              result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(b)));
-              skipBits -%= 8;
             };
-            result <<= Nat32.toNat64(Nat16.toNat32(skipBits));
-            result |= Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]) >> (8 - skipBits)));
+            let skip = root_bitlength_ & 0x7;
+            if (skip != 0) {
+              result := (result << skip) | (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]))) >> (8 - skip));
+            };
             pos := root_bitlength;
             return result;
           } else {
@@ -225,9 +196,9 @@ module {
           };
         };
         let bit_pos = Nat8.fromNat16(pos & 0x7);
-        let ret = Nat8.toNat16((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
+        let ret = Nat8.toNat((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
         pos +%= bitlength;
-        return Nat64.fromIntWrap(Nat16.toNat(ret));
+        return Nat64.fromIntWrap(ret);
       };
     };
 

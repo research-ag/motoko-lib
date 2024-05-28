@@ -50,7 +50,7 @@ func testKeyToIndices() {
 
   for (bit in bits.vals()) {
     let length = key_size * 8 / Nat64.toNat(Nat64.bitcountTrailingZero(Nat64.fromNat(bit)));
-    label l for (key in Iter.range(1, length - 1)) {
+    label l for (key in Iter.range(1, length)) {
       let root_aridity = bit ** key;
       if (pointer_size * root_aridity >= 2 ** 64) break l;
       let trie = StableTrieMap.StableTrieMap(pointer_size, bit, root_aridity, key_size, 0);
@@ -70,6 +70,9 @@ func testKeyToIndices() {
 };
 
 testKeyToIndices();
+
+let trie = StableTrieMap.StableTrieMap(2, 2, 256, 1, 0);
+ignore trie.keyToIndices("a" : Blob, 0)();
 
 let n = 2 ** 11;
 let key_size = 5;
