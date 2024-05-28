@@ -185,7 +185,7 @@ module {
             };
             let skip = root_bitlength_ & 0x7;
             if (skip != 0) {
-              result := (result << skip) | (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]))) >> (8 - skip));
+              result := (result << skip) | (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]))) >> (8 -% skip));
             };
             pos := root_bitlength;
             return result;
