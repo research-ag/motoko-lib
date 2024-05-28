@@ -40,22 +40,11 @@ module {
     let pointer_size_ = Nat64.fromNat(pointer_size);
     let root_aridity_ = Nat64.fromNat(root_aridity);
 
-    let loadMask : Nat64 = switch (pointer_size_) {
-      case (8) 0xffff_ffff_ffff_ffff;
-      case (6) 0xffff_ffff_ffff;
-      case (5) 0xffff_ffff_ff;
-      case (4) 0xffff_ffff;
-      case (2) 0xffff;
-      case (_) 0;
-    };
+    let loadMask = if (pointer_size == 8) 0xffff_ffff_ffff_ffff : Nat64 else (1 << (pointer_size_ << 3)) - 1;
 
-    let (bitlength, bitmask, bitshift) : (Nat16, Nat16, Nat8) = switch (aridity) {
-      case (2) (1, 0x1, 7);
-      case (4) (2, 0x3, 6);
-      case (16) (4, 0xf, 4);
-      case (256) (8, 0xff, 0);
-      case (_) (0, 0, 0);
-    };
+    let bitlength = Nat16.bitcountTrailingZero(Nat16.fromNat(aridity));
+    let bitmask = Nat16.fromNat(aridity) - 1;
+    let bitshift = Nat16.toNat8(8 - bitlength);
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
     let max_address = 2 ** (pointer_size_ * 8 - 1);
