@@ -84,6 +84,7 @@ func gen(size : Nat) : [Blob] {
 };
 
 let keys = gen(key_size);
+let sorted = Array.sort<Blob>(keys, Blob.compare);
 let keysAbsent = gen(key_size);
 
 // Note: bits = 256 and pointers = 2 requires smaller n
@@ -119,12 +120,8 @@ for (value_size in value_sizes.vals()) {
         assert trie.lookup(key) == null;
       };
 
-      let vals = trie.vals();
-      // assert vals.size() == n;
-      let b = Array.sort<Blob>(keys, Blob.compare);
-      Debug.print(debug_show (b, Array.tabulate<[Nat8]>(n, func(i) = Blob.toArray(b[i]))));
-      Debug.print(debug_show (value_size, bit, pointer));
-      Debug.print(debug_show (vals.next(), vals.next(), vals.next(), vals.next()));
+      let vals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.vals(), func ((a, _)) = a));
+      assert vals == sorted;
     };
   };
 };
