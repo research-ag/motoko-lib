@@ -74,7 +74,7 @@ testKeyToIndices();
 let trie = StableTrieMap.StableTrieMap(2, 2, 256, 1, 0);
 ignore trie.keyToIndices("a" : Blob, 0)();
 
-let n = 2 ** 3;
+let n = 2 ** 11;
 let key_size = 5;
 
 func gen(size : Nat) : [Blob] {
