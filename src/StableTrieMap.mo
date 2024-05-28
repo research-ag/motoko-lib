@@ -180,12 +180,13 @@ module {
           if (depth == 0) {
             var result : Nat64 = 0;
             var i = 0;
-            let iters = Nat64.toNat(root_bitlength_ >> 3);
-            while (i < iters) {
+            var iters : Nat16 = root_bitlength >> 3;
+            while (iters > 0) {
               result := (result << 8) | Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i])));
               i += 1;
+              iters -%= 1;
             };
-            let skip = root_bitlength_ & 0x7;
+            let skip = Nat32.toNat64(Nat16.toNat32(root_bitlength & 0x7));
             if (skip != 0) {
               result := (result << skip) | (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]))) >> (8 - skip));
             };
