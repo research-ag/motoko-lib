@@ -43,8 +43,6 @@ module {
     let loadMask = if (pointer_size == 8) 0xffff_ffff_ffff_ffff : Nat64 else (1 << (pointer_size_ << 3)) - 1;
 
     let bitlength = Nat16.bitcountTrailingZero(Nat16.fromNat(aridity));
-    let bitlength8 = Nat16.toNat8(bitlength);
-    let bitmask = Nat16.fromNat(aridity) - 1;
     let bitshift = Nat16.toNat8(8 - bitlength);
     let bitlength_ = Nat32.toNat64(Nat16.toNat32(bitlength));
 
@@ -325,40 +323,54 @@ module {
       );
     };
 
-    public func vals() : Iter.Iter<(Blob, Blob)> {
-      object {
-        let stack = Array.init<(Nat64, Nat64)>(key_size * 8 / Nat16.toNat(bitlength), (0, 0));
-        var depth = 1;
-        stack[0] := (0, 0);
-        let { nodes; leaves } = regions();
+    class Iterator(state : StableTrieMapState, forward : Bool) {
+      let stack = Array.init<(Nat64, Nat64)>(key_size * 8 / Nat16.toNat(bitlength), (0, 0));
+      var depth = 1;
+      stack[0] := if (forward) (0, 0) else (0, root_aridity_ - 1);
+      let { nodes; leaves } = state;
 
-        public func next() : ?(Blob, Blob) {
-          let leaf = label l : ?Nat64 loop {
-            let (node, i) = stack[depth - 1];
-            let max = if (depth > 1) aridity_ else root_aridity_;
-            if (i < max) {
-              let child = getChild(nodes, node, i);
-              if (child == 0) {
-                stack[depth - 1] := (node, i + 1);
-                continue l;
-              };
-              if (child & 1 == 1) {
-                stack[depth - 1] := (node, i + 1);
-                break l(?(child >> 1));
-              };
-              stack[depth] := (child, 0);
-              depth += 1;
-            } else {
-              if (depth == 1) break l null;
-              depth -= 1;
-              let (prev_node, prev_i) = stack[depth - 1];
-              stack[depth - 1] := (prev_node, prev_i + 1);
-            };
-          };
-          let ?leaf_ = leaf else return null;
-          ?(getKey(leaves, leaf_), getValue(leaves, leaf_));
+      func next_step(i : Nat64) : Nat64 {
+        if (forward) {
+          i + 1;
+        } else {
+          if (i != 0) i - 1 else root_aridity_;
         };
       };
+
+      public func next() : ?(Blob, Blob) {
+        let leaf = label l : ?Nat64 loop {
+          let (node, i) = stack[depth - 1];
+          let max = if (depth > 1) aridity_ else root_aridity_;
+          if (i < max) {
+            let child = getChild(nodes, node, i);
+            if (child == 0) {
+              stack[depth - 1] := (node, next_step(i));
+              continue l;
+            };
+            if (child & 1 == 1) {
+              stack[depth - 1] := (node, next_step(i));
+              break l(?(child >> 1));
+            };
+            stack[depth] := (child, if (forward) 0 else aridity_ - 1);
+            depth += 1;
+          } else {
+            if (depth == 1) break l null;
+            depth -= 1;
+            let (prev_node, prev_i) = stack[depth - 1];
+            stack[depth - 1] := (prev_node, next_step(prev_i));
+          };
+        };
+        let ?leaf_ = leaf else return null;
+        ?(getKey(leaves, leaf_), getValue(leaves, leaf_));
+      };
+    };
+
+    public func vals() : Iter.Iter<(Blob, Blob)> {
+      Iterator(regions(), true);
+    };
+
+    public func revVals() : Iter.Iter<(Blob, Blob)> {
+      Iterator(regions(), false);
     };
 
     public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);

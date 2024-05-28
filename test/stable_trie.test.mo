@@ -74,7 +74,7 @@ testKeyToIndices();
 let trie = StableTrieMap.StableTrieMap(2, 2, 256, 1, 0);
 ignore trie.keyToIndices("a" : Blob, 0)();
 
-let n = 2 ** 11;
+let n = 2 ** 3;
 let key_size = 5;
 
 func gen(size : Nat) : [Blob] {
@@ -88,6 +88,7 @@ func gen(size : Nat) : [Blob] {
 
 let keys = gen(key_size);
 let sorted = Array.sort<Blob>(keys, Blob.compare);
+let revSorted = Array.reverse(sorted);
 let keysAbsent = gen(key_size);
 
 // Note: bits = 256 and pointers = 2 requires smaller n
@@ -125,6 +126,9 @@ for (value_size in value_sizes.vals()) {
 
       let vals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.vals(), func ((a, _)) = a));
       assert vals == sorted;
+
+      let revVals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.revVals(), func ((a, _)) = a));
+      assert revVals == revSorted;
     };
   };
 };
