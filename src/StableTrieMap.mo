@@ -185,7 +185,7 @@ module {
     };
 
     func keyToIndex(bytes : [Nat8], pos : Nat16) : Nat64 {
-      let bit_pos = Nat8.fromNat16(pos & 0x7);
+      let bit_pos = Nat8.fromNat16(pos & 7);
       let ret = Nat8.toNat((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
       return Nat64.fromIntWrap(ret);
     };
