@@ -161,12 +161,12 @@ module {
 
     public func getValue(region : Region, index : Nat64) : Blob {
       if (empty_values) return "";
-      Region.loadBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
+      Region.loadBlob(region.region, index * leaf_size +% key_size_, value_size);
     };
 
     public func setValue(region : Region, index : Nat64, value : Blob) {
       if (empty_values) return;
-      Region.storeBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value);
+      Region.storeBlob(region.region, index * leaf_size +% key_size_, value);
     };
 
     func keyToRootIndex(bytes : [Nat8]) : Nat64 {
