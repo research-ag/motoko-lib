@@ -169,35 +169,25 @@ module {
       Region.storeBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value);
     };
 
-    public func keyToIndices(key : Blob, depth : Nat16) : () -> Nat64 {
-      let bytes = Blob.toArray(key);
-      var pos : Nat16 = 0;
-
-      func _next() : Nat64 {
-        if (pos == 0) {
-          if (depth == 0) {
-            var result : Nat64 = 0;
-            var i = 0;
-            let iters = Nat64.toNat(root_bitlength_ >> 3);
-            while (i < iters) {
-              result := (result << 8) | Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i])));
-              i += 1;
-            };
-            let skip = root_bitlength_ & 0x7;
-            if (skip != 0) {
-              result := (result << skip) | (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]))) >> (8 -% skip));
-            };
-            pos := root_bitlength;
-            return result;
-          } else {
-            pos := depth * bitlength;
-          };
-        };
-        let bit_pos = Nat8.fromNat16(pos & 0x7);
-        let ret = Nat8.toNat((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
-        pos +%= bitlength;
-        return Nat64.fromIntWrap(ret);
+    func keyToRootIndex(bytes : [Nat8]) : Nat64 {
+      var result : Nat64 = 0;
+      var i = 0;
+      let iters = Nat64.toNat(root_bitlength_ >> 3);
+      while (i < iters) {
+        result := (result << 8) | Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i])));
+        i += 1;
       };
+      let skip = root_bitlength_ & 0x7;
+      if (skip != 0) {
+        result := (result << skip) | (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]))) >> (8 -% skip));
+      };
+      return result;
+    };
+
+    public func keyToIndex(bytes : [Nat8], pos : Nat16) : Nat64 {
+      let bit_pos = Nat8.fromNat16(pos & 0x7);
+      let ret = Nat8.toNat((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
+      return Nat64.fromIntWrap(ret);
     };
 
     func put_(nodes : Region, leaves : Region, key : Blob, value : Blob) : ?Nat64 {
@@ -206,10 +196,11 @@ module {
       var node : Nat64 = 0;
       var old_leaf : Nat64 = 0;
       var depth : Nat16 = root_depth;
-      let next_idx = keyToIndices(key, 0);
 
+      let bytes = Blob.toArray(key);
+      var idx = keyToRootIndex(bytes);
+      var pos = root_bitlength;
       var last = label l : Nat64 loop {
-        let idx = next_idx();
         switch (getChild(nodes, node, idx)) {
           case (0) {
             let ?leaf = newLeaf(leaves, key) else return null;
@@ -226,6 +217,8 @@ module {
             depth +%= 1;
           };
         };
+        idx := keyToIndex(bytes, pos);
+        pos += bitlength;
       };
 
       let index = old_leaf >> 1;
@@ -234,7 +227,7 @@ module {
         return ?index;
       };
 
-      let next_old_idx = keyToIndices(old_key, depth);
+      let old_bytes = Blob.toArray(old_key);
       label l loop {
         let ?add = newInternalNode(nodes) else {
           setChild(node, last, old_leaf);
@@ -243,7 +236,8 @@ module {
         setChild(node, last, add);
         node := add;
 
-        let (a, b) = (next_idx(), next_old_idx());
+        let (a, b) = (keyToIndex(bytes, pos), keyToIndex(old_bytes, pos));
+        pos +%= bitlength;
         if (a == b) {
           last := a;
         } else {
@@ -280,11 +274,12 @@ module {
     public func lookup(key : Blob) : ?(Blob, Nat) {
       assert key.size() == key_size;
       let { leaves; nodes } = regions();
-      let next_idx = keyToIndices(key, 0);
 
+      let bytes = Blob.toArray(key);
+      var idx = keyToRootIndex(bytes);
+      var pos = root_bitlength;
       var node : Nat64 = 0;
       loop {
-        let idx = next_idx();
         node := switch (getChild(nodes, node, idx)) {
           case (0) {
             return null;
@@ -297,9 +292,11 @@ module {
             n;
           };
         };
+        idx := keyToIndex(bytes, pos);
+        pos +%= bitlength;
       };
 
-      Debug.trap("Can never happen");
+      Debug.trap("Unreacheable");
     };
 
     public func get(index : Nat) : ?(Blob, Blob) {
