@@ -8,6 +8,7 @@ import Nat64 "mo:base/Nat64";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Option "mo:base/Option";
+import Debug "mo:base/Debug";
 import StableTrieMap "../src/StableTrieMap";
 
 let rng = Prng.Seiran128();
@@ -16,7 +17,7 @@ rng.init(0);
 let n = 2 ** 11;
 let key_size = 5;
 
-func gen(size : Nat) : [Blob] {
+func gen(n : Nat, size : Nat) : [Blob] {
   Array.tabulate<Blob>(
     n,
     func(i) {
@@ -25,17 +26,17 @@ func gen(size : Nat) : [Blob] {
   );
 };
 
-let keys = gen(key_size);
+let keys = gen(n, key_size);
 let sorted = Array.sort<Blob>(keys, Blob.compare);
 let revSorted = Array.reverse(sorted);
-let keysAbsent = gen(key_size);
+let keysAbsent = gen(n, key_size);
 
 // Note: bits = 256 and pointers = 2 requires smaller n
 let value_sizes = [0, 2];
 let bits = [2, 4, 16];
 let pointers = [2, 4, 5, 6, 8];
 for (value_size in value_sizes.vals()) {
-  let values = gen(value_size);
+  let values = gen(n, value_size);
   for (bit in bits.vals()) {
     for (pointer in pointers.vals()) {
       let trie = StableTrieMap.StableTrieMap(pointer, bit, bit * bit * bit, key_size, value_size);
@@ -63,14 +64,27 @@ for (value_size in value_sizes.vals()) {
         assert trie.lookup(key) == null;
       };
 
-      let vals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.entries(), func ((a, _)) = a));
+      let vals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.entries(), func((a, _)) = a));
       assert vals == sorted;
 
-      let revVals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.entriesRev(), func ((a, _)) = a));
+      let revVals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.entriesRev(), func((a, _)) = a));
       assert revVals == revSorted;
     };
   };
 };
+
+func pointerMaxSizeTest() {
+  let trie = StableTrieMap.StableTrieMap(2, 2, 2, 2, 0);
+  for (i in Iter.range(0, 32_000)) {
+    let key = Blob.fromArray([Nat8.fromNat(i % 256), Nat8.fromNat(i / 256)]);
+    if (trie.put(key, "") != ?i) {
+      Debug.print(debug_show i);
+      assert false;
+    };
+  };
+};
+
+pointerMaxSizeTest();
 
 func profile() {
   let children_number = [2, 4, 16, 256];
