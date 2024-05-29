@@ -20,10 +20,14 @@ module {
     leaves : Region;
   };
 
-  type StableData = (StableTrieMapState, Nat64, Nat64);
+  type StableData = {
+    nodes : Region;
+    leaves : Region;
+    node_count : Nat64;
+    leaf_count : Nat64;
+  };
 
   public class StableTrieMap(pointer_size : Nat, aridity : Nat, root_aridity : Nat, key_size : Nat, value_size : Nat) {
-
     assert switch (pointer_size) {
       case (2 or 4 or 5 or 6 or 8) true;
       case (_) false;
@@ -426,14 +430,18 @@ module {
 
     public func nodeCount() : Nat = Nat64.toNat(node_count);
 
-    public func share() : StableData = (regions(), node_count, leaf_count);
+    public func share() : StableData = {
+      regions() with
+      node_count;
+      leaf_count;
+    };
 
-    public func unshare(leaves : StableData) {
+    public func unshare(data : StableData) {
       switch (regions_) {
         case (null) {
-          regions_ := ?leaves.0;
-          node_count := leaves.1;
-          leaf_count := leaves.2;
+          regions_ := ?data;
+          node_count := data.node_count;
+          leaf_count := data.leaf_count;
         };
         case (_) Debug.trap("Region is already initialized");
       };
