@@ -36,7 +36,7 @@ module {
       case (2 or 4 or 16 or 256) true;
       case (_) false;
     };
-    assert key_size >= 1;
+    assert key_size >= 1 and key_size + value_size <= 2 ** 16;
 
     let aridity_ = Nat64.fromNat(aridity);
     let key_size_ = Nat64.fromNat(key_size);
