@@ -80,7 +80,7 @@ module {
             var freeSpace = 0;
           };
           let pages = (root_size + padding + 65536 - 1) / 65536;
-          assert Region.grow(nodes.region, pages) != 0xFFFF_FFFF_FFFF_FFFF;
+          assert Region.grow(nodes.region, pages) != 0xffff_ffff_ffff_ffff;
           nodes.freeSpace := pages * 65536 - root_size - padding;
           node_count := 1;
 
@@ -114,7 +114,7 @@ module {
     // allocate can only be used for n <= 65536
     func allocate(region : Region, n : Nat64) {
       if (region.freeSpace < n) {
-        assert Region.grow(region.region, 1) != 0xFFFF_FFFF_FFFF_FFFF;
+        assert Region.grow(region.region, 1) != 0xffff_ffff_ffff_ffff;
         region.freeSpace +%= 65536;
       };
       region.freeSpace -%= n;
@@ -177,7 +177,7 @@ module {
         result := (result << 8) | Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i])));
         i += 1;
       };
-      let skip = root_bitlength_ & 0x7;
+      let skip = root_bitlength_ & 7;
       if (skip != 0) {
         result := (result << skip) | (Nat32.toNat64(Nat16.toNat32(Nat8.toNat16(bytes[i]))) >> (8 -% skip));
       };
@@ -185,7 +185,7 @@ module {
     };
 
     public func keyToIndex(bytes : [Nat8], pos : Nat16) : Nat64 {
-      let bit_pos = Nat8.fromNat16(pos & 0x7);
+      let bit_pos = Nat8.fromNat16(pos & 7);
       let ret = Nat8.toNat((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
       return Nat64.fromIntWrap(ret);
     };
