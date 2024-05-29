@@ -1,4 +1,4 @@
-import StableTrie "../src/StableTrie";
+import StableTrieMap "../src/StableTrieMap";
 import Prng "mo:prng";
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
@@ -23,7 +23,7 @@ module {
     bench.cols(["2", "4", "16", "256"]);
     bench.rows(Array.tabulate<Text>(n, func(i) = Nat.toText(i)));
 
-    var trie = Array.tabulate<StableTrie.StableTrie>(cols, func(i) = StableTrie.StableTrie(2 ** (2 ** i), key_size, 0));
+    var trie = Array.tabulate<StableTrieMap.StableTrieMap>(cols, func(i) = StableTrieMap.StableTrieMap(2 ** (2 ** i), key_size, 0));
 
     let rng = Prng.Seiran128();
     rng.init(0);

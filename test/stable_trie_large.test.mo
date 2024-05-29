@@ -5,7 +5,8 @@ import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Debug "mo:base/Debug";
 import Float "mo:base/Float";
-import StableTrie "../src/StableTrie";
+import Option "mo:base/Option";
+import StableTrieMap "../src/StableTrieMap";
 
 let key_size = 8;
 let pointer_size = 6;
@@ -34,7 +35,7 @@ do {
   };
 };
 
-let trie = StableTrie.StableTrie(pointer_size, k, key_size, 0);
+let trie = StableTrieMap.StableTrieMap(pointer_size, k, k, key_size, 0);
 
 let max = 512;
 var n1 = max;
@@ -50,13 +51,14 @@ while (n1 > 0) {
     let key = Region.loadBlob(buf, 0, 8);
     n2 -= 1;
     pos2 += 8;
-    assert trie.add(key, "");
+    assert Option.isSome(trie.put(key, ""));
   };
   n1 -= 1;
   pos1 += 8;
 };
 
 Debug.print("children number: " # debug_show k);
+Debug.print("pointer size: " # debug_show pointer_size);
 Debug.print("keys: " # debug_show (max * max));
 Debug.print("size: " # debug_show trie.size());
 Debug.print("bytes per key: " # debug_show (trie.size() / (max * max)));
