@@ -310,7 +310,7 @@ module {
       let { leaves } = regions();
       let l = Nat64.fromNat(left);
       let r = Nat64.fromNat(right);
-      if (not (l < r and r <= leaf_count)) return [];
+      assert l <= r and r <= leaf_count;
       Array.tabulate<(Blob, Blob)>(
         right - left,
         func(i) {
