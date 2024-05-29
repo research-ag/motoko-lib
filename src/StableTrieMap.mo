@@ -184,8 +184,8 @@ module {
       return result;
     };
 
-    public func keyToIndex(bytes : [Nat8], pos : Nat16) : Nat64 {
-      let bit_pos = Nat8.fromNat16(pos & 7);
+    func keyToIndex(bytes : [Nat8], pos : Nat16) : Nat64 {
+      let bit_pos = Nat8.fromNat16(pos & 0x7);
       let ret = Nat8.toNat((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
       return Nat64.fromIntWrap(ret);
     };
@@ -256,6 +256,21 @@ module {
       let ?leaf = put_(nodes, leaves, key, value) else return null;
       setValue(leaves, leaf, value);
       ?Nat64.toNat(leaf);
+    };
+
+    public func replace(key : Blob, value : Blob) : ?(Blob, Nat) {
+      let { leaves; nodes } = regions();
+
+      let ?leaf = put_(nodes, leaves, key, value) else return null;
+      let ret_value = if (leaf == leaf_count - 1) {
+        setValue(leaves, leaf, value);
+        value;
+      } else {
+        let old_value = getValue(leaves, leaf);
+        setValue(leaves, leaf, value);
+        old_value;
+      };
+      ?(ret_value, Nat64.toNat(leaf));
     };
 
     public func lookupOrPut(key : Blob, value : Blob) : ?(Blob, Nat) {
