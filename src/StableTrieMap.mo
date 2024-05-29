@@ -10,20 +10,19 @@ import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 
 module {
-  type Region = {
+  public type Region = {
     region : Region.Region;
     var freeSpace : Nat64;
   };
 
-  type StableTrieMapState = {
+  public type StableData = {
     nodes : Region;
     leaves : Region;
+    node_count : Nat64;
+    leaf_count : Nat64;
   };
 
-  type StableData = (StableTrieMapState, Nat64, Nat64);
-
   public class StableTrieMap(pointer_size : Nat, aridity : Nat, root_aridity : Nat, key_size : Nat, value_size : Nat) {
-
     assert switch (pointer_size) {
       case (2 or 4 or 5 or 6 or 8) true;
       case (_) false;
@@ -32,7 +31,7 @@ module {
       case (2 or 4 or 16 or 256) true;
       case (_) false;
     };
-    assert key_size >= 1;
+    assert key_size >= 1 and key_size + value_size <= 2 ** 16;
 
     let aridity_ = Nat64.fromNat(aridity);
     let key_size_ = Nat64.fromNat(key_size);
@@ -63,12 +62,17 @@ module {
     let padding : Nat64 = 8 - pointer_size_;
     let empty_values : Bool = value_size == 0;
 
-    var regions_ : ?StableTrieMapState = null;
-
     var leaf_count : Nat64 = 0;
     var node_count : Nat64 = 0;
 
     var storePointer : (offset : Nat64, child : Nat64) -> () = func(_, _) {};
+
+    type StableTrieMapState = {
+      nodes : Region;
+      leaves : Region;
+    };
+
+    var regions_ : ?StableTrieMapState = null;
 
     func regions() : StableTrieMapState {
       switch (regions_) {
@@ -156,17 +160,17 @@ module {
     };
 
     public func getKey(region : Region, index : Nat64) : Blob {
-      Region.loadBlob(region.region, index * leaf_size, key_size);
+      Region.loadBlob(region.region, index *% leaf_size, key_size);
     };
 
     public func getValue(region : Region, index : Nat64) : Blob {
       if (empty_values) return "";
-      Region.loadBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value_size);
+      Region.loadBlob(region.region, index *% leaf_size +% key_size_, value_size);
     };
 
     public func setValue(region : Region, index : Nat64, value : Blob) {
       if (empty_values) return;
-      Region.storeBlob(region.region, index * leaf_size +% Nat64.fromIntWrap(key_size), value);
+      Region.storeBlob(region.region, index *% leaf_size +% key_size_, value);
     };
 
     func keyToRootIndex(bytes : [Nat8]) : Nat64 {
@@ -185,7 +189,7 @@ module {
     };
 
     func keyToIndex(bytes : [Nat8], pos : Nat16) : Nat64 {
-      let bit_pos = Nat8.fromNat16(pos & 0x7);
+      let bit_pos = Nat8.fromNat16(pos & 7);
       let ret = Nat8.toNat((bytes[Nat16.toNat(pos >> 3)] << bit_pos) >> bitshift);
       return Nat64.fromIntWrap(ret);
     };
@@ -426,14 +430,18 @@ module {
 
     public func nodeCount() : Nat = Nat64.toNat(node_count);
 
-    public func share() : StableData = (regions(), node_count, leaf_count);
+    public func share() : StableData = {
+      regions() with
+      node_count;
+      leaf_count;
+    };
 
-    public func unshare(leaves : StableData) {
+    public func unshare(data : StableData) {
       switch (regions_) {
         case (null) {
-          regions_ := ?leaves.0;
-          node_count := leaves.1;
-          leaf_count := leaves.2;
+          regions_ := ?data;
+          node_count := data.node_count;
+          leaf_count := data.leaf_count;
         };
         case (_) Debug.trap("Region is already initialized");
       };
