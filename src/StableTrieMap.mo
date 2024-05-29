@@ -10,17 +10,12 @@ import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 
 module {
-  type Region = {
+  public type Region = {
     region : Region.Region;
     var freeSpace : Nat64;
   };
 
-  type StableTrieMapState = {
-    nodes : Region;
-    leaves : Region;
-  };
-
-  type StableData = {
+  public type StableData = {
     nodes : Region;
     leaves : Region;
     node_count : Nat64;
@@ -67,12 +62,17 @@ module {
     let padding : Nat64 = 8 - pointer_size_;
     let empty_values : Bool = value_size == 0;
 
-    var regions_ : ?StableTrieMapState = null;
-
     var leaf_count : Nat64 = 0;
     var node_count : Nat64 = 0;
 
     var storePointer : (offset : Nat64, child : Nat64) -> () = func(_, _) {};
+
+    type StableTrieMapState = {
+      nodes : Region;
+      leaves : Region;
+    };
+
+    var regions_ : ?StableTrieMapState = null;
 
     func regions() : StableTrieMapState {
       switch (regions_) {

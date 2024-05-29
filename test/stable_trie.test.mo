@@ -5,74 +5,13 @@ import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
-import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
-import Nat16 "mo:base/Nat16";
 import Option "mo:base/Option";
 import StableTrieMap "../src/StableTrieMap";
 
 let rng = Prng.Seiran128();
 rng.init(0);
-
-// func keyToIndices(aridity : Nat, root_aridity : Nat, key : Blob, depth : Nat16) : () -> Nat64 {
-//   let bytes = Blob.toArray(key);
-//   var first = true;
-//   var x : Nat64 = 0;
-//   for (i in Iter.range(0, key.size() - 1 : Int)) {
-//     x <<= 8;
-//     x |= Nat64.fromNat(Nat8.toNat(bytes[i]));
-//   };
-
-//   let aridity_ = Nat64.fromNat(aridity);
-//   let root_aridity_ = Nat64.fromNat(root_aridity);
-
-//   let aridity_bits = Nat64.bitcountTrailingZero(aridity_);
-//   let root_aridity_bits = Nat64.bitcountTrailingZero(root_aridity_);
-
-//   func() : Nat64 {
-//     let b = if (first and depth == 0) root_aridity_bits else aridity_bits;
-
-//     if (first and depth != 0) x <<= aridity_bits * Nat64.fromNat(Nat16.toNat(depth));
-//     first := false;
-
-//     let ret = x >> (64 - b);
-//     x <<= b;
-//     ret;
-//   };
-// };
-
-// func testKeyToIndices() {
-//   let bits = [2, 4, 16, 256];
-//   let key_size = 8;
-//   let pointer_size = 2;
-//   let rnd_key = Blob.fromArray(Array.tabulate<Nat8>(key_size, func(j) = Nat8.fromNat(Nat64.toNat(rng.next()) % 256)));
-
-//   for (bit in bits.vals()) {
-//     let length = key_size * 8 / Nat64.toNat(Nat64.bitcountTrailingZero(Nat64.fromNat(bit)));
-//     label l for (key in Iter.range(1, length)) {
-//       let root_aridity = bit ** key;
-//       if (pointer_size * root_aridity >= 2 ** 64) break l;
-//       let trie = StableTrieMap.StableTrieMap(pointer_size, bit, root_aridity, key_size, 0);
-//       let next = trie.keyToIndices(rnd_key, 0);
-//       let test_next = keyToIndices(bit, bit ** key, rnd_key, 0);
-//       let cnt = length - key : Nat + 1;
-//       for (i in Iter.range(0, cnt - 1)) {
-//         let a = next();
-//         let b = test_next();
-//         if (a != b) {
-//           Debug.print(debug_show (bit, key, i, a, b));
-//           assert false;
-//         };
-//       };
-//     };
-//   };
-// };
-
-// testKeyToIndices();
-
-// let trie = StableTrieMap.StableTrieMap(2, 2, 256, 1, 0);
-// ignore trie.keyToIndices("a" : Blob, 0)();
 
 let n = 2 ** 11;
 let key_size = 5;
