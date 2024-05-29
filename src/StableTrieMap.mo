@@ -320,11 +320,10 @@ module {
       );
     };
 
-    class Iterator(state : StableTrieMapState, forward : Bool) {
+    class Iterator(nodes : Region, forward : Bool) {
       let stack = Array.init<(Nat64, Nat64)>(key_size * 8 / Nat16.toNat(bitlength), (0, 0));
       var depth = 1;
       stack[0] := if (forward) (0, 0) else (0, root_aridity_ - 1);
-      let { nodes; leaves } = state;
 
       func next_step(i : Nat64) : Nat64 {
         if (forward) {
@@ -334,7 +333,7 @@ module {
         };
       };
 
-      public func next() : ?(Blob, Blob) {
+      public func next() : ?Nat64 {
         let leaf = label l : ?Nat64 loop {
           let (node, i) = stack[depth - 1];
           let max = if (depth > 1) aridity_ else root_aridity_;
@@ -357,17 +356,53 @@ module {
             stack[depth - 1] := (prev_node, next_step(prev_i));
           };
         };
-        let ?leaf_ = leaf else return null;
-        ?(getKey(leaves, leaf_), getValue(leaves, leaf_));
+        leaf;
       };
     };
 
-    public func vals() : Iter.Iter<(Blob, Blob)> {
-      Iterator(regions(), true);
+    func entries_(forward : Bool) : Iter.Iter<(Blob, Blob)> {
+      let state = regions();
+      let { nodes; leaves } = state;
+
+      Iter.map<Nat64, (Blob, Blob)>(Iterator(nodes, forward), func(leaf) = (getKey(leaves, leaf), getValue(leaves, leaf)));
     };
 
-    public func revVals() : Iter.Iter<(Blob, Blob)> {
-      Iterator(regions(), false);
+    func vals_(forward : Bool) : Iter.Iter<Blob> {
+      let state = regions();
+      let { nodes; leaves } = state;
+
+      Iter.map<Nat64, Blob>(Iterator(nodes, forward), func(leaf) = getValue(leaves, leaf));
+    };
+
+    func keys_(forward : Bool) : Iter.Iter<Blob> {
+      let state = regions();
+      let { nodes; leaves } = state;
+
+      Iter.map<Nat64, Blob>(Iterator(nodes, forward), func(leaf) = getKey(leaves, leaf));
+    };
+
+    public func entries() : Iter.Iter<(Blob, Blob)> {
+      entries_(true);
+    };
+
+    public func entriesRev() : Iter.Iter<(Blob, Blob)> {
+      entries_(false);
+    };
+
+    public func vals() : Iter.Iter<Blob> {
+      vals_(true);
+    };
+
+    public func valsRev() : Iter.Iter<Blob> {
+      vals_(false);
+    };
+
+    public func keys() : Iter.Iter<Blob> {
+      keys_(true);
+    };
+
+    public func keysRev() : Iter.Iter<Blob> {
+      keys_(false);
     };
 
     public func size() : Nat = Nat64.toNat(root_size + (node_count - 1) * node_size + leaf_count * leaf_size);

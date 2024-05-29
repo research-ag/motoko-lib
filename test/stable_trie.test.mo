@@ -124,10 +124,10 @@ for (value_size in value_sizes.vals()) {
         assert trie.lookup(key) == null;
       };
 
-      let vals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.vals(), func ((a, _)) = a));
+      let vals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.entries(), func ((a, _)) = a));
       assert vals == sorted;
 
-      let revVals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.revVals(), func ((a, _)) = a));
+      let revVals = Iter.toArray(Iter.map<(Blob, Blob), Blob>(trie.entriesRev(), func ((a, _)) = a));
       assert revVals == revSorted;
     };
   };
