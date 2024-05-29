@@ -218,7 +218,7 @@ module {
           };
         };
         idx := keyToIndex(bytes, pos);
-        pos += bitlength;
+        pos +%= bitlength;
       };
 
       let index = old_leaf >> 1;
