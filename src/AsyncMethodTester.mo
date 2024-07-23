@@ -16,7 +16,7 @@ module {
     state : () -> State;
   };
 
-  public class Method<T>(iterations_limit : ?Nat) {
+  public class AsyncMethodTester<T>(iterations_limit : ?Nat) {
     type Response<T> = {
       var lock : Bool;
       var state : State;
