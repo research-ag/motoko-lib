@@ -38,7 +38,9 @@ module {
 
       object {
         public func release() {
-          assert response.lock;
+          if (not response.lock) {
+            Debug.trap("Response must be locked before release");
+          };
           response.lock := false;
         };
 
@@ -55,7 +57,7 @@ module {
       };
       r.state := #ready;
       if (inc == 0) {
-        Debug.trap("iteration limit reached.");
+        Debug.trap("Iteration limit reached");
       };
       if (Option.isNull(r.response)) {
         throw Error.reject("");
@@ -63,13 +65,13 @@ module {
     };
 
     func response(r : Response<T>) : T {
-      if (r.state != #ready) Debug.trap("response not yet delivered.");
-      let ?x = r.response else Debug.trap("this response was a canister_rejecttrap.");
+      if (r.state != #ready) Debug.trap("Response not yet delivered");
+      let ?x = r.response else Debug.trap("This response was a canister_rejecttrap");
       x;
     };
 
     public func call() : async* () {
-      let ?(r, q) = Deque.popFront(queue) else Debug.trap("no response staged.");
+      let ?(r, q) = Deque.popFront(queue) else Debug.trap("No response staged");
       queue := q;
 
       await* run(r);
