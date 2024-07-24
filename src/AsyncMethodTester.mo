@@ -16,22 +16,22 @@ module {
     state : () -> State;
   };
 
-  public class AsyncMethodTester<T>(iterations_limit : ?Nat) {
-    type Response<T> = {
+  public class AsyncMethodTester<T, R>(iterations_limit : ?Nat) {
+    type Response<T, R> = {
       var lock : Bool;
       var state : State;
-      response : ?T;
+      method : ?(T -> R);
     };
 
     let limit = Option.get(iterations_limit, 100);
-    var queue : Deque.Deque<Response<T>> = Deque.empty<Response<T>>();
-    var last_call_result : ?T = null;
+    var queue : Deque.Deque<Response<T, R>> = Deque.empty<Response<T, R>>();
+    var last_call_result : ?R = null;
 
-    public func stage(arg : ?T) : ReleaseState {
-      let response : Response<T> = {
+    public func stage(arg : ?(T -> R)) : ReleaseState {
+      let response : Response<T, R> = {
         var lock = true;
         var state = #staged;
-        response = arg;
+        method = arg;
       };
 
       queue := Deque.pushBack(queue, response);
@@ -48,7 +48,7 @@ module {
       };
     };
 
-    func run(r : Response<T>) : async* () {
+    func await_unlock(r : Response<T, R>) : async* () {
       r.state := #running;
       var inc = limit;
       while (r.lock and inc > 0) {
@@ -59,27 +59,22 @@ module {
       if (inc == 0) {
         Debug.trap("Iteration limit reached");
       };
-      if (Option.isNull(r.response)) {
-        throw Error.reject("");
-      };
     };
 
-    func response(r : Response<T>) : T {
-      if (r.state != #ready) Debug.trap("Response not yet delivered");
-      let ?x = r.response else Debug.trap("This response was a canister_rejecttrap");
-      x;
-    };
-
-    public func call() : async* () {
+    public func call(arg : T) : async* () {
       let ?(r, q) = Deque.popFront(queue) else Debug.trap("No response staged");
       queue := q;
 
-      await* run(r);
+      await* await_unlock(r);
 
-      last_call_result := ?response(r);
+      if (Option.isNull(r.method)) {
+        throw Error.reject("");
+      };
+      let ?method = r.method else throw Error.reject("");
+      last_call_result := ?method(arg);
     };
 
-    public func call_result() : T {
+    public func call_result() : R {
       let ?r = last_call_result else Debug.trap("No call result");
       r;
     };
