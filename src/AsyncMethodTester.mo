@@ -108,7 +108,7 @@ module {
       r;
     };
 
-    public func release(i : Nat, result : ?R) {
+    public func release(i : Nat, result : ??R) {
       let response = queue.get(i);
       if (not response.lock) {
         Debug.trap("Response must be locked before release");
@@ -116,10 +116,19 @@ module {
       if (not Option.isNull(result) and not Option.isNull(response.result)) {
         Debug.trap("Results can't be simultaneously present");
       };
-      if (Option.isNull(response.result)) {
-        response.result := result;
-      };
+
       response.lock := false;
+      if (Option.isNull(response.result)) {
+        switch (result) {
+          case (??r) {
+            response.result := ?r;
+          };
+          case (?null) {
+            response.methods := #error;
+          };
+          case (_) {};
+        };
+      };
     };
 
     public func isEmpty() : Bool = queue.size() == 0;
