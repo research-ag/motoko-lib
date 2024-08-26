@@ -20,7 +20,12 @@ module {
     type Response<T, S, R> = {
       var lock : Bool;
       var state : State;
-      methods : ?(T -> S, S -> R);
+      var methods : {
+        #none;
+        #error;
+        #some : (T -> S, S -> R);
+      };
+      var result : ?R;
     };
 
     let limit = Option.get(iterations_limit, 100);
@@ -32,7 +37,11 @@ module {
       let response : Response<T, S, R> = {
         var lock = true;
         var state = #staged;
-        methods = arg;
+        var methods = switch (arg) {
+          case (?x) #some(x);
+          case (null) #error;
+        };
+        var result = null;
       };
 
       queue.add(response);
@@ -52,11 +61,15 @@ module {
     public func call(arg : T, method : ??(T -> S, S -> R)) : async* () {
       var inc = limit;
       let r = if (queue.size() == front) {
-        let ?f = method else Debug.trap("Methods should be not null");
         let response : Response<T, S, R> = {
           var lock = true;
           var state = #staged;
-          methods = f;
+          var methods = switch (method) {
+            case (??x) #some(x);
+            case (?null) #error;
+            case (null) #none;
+          };
+          var result = null;
         };
         queue.add(response);
         response;
@@ -65,14 +78,10 @@ module {
       };
       front += 1;
 
-      let s = Option.apply<(T -> S, S -> R), S>(
-        r.methods,
-        ?(
-          func((pre, _)) {
-            pre(arg);
-          }
-        ),
-      );
+      let s = switch (r.methods) {
+        case (#some(pre, _)) ?pre(arg);
+        case (_) null;
+      };
 
       r.state := #running;
       while (r.lock and inc > 0) {
@@ -84,8 +93,14 @@ module {
         Debug.trap("Iteration limit reached");
       };
 
-      let (?(_, after), ?state) = (r.methods, s) else throw Error.reject("");
-      last_call_result := ?after(state);
+      switch (r.methods, s) {
+        case (#some(_, after), ?state) {
+          last_call_result := ?after(state);
+          r.result := last_call_result;
+        };
+        case (#error, _) throw Error.reject("Reject was chosen");
+        case (_, _) {};
+      };
     };
 
     public func call_result() : R {
@@ -93,10 +108,16 @@ module {
       r;
     };
 
-    public func release(i : Nat) {
+    public func release(i : Nat, result : ?R) {
       let response = queue.get(i);
       if (not response.lock) {
         Debug.trap("Response must be locked before release");
+      };
+      if (not Option.isNull(result) and not Option.isNull(response.result)) {
+        Debug.trap("Results can't be simultaneously present");
+      };
+      if (Option.isNull(response.result)) {
+        response.result := result;
       };
       response.lock := false;
     };
