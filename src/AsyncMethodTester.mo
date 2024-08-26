@@ -95,12 +95,13 @@ module {
 
       switch (r.methods, s) {
         case (#some(_, after), ?state) {
-          last_call_result := ?after(state);
-          r.result := last_call_result;
+          r.result := ?after(state);
         };
         case (#error, _) throw Error.reject("Reject was chosen");
         case (_, _) {};
       };
+      
+      last_call_result := r.result;
     };
 
     public func call_result() : R {
