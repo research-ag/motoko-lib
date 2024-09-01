@@ -1,7 +1,6 @@
 import Debug "mo:base/Debug";
 import Error "mo:base/Error";
 import Option "mo:base/Option";
-import Bool "mo:base/Bool";
 import Buffer "mo:base/Buffer";
 
 module {
@@ -69,31 +68,31 @@ module {
     var front = 0;
     let limit = Option.get(iterations_limit, 100);
 
-    public func add(method : ?(T -> S, S -> R)) : Nat {
-      let response = Response<T, S, R>(?method, limit);
+    public func add(method : ??(T -> S, S -> R)) : Nat {
+      let response = Response<T, S, R>(method, limit);
       queue.add(response);
       queue.size() - 1;
     };
 
     public func popOrAdd(method : ??(T -> S, S -> R)) : Response<T, S, R> {
-      let r = if (queue.size() == front) {
-        let response = Response<T, S, R>(method, limit);
-        queue.add(response);
-        response;
-      } else {
-        queue.get(front);
+      let r = switch (pop()) {
+        case (?r) r;
+        case (null) {
+          ignore add(method);
+          let ?r = pop() else Debug.trap("");
+          r;
+        };
       };
-      front += 1;
-      r;
+      return r;
     };
 
-    public func pop() : Response<T, S, R> {
+    public func pop() : ?Response<T, S, R> {
       if (front == queue.size()) {
-        Debug.trap("Pop out of empty queue");
+        return null;
       };
       let r = queue.get(front);
       front += 1;
-      r;    
+      ?r;
     };
 
     public func get(i : Nat) : Response<T, S, R> = queue.get(i);
@@ -104,11 +103,11 @@ module {
     var last_call_result : ?R = null;
 
     public func stage(arg : ?(T -> S, S -> R)) : Nat {
-      base.add(arg);
+      base.add(?arg);
     };
 
     public func call(arg : T) : async () {
-      let r = base.pop();
+      let ?r = base.pop() else Debug.trap("Pop out of empty queue");
       await r.run(arg);
       last_call_result := r.result;
     };
@@ -123,12 +122,16 @@ module {
     public func state(i : Nat) : State = base.get(i).state;
   };
 
-  public class CallAsyncMethodTester<T, S, R>(iterations_limit : ?Nat) {
-    let base : BaseAsyncMethodTester<T, S, R> = BaseAsyncMethodTester<T, S, R>(iterations_limit);
+  public class CallAsyncMethodTester<S, R>(iterations_limit : ?Nat) {
+    let base : BaseAsyncMethodTester<S, S, R> = BaseAsyncMethodTester<S, S, R>(iterations_limit);
     var last_call_result : ?R = null;
 
-    public func call(arg : T, method : ?(T -> S, S -> R)) : async () {
-      let r = base.popOrAdd(?method);
+    public func call(arg : S, method : ?(S -> R)) : async () {
+      let m = ?Option.map<S -> R, (S -> S, S -> R)>(
+        method,
+        func(m) = (func(x) = x, m),
+      );
+      let r = base.popOrAdd(m);
       await r.run(arg);
       last_call_result := r.result;
     };
