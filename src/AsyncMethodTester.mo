@@ -74,18 +74,6 @@ module {
       queue.size() - 1;
     };
 
-    public func popOrAdd(method : ??(T -> S, S -> R)) : Response<T, S, R> {
-      let r = switch (pop()) {
-        case (?r) r;
-        case (null) {
-          ignore add(method);
-          let ?r = pop() else Debug.trap("");
-          r;
-        };
-      };
-      return r;
-    };
-
     public func pop() : ?Response<T, S, R> {
       if (front == queue.size()) {
         return null;
@@ -131,7 +119,7 @@ module {
         method,
         func(m) = (func(x) = x, m),
       );
-      let r = base.popOrAdd(m);
+      let r = base.get(base.add(m));
       await r.run(arg);
       last_call_result := r.result;
     };
@@ -151,7 +139,7 @@ module {
     var last_call_result : ?R = null;
 
     public func call() : async () {
-      let r = base.popOrAdd(null);
+      let r = base.get(base.add(null));
       await r.run(());
       last_call_result := r.result;
     };
