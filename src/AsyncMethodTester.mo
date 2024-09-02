@@ -152,7 +152,7 @@ module {
     public func release(i : Nat, result : ?R) {
       let response = base.get(i);
 
-      assert Option.isNull(result);
+      assert Option.isNull(response.result);
 
       response.release();
       
