@@ -149,22 +149,19 @@ module {
       r;
     };
 
-    public func release(i : Nat, result : ??R) {
+    public func release(i : Nat, result : ?R) {
       let response = base.get(i);
-      if (not Option.isNull(result) and not Option.isNull(response.result)) {
-        Debug.trap("Results can't be simultaneously present");
-      };
+
+      assert Option.isNull(result);
 
       response.release();
-      if (Option.isNull(response.result)) {
-        switch (result) {
-          case (??r) {
-            response.result := ?r;
-          };
-          case (?null) {
-            response.methods := #error;
-          };
-          case (_) {};
+      
+      switch (result) {
+        case (?r) {
+          response.result := ?r;
+        };
+        case (null) {
+          response.methods := #error;
         };
       };
     };
